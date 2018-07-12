@@ -28,6 +28,8 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package com.android.bluetooth.hfpclient;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
@@ -211,7 +213,7 @@ class HeadsetClientHandler extends Handler {
         if (DBG) Log.d(TAG, "notifyCustomActionResult");
         Intent intent = new Intent(ACTION_CUSTOM_ACTION_RESULT);
         intent.putExtra(EXTRA_CUSTOM_ACTION_RESULT, extras);
-        mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
+        mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
     }
 
     // Get memory dial location

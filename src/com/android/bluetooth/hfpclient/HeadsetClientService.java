@@ -16,6 +16,8 @@
 
 package com.android.bluetooth.hfpclient;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
 import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
@@ -63,6 +65,7 @@ import java.util.UUID;
 public class HeadsetClientService extends ProfileService {
     private static final boolean DBG = false;
     private static final String TAG = "HeadsetClientService";
+    public static final String BLUETOOTH_PERM = android.Manifest.permission.BLUETOOTH;
 
     // This is also used as a lock for shared data in {@link HeadsetClientService}
     @GuardedBy("mStateMachineMap")
@@ -118,10 +121,10 @@ public class HeadsetClientService extends ProfileService {
                 mAudioManager.setParameters("hfp_enable=false");
             }
 
-            IntentFilter filter = new IntentFilter();
-            filter.addAction(BluetoothHeadsetClient.ACTION_VENDOR_SPECIFIC_HEADSETCLIENT_EVENT);
+            IntentFilter filter_vs = new IntentFilter();
+            filter_vs.addAction(BluetoothHeadsetClient.ACTION_VENDOR_SPECIFIC_HEADSETCLIENT_EVENT);
             try {
-                registerReceiver(mBroadcastReceiver, filter);
+                registerReceiver(mBroadcastReceiver, filter_vs);
             } catch (Exception e) {
                 Log.w(TAG, "Unable to register broadcat receiver", e);
             }
@@ -918,7 +921,7 @@ public class HeadsetClientService extends ProfileService {
 
     boolean releaseCall(BluetoothDevice device, int index) {
         Log.d(TAG, "Enter releaseCall");
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_CONNECT, "Need BLUETOOTH permission");
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -980,7 +983,24 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public boolean getLastVoiceTagNumber(BluetoothDevice device) {
-        return false;
+        Log.d(TAG, "Enter getLastVoiceTagNumber");
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        HeadsetClientStateMachine sm = getStateMachine(device);
+        if (sm == null) {
+            Log.e(TAG, "Cannot allocate SM for device " + device);
+            return false;
+        }
+
+        int connectionState = sm.getConnectionState(device);
+        if (connectionState != BluetoothProfile.STATE_CONNECTED &&
+                connectionState != BluetoothProfile.STATE_CONNECTING) {
+            return false;
+        }
+        Message msg =
+        sm.obtainMessage(HeadsetClientStateMachine.REQUEST_LAST_VOICE_TAG_NUMBER);
+        sm.sendMessage(msg);
+        Log.d(TAG, "Exit getLastVoiceTagNumber");
+        return true;
     }
 
     public List<BluetoothHeadsetClientCall> getCurrentCalls(BluetoothDevice device) {
