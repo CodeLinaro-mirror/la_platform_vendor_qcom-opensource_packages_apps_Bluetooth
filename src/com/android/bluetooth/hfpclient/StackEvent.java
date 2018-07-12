@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 // Defines an event that is sent via a callback from JNI -> Java.
@@ -48,6 +52,7 @@ public class StackEvent {
     public static final int EVENT_TYPE_IN_BAND_RINGTONE = 19;
     public static final int EVENT_TYPE_RING_INDICATION = 21;
     public static final int EVENT_TYPE_UNKNOWN_EVENT = 22;
+    public static final int EVENT_TYPE_LAST_VOICE_TAG_NUMBER = 51;
 
     public int type = EVENT_TYPE_NONE;
     public int valueInt = 0;

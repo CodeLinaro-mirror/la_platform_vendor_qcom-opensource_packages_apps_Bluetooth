@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /*
@@ -633,7 +637,19 @@ public class NativeInterface {
     }
 
     private void onLastVoiceTagNumber(String number, byte[] address) {
-        Log.w(TAG, "onLastVoiceTagNumber not supported");
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_LAST_VOICE_TAG_NUMBER);
+        event.valueString = number;
+        event.device = getDevice(address);
+        if (DBG) {
+            Log.d(TAG, "onLastVoiceTagNumber: number " + number + ", device " + event.device);
+        }
+
+        HeadsetClientService service = HeadsetClientService.getHeadsetClientService();
+        if (service != null) {
+            service.messageFromNative(event);
+        } else {
+            Log.w(TAG, "onLastVoiceTagNumber: Ignoring message because service not available: " + event);
+        }
     }
 
     private void onRingIndication(byte[] address) {

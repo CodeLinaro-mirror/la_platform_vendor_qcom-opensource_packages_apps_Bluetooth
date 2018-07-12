@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth.hfpclient;
@@ -1035,7 +1039,24 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public boolean getLastVoiceTagNumber(BluetoothDevice device) {
-        return false;
+        Log.d(TAG, "Enter getLastVoiceTagNumber");
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        HeadsetClientStateMachine sm = getStateMachine(device);
+        if (sm == null) {
+            Log.e(TAG, "Cannot allocate SM for device " + device);
+            return false;
+        }
+
+        int connectionState = sm.getConnectionState(device);
+        if (connectionState != BluetoothProfile.STATE_CONNECTED &&
+                connectionState != BluetoothProfile.STATE_CONNECTING) {
+            return false;
+        }
+        Message msg =
+        sm.obtainMessage(HeadsetClientStateMachine.REQUEST_LAST_VOICE_TAG_NUMBER);
+        sm.sendMessage(msg);
+        Log.d(TAG, "Exit getLastVoiceTagNumber");
+        return true;
     }
 
     public List<BluetoothHeadsetClientCall> getCurrentCalls(BluetoothDevice device) {

@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /**
@@ -106,6 +110,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int DISABLE_NREC = 20;
     public static final int SEND_VENDOR_AT_COMMAND = 21;
     public static final int AUDIO_SERVER_UP = 27;
+    public static final int REQUEST_LAST_VOICE_TAG_NUMBER = 33;
 
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
@@ -669,6 +674,34 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
     }
 
+    private void requestLastVoiceTagNumber() {
+        if (DBG) Log.d(TAG, "requestLastVoiceTagNumber");
+
+        if (mNativeInterface.requestLastVoiceTagNumber(
+            getByteAddress(mCurrentDevice))) {
+            addQueuedAction(REQUEST_LAST_VOICE_TAG_NUMBER);
+        } else {
+            Log.e(TAG, "ERROR: Couldn't request last voice tag number");
+        }
+
+        if (DBG) Log.d(TAG, "Exit requestLastVoiceTagNumber");
+    }
+
+    private void processLastVoiceTagNumber(StackEvent event) {
+        String number = event.valueString;
+        if (DBG) Log.d(TAG, "processLastVoiceTagNumber number: " + number);
+
+        notifyLastVoiceTagNumber(number, event.device);
+    }
+
+    private void notifyLastVoiceTagNumber(String number, BluetoothDevice device) {
+        if (DBG) Log.d(TAG, "notifyLastVoiceTagNumber number: " + number);
+        Intent intent = new Intent(BluetoothHeadsetClient.ACTION_LAST_VTAG);
+        intent.putExtra(BluetoothHeadsetClient.EXTRA_NUMBER, number);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+        mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
+    }
+
     public Bundle getCurrentAgFeatures() {
         Bundle b = new Bundle();
         if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_3WAY)
@@ -686,6 +719,10 @@ public class HeadsetClientStateMachine extends StateMachine {
         if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_ECC)
                 == HeadsetClientHalConstants.PEER_FEAT_ECC) {
             b.putBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_ECC, true);
+        }
+        if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_VTAG) ==
+                HeadsetClientHalConstants.PEER_FEAT_VTAG) {
+            b.putBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_ATTACH_NUMBER_TO_VT, true);
         }
 
         // add individual CHLD support extras
@@ -1313,6 +1350,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                     }
                     queryCallsStart();
                     break;
+                case REQUEST_LAST_VOICE_TAG_NUMBER:
+                    requestLastVoiceTagNumber();
+                    break;
                 case StackEvent.STACK_EVENT:
                     Intent intent = null;
                     StackEvent event = (StackEvent) message.obj;
@@ -1513,6 +1553,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                                 Log.e(TAG, "Unknown event :" + event.valueString
                                         + " for device " + event.device);
                             }
+                            break;
+                        case StackEvent.EVENT_TYPE_LAST_VOICE_TAG_NUMBER:
+                            processLastVoiceTagNumber(event);
                             break;
                         default:
                             Log.e(TAG, "Unknown stack event: " + event.type);
@@ -1715,6 +1758,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                                         + event.valueInt);
                             }
                             processAudioEvent(event.valueInt, event.device);
+                            break;
+                        case StackEvent.EVENT_TYPE_LAST_VOICE_TAG_NUMBER:
+                            processLastVoiceTagNumber(event);
                             break;
                         default:
                             return NOT_HANDLED;
