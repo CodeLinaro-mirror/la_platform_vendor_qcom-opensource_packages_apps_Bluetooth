@@ -27,6 +27,8 @@ import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
@@ -81,6 +83,7 @@ public class HeadsetClientService extends ProfileService {
     private final Object mStartStopLock = new Object();
 
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
+    private HeadsetClientHandler mHandler = null;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -115,6 +118,14 @@ public class HeadsetClientService extends ProfileService {
                 mAudioManager.setParameters("hfp_enable=false");
             }
 
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(BluetoothHeadsetClient.ACTION_VENDOR_SPECIFIC_HEADSETCLIENT_EVENT);
+            try {
+                registerReceiver(mBroadcastReceiver, filter);
+            } catch (Exception e) {
+                Log.w(TAG, "Unable to register broadcat receiver", e);
+            }
+
             mSmFactory = new HeadsetClientStateMachineFactory();
             synchronized (mStateMachineMap) {
                 mStateMachineMap.clear();
@@ -137,6 +148,9 @@ public class HeadsetClientService extends ProfileService {
             mSmThread.start();
 
             setHeadsetClientService(this);
+            mHandler = new HeadsetClientHandler.Builder()
+                            .setContext(this)
+                            .build();
             return true;
         }
     }
@@ -237,7 +251,14 @@ public class HeadsetClientService extends ProfileService {
                         }
                     }
                 }
+            } else if (action.equals(BluetoothHeadsetClient.ACTION_VENDOR_SPECIFIC_HEADSETCLIENT_EVENT)) {
+                if (DBG) Log.d(TAG, "Handle SPECIFIC HEADSETCLIENT EVENT");
+                Bundle extras = (Bundle) intent.getExtra(HeadsetClientHandler.EXTRA_CUSTOM_ACTION);
+                mHandler.obtainMessage(HeadsetClientHandler.MSG_CUSTOM_ACTION, extras).
+                    sendToTarget();
             }
+
+
         }
     };
 
@@ -892,6 +913,28 @@ public class HeadsetClientService extends ProfileService {
         Message msg = sm.obtainMessage(HeadsetClientStateMachine.ENTER_PRIVATE_MODE);
         msg.arg1 = index;
         sm.sendMessage(msg);
+        return true;
+    }
+
+    boolean releaseCall(BluetoothDevice device, int index) {
+        Log.d(TAG, "Enter releaseCall");
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        HeadsetClientStateMachine sm = getStateMachine(device);
+        if (sm == null) {
+            Log.e(TAG, "Cannot allocate SM for device " + device);
+            return false;
+        }
+
+        int connectionState = sm.getConnectionState(device);
+        if (connectionState != BluetoothProfile.STATE_CONNECTED &&
+                connectionState != BluetoothProfile.STATE_CONNECTING) {
+            return false;
+        }
+
+        Message msg = sm.obtainMessage(HeadsetClientStateMachine.RELEASE_CALL);
+        msg.arg1 = index;
+        sm.sendMessage(msg);
+        Log.d(TAG, "Exit releaseCall");
         return true;
     }
 
