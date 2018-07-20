@@ -1,4 +1,7 @@
 /*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Not a contribution
+ *
  * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +23,7 @@ import android.accounts.Account;
 import android.util.Log;
 
 import com.android.vcard.VCardEntry;
+import com.android.bluetooth.pbapclient.ObexAppParameters;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,32 +31,23 @@ import java.util.ArrayList;
 
 import javax.obex.HeaderSet;
 
-final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
+final class BluetoothPbapRequestPullVcardEntry extends BluetoothPbapRequest {
 
-    private static final boolean VDBG = Utils.VDBG;
+    private static final boolean VDBG = true;
 
-    private static final String TAG = "BtPbapReqPullPhoneBook";
+    private static final String TAG = "BluetoothPbapRequestPullVcardEntry";
 
-    private static final String TYPE = "x-bt/phonebook";
+    private static final String TYPE = "x-bt/vcard";
 
     private BluetoothPbapVcardList mResponse;
 
     private Account mAccount;
 
-    private int mNewMissedCalls = -1;
-
     private final byte mFormat;
 
-    BluetoothPbapRequestPullPhoneBook(String pbName, Account account, long filter, byte format,
-            int maxListCount, int listStartOffset) {
+    public BluetoothPbapRequestPullVcardEntry(
+            String pbName, Account account, long filter, byte format) {
         mAccount = account;
-        if (maxListCount < 0 || maxListCount > 65535) {
-            throw new IllegalArgumentException("maxListCount should be [0..65535]");
-        }
-
-        if (listStartOffset < 0 || listStartOffset > 65535) {
-            throw new IllegalArgumentException("listStartOffset should be [0..65535]");
-        }
 
         mHeaderSet.setHeader(HeaderSet.NAME, pbName);
 
@@ -61,8 +56,8 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
         ObexAppParameters oap = new ObexAppParameters();
 
         /* make sure format is one of allowed values */
-        if (format != PbapClientConnectionHandler.VCARD_TYPE_21
-                && format != PbapClientConnectionHandler.VCARD_TYPE_30) {
+        if ((format != PbapClientConnectionHandler.VCARD_TYPE_21) &&
+            (format != PbapClientConnectionHandler.VCARD_TYPE_30)) {
             format = PbapClientConnectionHandler.VCARD_TYPE_21;
         }
 
@@ -72,20 +67,6 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
 
         oap.add(OAP_TAGID_FORMAT, format);
 
-        /*
-         * maxListCount is a special case which is handled in
-         * BluetoothPbapRequestPullPhoneBookSize
-         */
-        if (maxListCount > 0) {
-            oap.add(OAP_TAGID_MAX_LIST_COUNT, (short) maxListCount);
-        } else {
-            oap.add(OAP_TAGID_MAX_LIST_COUNT, (short) 65535);
-        }
-
-        if (listStartOffset > 0) {
-            oap.add(OAP_TAGID_LIST_START_OFFSET, (short) listStartOffset);
-        }
-
         oap.addToHeaderSet(mHeaderSet);
 
         mFormat = format;
@@ -93,22 +74,11 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
 
     @Override
     protected void readResponse(InputStream stream) throws IOException {
-        if (VDBG) Log.v(TAG, "readResponse");
+        Log.v(TAG, "readResponse");
 
         mResponse = new BluetoothPbapVcardList(mAccount, stream, mFormat);
         if (VDBG) {
             Log.d(TAG, "Read " + mResponse.getCount() + " entries.");
-        }
-    }
-
-    @Override
-    protected void readResponseHeaders(HeaderSet headerset) {
-        if (VDBG) Log.v(TAG, "readResponseHeaders");
-
-        ObexAppParameters oap = ObexAppParameters.fromHeaderSet(headerset);
-
-        if (oap.exists(OAP_TAGID_NEW_MISSED_CALLS)) {
-            mNewMissedCalls = oap.getByte(OAP_TAGID_NEW_MISSED_CALLS);
         }
     }
 
@@ -120,7 +90,13 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
         return mResponse.getList();
     }
 
-    public int getNewMissedCalls() {
-        return mNewMissedCalls;
+    public VCardEntry getFirst() {
+        return mResponse.getFirst();
+    }
+
+    public String getVcard() {
+        VCardEntry vcard = getFirst();
+        PhonebookEntry pb = new PhonebookEntry(vcard);
+        return pb.toString();
     }
 }

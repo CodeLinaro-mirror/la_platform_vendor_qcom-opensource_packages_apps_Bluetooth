@@ -168,5 +168,5 @@ public class PhonebookEntry {
 
     public Name name;
     public List<Phone> phones;
-    public String id;
+    public String id = "";
 }

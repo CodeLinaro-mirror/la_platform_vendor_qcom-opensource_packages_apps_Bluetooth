@@ -1,4 +1,7 @@
 /*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Not a contribution
+ *
  * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,32 +22,34 @@ package com.android.bluetooth.pbapclient;
 import android.accounts.Account;
 import android.util.Log;
 
-import com.android.vcard.VCardEntry;
+import com.android.bluetooth.pbapclient.ObexAppParameters;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import javax.obex.HeaderSet;
 
-final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
+final class BluetoothPbapRequestPullVcardListing extends BluetoothPbapRequest {
 
-    private static final boolean VDBG = Utils.VDBG;
+    private static final boolean VDBG = true;
 
-    private static final String TAG = "BtPbapReqPullPhoneBook";
+    private static final String TAG = "BluetoothPbapRequestPullVcardListing";
 
-    private static final String TYPE = "x-bt/phonebook";
+    private static final String TYPE = "x-bt/vcard-listing";
 
-    private BluetoothPbapVcardList mResponse;
+    private BluetoothPbapVcardListing mResponse = null;
+
+    private ArrayList<String> mList = null;
 
     private Account mAccount;
 
     private int mNewMissedCalls = -1;
 
-    private final byte mFormat;
-
-    BluetoothPbapRequestPullPhoneBook(String pbName, Account account, long filter, byte format,
-            int maxListCount, int listStartOffset) {
+    public BluetoothPbapRequestPullVcardListing(
+            String pbName, Account account, byte order, byte searchProp,
+            String searchValue, int maxListCount, int listStartOffset) {
         mAccount = account;
         if (maxListCount < 0 || maxListCount > 65535) {
             throw new IllegalArgumentException("maxListCount should be [0..65535]");
@@ -60,17 +65,11 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
 
         ObexAppParameters oap = new ObexAppParameters();
 
-        /* make sure format is one of allowed values */
-        if (format != PbapClientConnectionHandler.VCARD_TYPE_21
-                && format != PbapClientConnectionHandler.VCARD_TYPE_30) {
-            format = PbapClientConnectionHandler.VCARD_TYPE_21;
+        oap.add(OAP_TAGID_ORDER, order);
+        oap.add(OAP_TAGID_SEARCH_ATTRIBUTE, searchProp);
+        if ((searchValue != null) && (!searchValue.isEmpty())) {
+            oap.add(OAP_TAGID_SEARCH_VALUE, searchValue);
         }
-
-        if (filter != 0) {
-            oap.add(OAP_TAGID_FILTER, filter);
-        }
-
-        oap.add(OAP_TAGID_FORMAT, format);
 
         /*
          * maxListCount is a special case which is handled in
@@ -87,23 +86,29 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
         }
 
         oap.addToHeaderSet(mHeaderSet);
-
-        mFormat = format;
     }
 
     @Override
     protected void readResponse(InputStream stream) throws IOException {
-        if (VDBG) Log.v(TAG, "readResponse");
+        Log.v(TAG, "readResponse");
 
-        mResponse = new BluetoothPbapVcardList(mAccount, stream, mFormat);
+        mResponse = new BluetoothPbapVcardListing(stream);
         if (VDBG) {
             Log.d(TAG, "Read " + mResponse.getCount() + " entries.");
+        }
+
+        ArrayList<HashMap<String, String>> list = mResponse.getList();
+        mList = new ArrayList<String>();
+
+        for (HashMap<String, String> attrs : list) {
+            String vcardString = constructVcardString(attrs);
+            mList.add(vcardString);
         }
     }
 
     @Override
     protected void readResponseHeaders(HeaderSet headerset) {
-        if (VDBG) Log.v(TAG, "readResponseHeaders");
+        Log.v(TAG, "readResponseHeaders");
 
         ObexAppParameters oap = ObexAppParameters.fromHeaderSet(headerset);
 
@@ -113,14 +118,37 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
     }
 
     public int getCount() {
-        return mResponse.getCount();
+        return (mList != null) ? mList.size() : 0;
     }
 
-    public ArrayList<VCardEntry> getList() {
-        return mResponse.getList();
+    public ArrayList<String> getList() {
+        return mList;
     }
 
     public int getNewMissedCalls() {
         return mNewMissedCalls;
+    }
+
+    private String constructVcardString(HashMap<String, String> attrs) {
+        if (attrs != null) {
+            StringBuilder sb = new StringBuilder();
+
+            // E.g. handle="1.vcf" name="1234567890"
+            sb.append(BluetoothPbapVcardListing.ATTR_HANDLE)
+                .append("=\"")
+                .append(attrs.get(BluetoothPbapVcardListing.ATTR_HANDLE))
+                .append("\" ");
+
+            if (attrs.containsKey(BluetoothPbapVcardListing.ATTR_NAME)) {
+                sb.append(BluetoothPbapVcardListing.ATTR_NAME)
+                    .append("=\"")
+                    .append(attrs.get(BluetoothPbapVcardListing.ATTR_NAME))
+                    .append("\"");
+            }
+
+            return sb.toString();
+        } else {
+            return null;
+        }
     }
 }

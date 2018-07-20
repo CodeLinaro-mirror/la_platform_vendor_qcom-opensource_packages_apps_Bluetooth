@@ -23,6 +23,7 @@ import android.bluetooth.BluetoothSocket;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.SdpPseRecord;
 import android.content.Context;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -32,9 +33,11 @@ import android.util.Log;
 
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.R;
+import com.android.vcard.VCardEntry;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.ArrayList;
 
 import javax.obex.ClientSession;
 import javax.obex.HeaderSet;
@@ -52,6 +55,10 @@ class PbapClientConnectionHandler extends Handler {
     static final int MSG_CONNECT = 1;
     static final int MSG_DISCONNECT = 2;
     static final int MSG_DOWNLOAD = 3;
+    static final int MSG_DOWNLOAD_EXT = 0xF0;   // Vendor extension
+    static final int MSG_PULL_VCARD_LISTING = 0xF1;
+    static final int MSG_PULL_VCARD_ENTRY = 0xF2;
+    static final int MSG_SET_PHONEBOOK = 0xF3;
 
     // The following constants are pulled from the Bluetooth Phone Book Access Profile specification
     // 1.1
@@ -94,6 +101,7 @@ class PbapClientConnectionHandler extends Handler {
                     | PBAP_FILTER_ADR | PBAP_FILTER_EMAIL | PBAP_FILTER_TEL | PBAP_FILTER_NICKNAME;
     private static final int L2CAP_INVALID_PSM = -1;
 
+    public static final String ROOT_PATH = "/root";
     public static final String PB_PATH = "telecom/pb.vcf";
     public static final String MCH_PATH = "telecom/mch.vcf";
     public static final String ICH_PATH = "telecom/ich.vcf";
@@ -115,6 +123,8 @@ class PbapClientConnectionHandler extends Handler {
     private BluetoothPbapObexAuthenticator mAuth = null;
     private final PbapClientStateMachine mPbapClientStateMachine;
     private boolean mAccountCreated;
+    private BluetoothPbapRequest mCurrentRequest = null;
+    private final Object mLock = new Object();
 
     PbapClientConnectionHandler(Looper looper, Context context, PbapClientStateMachine stateMachine,
             BluetoothDevice device) {
@@ -262,6 +272,22 @@ class PbapClientConnectionHandler extends Handler {
                 } catch (IOException e) {
                     Log.w(TAG, "DOWNLOAD_CONTACTS Failure" + e.toString());
                 }
+                break;
+
+            case MSG_DOWNLOAD_EXT:
+                handlePullPhonebook((Bundle) msg.obj);
+                break;
+
+            case MSG_PULL_VCARD_LISTING:
+                handlePullVcardListing((Bundle) msg.obj);
+                break;
+
+            case MSG_PULL_VCARD_ENTRY:
+                handlePullVcardEntry((Bundle) msg.obj);
+                break;
+
+            case MSG_SET_PHONEBOOK:
+                handleSetPhonebook((Bundle) msg.obj);
                 break;
 
             default:
@@ -415,5 +441,458 @@ class PbapClientConnectionHandler extends Handler {
         } catch (IllegalArgumentException e) {
             Log.d(TAG, "Call Logs could not be deleted, they may not exist yet.");
         }
+    }
+
+    public void abortRequest() {
+        boolean handled = true;
+        synchronized (mLock) {
+            if (mCurrentRequest != null) {
+                if ((mCurrentRequest instanceof BluetoothPbapRequestPullPhoneBook) ||
+                    (mCurrentRequest instanceof BluetoothPbapRequestPullPhoneBookSize) ||
+                    (mCurrentRequest instanceof BluetoothPbapRequestPullVcardListing) ||
+                    (mCurrentRequest instanceof BluetoothPbapRequestPullVcardEntry)) {
+                    if (DBG) Log.d(TAG, "Abort PBAP request");
+                    mCurrentRequest.abort();
+                } else {
+                    // Unknown request
+                    Log.e(TAG, "Unknown PBAP request");
+                    handled = false;
+                }
+                mCurrentRequest = null;
+            } else {
+                handled = false;
+            }
+        }
+
+        notifyCustomActionResult(PbapClientHandler.CUSTOM_ACTION_ABORT,
+            handled ? PbapClientHandler.RESULT_SUCCESS : PbapClientHandler.RESULT_ERROR);
+    }
+
+    private void storeRequest(BluetoothPbapRequest request) {
+        synchronized (mLock) {
+            mCurrentRequest = request;
+        }
+    }
+
+    private void handlePullPhonebook(Bundle extras) {
+        String pbName = extras.getString(PbapClientHandler.KEY_PB_NAME);
+        long filter = extras.getLong(PbapClientHandler.KEY_FILTER);
+        byte format = extras.getByte(PbapClientHandler.KEY_VCARD_TYPE);
+        int maxListCount = extras.getInt(PbapClientHandler.KEY_MAX_LIST_COUNT);
+        int listStartOffset = extras.getInt(PbapClientHandler.KEY_LIST_START_OFFSET);
+
+        if (DBG) {
+            Log.d(TAG, "handlePullPhonebook pbName: " + pbName + ", filter: " +
+                Long.toHexString(filter) + ", format: " + format + ", maxListCount: " +
+                maxListCount + ", listStartOffset: " + listStartOffset);
+        }
+
+        if ((pbName == null) || pbName.isEmpty()) {
+            // Invalid phonebook name.
+            notifyCustomActionResult(PbapClientHandler.CUSTOM_ACTION_PULL_PHONEBOOK,
+                PbapClientHandler.RESULT_INVALID_PARAMETER, 0, 0);
+            return;
+        }
+
+        if (maxListCount == 0) {
+            // Get phonebook size
+            handlePullPhonebookSize(extras);
+            return;
+        }
+
+        try {
+            BluetoothPbapRequestPullPhoneBook request =
+                new BluetoothPbapRequestPullPhoneBook(pbName, mAccount,
+                    filter, format, maxListCount, listStartOffset);
+            storeRequest(request);
+
+            request.execute(mObexSession);
+
+            if (DBG) {
+                Log.d(TAG, "handlePullPhonebook Found size: " + request.getCount());
+            }
+
+            // Delete old contacts
+            mContext.getContentResolver().delete(ContactsContract.RawContacts.CONTENT_URI, null, null);
+            mContext.getContentResolver().delete(CallLog.Calls.CONTENT_URI, null, null);
+
+            // Store phonebook into Contact DB if it's not to get phonebook size.
+            PhonebookPullRequest processor =
+                new PhonebookPullRequest(mPbapClientStateMachine.getContext(), mAccount);
+            processor.setResults(request.getList());
+            processor.onPullComplete();
+
+            processPullPhonebookResp(request);
+        } catch (IOException e) {
+            Log.w(TAG, "Fail to pull phonebook" + e.toString());
+            processPullPhonebookResp(null);
+        }
+    }
+
+    private void handlePullPhonebookSize(Bundle extras) {
+        String pbName = extras.getString(PbapClientHandler.KEY_PB_NAME);
+
+        if (DBG) {
+            Log.d(TAG, "handlePullPhonebookSize pbName: " + pbName);
+        }
+
+        try {
+            BluetoothPbapRequestPullPhoneBookSize request =
+                new BluetoothPbapRequestPullPhoneBookSize(pbName, mAccount,
+                    BluetoothPbapRequestPullPhoneBookSize.PHONEBOOK_TYPE);
+            storeRequest(request);
+
+            request.execute(mObexSession);
+
+            if (DBG) {
+                Log.d(TAG, "handlePullPhonebookSize Found size: " + request.getPhonebookSize());
+            }
+
+            processPullPhonebookSizeResp(request);
+        } catch (IOException e) {
+            Log.w(TAG, "Fail to pull phonebook size" + e.toString());
+            processPullPhonebookSizeResp(null);
+        }
+    }
+
+    private void handlePullVcardListing(Bundle extras) {
+        String pbName = extras.getString(PbapClientHandler.KEY_PB_NAME);
+        byte order = extras.getByte(PbapClientHandler.KEY_ORDER);
+        byte searchProp = extras.getByte(PbapClientHandler.KEY_SEARCH_PROP);
+        String searchValue = extras.getString(PbapClientHandler.KEY_SEARCH_VALUE);
+        int maxListCount = extras.getInt(PbapClientHandler.KEY_MAX_LIST_COUNT);
+        int listStartOffset = extras.getInt(PbapClientHandler.KEY_LIST_START_OFFSET);
+
+        if (DBG) {
+            Log.d(TAG, "handlePullVcardListing pbName: " + pbName + ", order: " +
+                order + ", searchProp: " + searchProp + ", searchValue: " + searchValue +
+                ", maxListCount: " + maxListCount + ", listStartOffset: " + listStartOffset);
+        }
+
+        if ((pbName == null) || pbName.isEmpty()) {
+            // Invalid phonebook name.
+            notifyCustomActionResult(PbapClientHandler.CUSTOM_ACTION_PULL_VCARD_LISTING,
+                PbapClientHandler.RESULT_INVALID_PARAMETER, 0, 0);
+            return;
+        }
+
+        if (maxListCount == 0) {
+            // Get vCard listing size
+            handlePullVcardListingSize(extras);
+            return;
+        }
+
+        try {
+            BluetoothPbapRequestPullVcardListing request =
+                new BluetoothPbapRequestPullVcardListing(pbName, mAccount,
+                    order, searchProp, searchValue, maxListCount, listStartOffset);
+            storeRequest(request);
+
+            request.execute(mObexSession);
+
+            if (DBG) {
+                Log.d(TAG, "handlePullVcardListing Found size: " + request.getCount());
+            }
+
+            processPullVcardListingResp(request);
+        } catch (IOException e) {
+            Log.w(TAG, "Fail to pull vcard list" + e.toString());
+            processPullVcardListingResp(null);
+        }
+    }
+
+    private void handlePullVcardListingSize(Bundle extras) {
+        String pbName = extras.getString(PbapClientHandler.KEY_PB_NAME);
+
+        if (DBG) {
+            Log.d(TAG, "handlePullVcardListingSize pbName: " + pbName);
+        }
+
+        try {
+            BluetoothPbapRequestPullPhoneBookSize request =
+                new BluetoothPbapRequestPullPhoneBookSize(pbName, mAccount,
+                    BluetoothPbapRequestPullPhoneBookSize.VCARD_LISTING_TYPE);
+            storeRequest(request);
+
+            request.execute(mObexSession);
+
+            if (DBG) {
+                Log.d(TAG, "handlePullPhonebookSize Found size: " + request.getPhonebookSize());
+            }
+
+            processPullVcardListingSizeResp(request);
+        } catch (IOException e) {
+            Log.w(TAG, "Fail to pull phonebook size" + e.toString());
+            processPullVcardListingSizeResp(null);
+        }
+    }
+
+    private void handlePullVcardEntry(Bundle extras) {
+        String vcardHandle = extras.getString(PbapClientHandler.KEY_VCARD_HANDLE);
+        long filter = extras.getLong(PbapClientHandler.KEY_FILTER);
+        byte format = extras.getByte(PbapClientHandler.KEY_VCARD_TYPE);
+
+        if (DBG) {
+            Log.d(TAG, "handlePullVcardEntry vcardHandle: " + vcardHandle +
+                ", filter: " + Long.toHexString(filter) + ", format: " + format);
+        }
+
+        if ((vcardHandle == null) || vcardHandle.isEmpty()) {
+            // Invalid vCard handle.
+            notifyCustomActionResult(PbapClientHandler.CUSTOM_ACTION_PULL_VCARD_ENTRY,
+                PbapClientHandler.RESULT_INVALID_PARAMETER);
+            return;
+        }
+
+        try {
+            BluetoothPbapRequestPullVcardEntry request =
+                new BluetoothPbapRequestPullVcardEntry(vcardHandle, mAccount, filter, format);
+            storeRequest(request);
+
+            request.execute(mObexSession);
+
+            PhonebookPullRequest processor =
+                new PhonebookPullRequest(mPbapClientStateMachine.getContext(), mAccount);
+            processor.setResults(request.getList());
+            processor.onPullComplete();
+            processPullVcardEntryResp(request);
+        } catch (IOException e) {
+            Log.w(TAG, "Fail to pull vcard entry" + e.toString());
+            processPullVcardEntryResp(null);
+        }
+    }
+
+    private void handleSetPhonebook(Bundle extras) {
+        boolean result = false;
+        String pbName = extras.getString(PbapClientHandler.KEY_PB_NAME);
+        String dstPath = pbName;
+
+        if (DBG) {
+            Log.d(TAG, "handleSetPhonebook pbName: " + pbName);
+        }
+
+        if ((pbName == null) || pbName.isEmpty()) {
+            // Go up 1 level
+            result = setPath(null);
+            processSetPhonebookResp(result ? PbapClientHandler.RESULT_SUCCESS :
+                PbapClientHandler.RESULT_ERROR);
+            return;
+        }
+
+        if (dstPath.equals(ROOT_PATH)) {
+            result = setPath(ROOT_PATH);
+        } else {
+            String[] folders = pbName.split("/");
+            int length = folders.length;
+
+            if (length > 0) {
+                do {
+                    // Go back to root path
+                    if (!setPath(ROOT_PATH)) {
+                        break;
+                    }
+
+                    for (int index = 0; index < length; index++) {
+                        // Go down 1 level
+                        result = setPath(folders[index]);
+                        if (!result) {
+                            break;
+                        }
+                    }
+                } while (false);
+            }
+        }
+
+        processSetPhonebookResp(result ? PbapClientHandler.RESULT_SUCCESS :
+                                PbapClientHandler.RESULT_ERROR);
+    }
+
+    private boolean setPath(String folder) {
+        boolean result = false;
+        BluetoothPbapRequest request;
+        if (DBG) Log.d(TAG, "setPath folder: " + folder);
+        try {
+            if (folder != null) {
+                if (folder.equals(ROOT_PATH)) {
+                    // Go back to root
+                    request = new BluetoothPbapRequestSetPath(true);
+                } else {
+                    // Go down 1 level
+                    request = new BluetoothPbapRequestSetPath(folder);
+                }
+            } else {
+                // Go up 1 level
+                request = new BluetoothPbapRequestSetPath(false);
+            }
+
+            request.execute(mObexSession);
+            result = request.isSuccess();
+        } catch (IOException e) {
+            Log.w(TAG, "Fail to set path" + e.toString());
+        }
+        if (DBG) Log.d(TAG, "setPath result: " + result);
+        return result;
+    }
+
+    private void processPullPhonebookResp(BluetoothPbapRequest pbapRequest) {
+        BluetoothPbapRequestPullPhoneBook request =
+            (BluetoothPbapRequestPullPhoneBook) pbapRequest;
+        int result = PbapClientHandler.RESULT_ERROR;
+        int phonebookSize = 0;
+        int newMissedCalls = 0;
+
+        if ((request != null) && request.isSuccess()) {
+            result = PbapClientHandler.RESULT_SUCCESS;
+            phonebookSize = request.getCount();
+            newMissedCalls = request.getNewMissedCalls();
+        }
+
+        if (DBG) {
+            Log.d(TAG, "processPullPhonebookResp result: " + result + ", phonebookSize: " +
+                phonebookSize + ", newMissedCalls: " + newMissedCalls);
+        }
+
+        // vCard isn't broadcast because it's stored into Contact DB directly.
+        notifyCustomActionResult(PbapClientHandler.CUSTOM_ACTION_PULL_PHONEBOOK,
+            result, phonebookSize, newMissedCalls);
+    }
+
+    private void processCommonPhonebookSizeResp(BluetoothPbapRequest pbapRequest, String cmd) {
+        BluetoothPbapRequestPullPhoneBookSize request =
+            (BluetoothPbapRequestPullPhoneBookSize) pbapRequest;
+        int result = PbapClientHandler.RESULT_ERROR;
+        int phonebookSize = 0;
+        int newMissedCalls = 0;
+
+        if ((request != null) && request.isSuccess()) {
+            result = PbapClientHandler.RESULT_SUCCESS;
+            phonebookSize = request.getPhonebookSize();
+            newMissedCalls = request.getNewMissedCalls();
+        }
+
+        if (DBG) {
+            Log.d(TAG, "processCommonPhonebookSizeResp result: " + result + ", phonebookSize: " +
+                phonebookSize + ", newMissedCalls: " + newMissedCalls);
+        }
+
+        notifyCustomActionResult(cmd, result, phonebookSize, newMissedCalls);
+    }
+
+    private void processPullPhonebookSizeResp(BluetoothPbapRequest pbapRequest) {
+        processCommonPhonebookSizeResp(pbapRequest,
+            PbapClientHandler.CUSTOM_ACTION_PULL_PHONEBOOK);
+    }
+
+    private void processPullVcardListingResp(BluetoothPbapRequest pbapRequest) {
+        BluetoothPbapRequestPullVcardListing request =
+            (BluetoothPbapRequestPullVcardListing) pbapRequest;
+        int result = PbapClientHandler.RESULT_ERROR;
+        int phonebookSize = 0;
+        int newMissedCalls = 0;
+        ArrayList<String> vcardListing = new ArrayList<>();
+
+        if ((request != null) && request.isSuccess()) {
+            result = PbapClientHandler.RESULT_SUCCESS;
+            phonebookSize = request.getCount();
+            newMissedCalls = request.getNewMissedCalls();
+            vcardListing.addAll(request.getList());
+        } else {
+            result = PbapClientHandler.Map2CustomActionResult(request.getResponseCode());
+        }
+
+        if (DBG) {
+            Log.d(TAG, "processPullVcardListingResp result: " + result + ", phonebookSize: " +
+                phonebookSize + ", newMissedCalls: " + newMissedCalls);
+        }
+
+        Bundle extras = createCustomActionResult(
+            PbapClientHandler.CUSTOM_ACTION_PULL_VCARD_LISTING, result);
+        extras.putInt(PbapClientHandler.KEY_PHONEBOOK_SIZE, phonebookSize);
+        extras.putInt(PbapClientHandler.KEY_NEW_MISSED_CALLS, newMissedCalls);
+        extras.putStringArrayList(PbapClientHandler.KEY_VCARD_LISTING, vcardListing);
+
+        notifyCustomActionResult(extras);
+    }
+
+    private void processPullVcardListingSizeResp(BluetoothPbapRequest pbapRequest) {
+        processCommonPhonebookSizeResp(pbapRequest,
+            PbapClientHandler.CUSTOM_ACTION_PULL_VCARD_LISTING);
+    }
+
+    private void processPullVcardEntryResp(BluetoothPbapRequest pbapRequest) {
+        BluetoothPbapRequestPullVcardEntry request =
+            (BluetoothPbapRequestPullVcardEntry) pbapRequest;
+        int result = 0;
+        String vcard = null;
+
+        if ((request != null) && request.isSuccess()) {
+            if (request.getCount() > 0) {
+                result = PbapClientHandler.RESULT_SUCCESS;
+                vcard = request.getVcard();
+            } else {
+                result = PbapClientHandler.RESULT_NOT_FOUND;
+            }
+        } else {
+            result = PbapClientHandler.Map2CustomActionResult(request.getResponseCode());
+        }
+
+        if (DBG) {
+            Log.d(TAG, "processPullVcardEntryResp result: " + result +
+                ", vcard: " + vcard);
+        }
+
+        notifyCustomActionResult(
+            PbapClientHandler.CUSTOM_ACTION_PULL_VCARD_ENTRY, result, vcard);
+    }
+
+    private void processSetPhonebookResp(int result) {
+        if (DBG) Log.d(TAG, "processSetPhonebookResp " + result);
+        notifyCustomActionResult(
+            PbapClientHandler.CUSTOM_ACTION_SET_PHONEBOOK, result);
+    }
+
+    private void processAbortResp(int result) {
+        if (DBG) Log.d(TAG, "processAbortResp " + result);
+        notifyCustomActionResult(
+            PbapClientHandler.CUSTOM_ACTION_ABORT, result);
+    }
+
+    private void notifyCustomActionResult(String cmd, int result,
+        int phonebookSize, int newMissedCalls) {
+        Bundle extras = createCustomActionResult(cmd, result);
+        extras.putInt(PbapClientHandler.KEY_PHONEBOOK_SIZE, phonebookSize);
+        extras.putInt(PbapClientHandler.KEY_NEW_MISSED_CALLS, newMissedCalls);
+
+        notifyCustomActionResult(extras);
+    }
+
+    private void notifyCustomActionResult(String cmd, int result) {
+        Bundle extras = createCustomActionResult(cmd, result);
+        notifyCustomActionResult(extras);
+    }
+
+    private void notifyCustomActionResult(String cmd, int result, String vcard) {
+        Bundle extras = createCustomActionResult(cmd, result, vcard);
+        notifyCustomActionResult(extras);
+    }
+
+    private void notifyCustomActionResult(Bundle extras) {
+        PbapClientService service = (PbapClientService) mContext;
+        service.notifyCustomActionResult(extras);
+    }
+
+    private Bundle createCustomActionResult(String cmd, int result) {
+        Bundle extras = new Bundle();
+        extras.putString(PbapClientHandler.KEY_COMMAND, cmd);
+        extras.putInt(PbapClientHandler.KEY_RESULT, result);
+        return extras;
+    }
+
+    private Bundle createCustomActionResult(String cmd, int result, String vcard) {
+        Bundle extras = new Bundle();
+        extras.putString(PbapClientHandler.KEY_COMMAND, cmd);
+        extras.putInt(PbapClientHandler.KEY_RESULT, result);
+        extras.putString(PbapClientHandler.KEY_VCARD_ENTRY, vcard);
+        return extras;
     }
 }
