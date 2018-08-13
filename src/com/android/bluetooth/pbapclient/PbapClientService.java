@@ -22,10 +22,12 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothPbapClient;
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.provider.CallLog;
+import android.provider.ContactsContract;
 import android.provider.Settings;
 import android.util.Log;
 import android.os.Bundle;
@@ -156,6 +158,25 @@ public class PbapClientService extends ProfileService {
                     disconnect(device);
                 }
             } else if (action.equals(Intent.ACTION_USER_UNLOCKED)) {
+                ContentResolver resolver = getContentResolver();
+                if (resolver == null) {
+                    Log.e(TAG, "ContentResolver is null!");
+                    return;
+                }
+                try {
+                    resolver.delete(ContactsContract.RawContacts.CONTENT_URI, null, null);
+                } catch (IllegalArgumentException e) {
+                    Log.w(TAG, "Contacts could not be deleted, they may not exist yet.");
+                } catch (SecurityException se) {
+                    Log.w(TAG, "Contacts could not be deleted due to SecurityException", se);
+                }
+                try {
+                    resolver.delete(CallLog.Calls.CONTENT_URI, null, null);
+                } catch (IllegalArgumentException e) {
+                    Log.w(TAG, "Call Logs could not be deleted, they may not exist yet.");
+                } catch (SecurityException se) {
+                    Log.w(TAG, "Call Logs could not be deleted due to SecurityException", se);
+                }
                 for (PbapClientStateMachine stateMachine : mPbapClientStateMachineMap.values()) {
                     stateMachine.resumeDownload();
                 }
