@@ -57,7 +57,7 @@ class PbapClientHandler extends Handler {
     static final int MSG_CUSTOM_ACTION = 1;
 
     public static final String PBAP_CLIENT_ENABLE_PTS_PROPERTY =
-        "persist.bt.pbapclient.enable_pts";
+        "bt.pbapclient.enable_pts";
 
     // +++ Custom action definition for PBAP client
 
