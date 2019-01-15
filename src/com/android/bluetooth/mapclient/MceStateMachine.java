@@ -98,6 +98,7 @@ final class MceStateMachine extends StateMachine {
     private static final String TAG = "MceSM";
     private static final Boolean DBG = MapClientService.DBG;
     private static final int TIMEOUT = 10000;
+    private static final int DISCONNECT_TIMEOUT = 5000;
     private static final int MAX_MESSAGES = 20;
     private static final int MSG_CONNECT = 1;
     private static final int MSG_DISCONNECT = 2;
@@ -395,9 +396,8 @@ final class MceStateMachine extends StateMachine {
         @Override
         public boolean processMessage(Message message) {
             if (DBG) {
-                Log.d(TAG, "processMessage" + this.getName() + message.what);
+                Log.d(TAG, "processMessage" + this.getName() + " " + message.what);
             }
-
             switch (message.what) {
                 case MSG_MAS_SDP_DONE:
                     if (DBG) {
@@ -430,8 +430,18 @@ final class MceStateMachine extends StateMachine {
                     transitionTo(mDisconnecting);
                     break;
 
-                case MSG_CONNECT:
                 case MSG_DISCONNECT:
+                    if (DBG) {
+                        Log.d(TAG, "Disconnect " + message.obj + " when " + this.getName());
+                    }
+                    if (message.obj instanceof BluetoothDevice
+                            && message.obj.equals(mDevice)) {
+                        removeMessages(MSG_CONNECTING_TIMEOUT);
+                        transitionTo(mDisconnecting);
+                    }
+                    break;
+
+                case MSG_CONNECT:
                     deferMessage(message);
                     break;
 
@@ -790,7 +800,7 @@ final class MceStateMachine extends StateMachine {
             if (mMasClient != null) {
                 mMasClient.makeRequest(new RequestSetNotificationRegistration(false));
                 mMasClient.shutdown();
-                sendMessageDelayed(MSG_DISCONNECTING_TIMEOUT, TIMEOUT);
+                sendMessageDelayed(MSG_DISCONNECTING_TIMEOUT, DISCONNECT_TIMEOUT);
             } else {
                 // MAP was never connected
                 transitionTo(mDisconnected);
@@ -801,6 +811,13 @@ final class MceStateMachine extends StateMachine {
         public boolean processMessage(Message message) {
             switch (message.what) {
                 case MSG_DISCONNECTING_TIMEOUT:
+                    Log.e(TAG, "Disconnect timeout, forcing abort");
+                    if (mMasClient != null) {
+                        mMasClient.abort();
+                        mMasClient = null;
+                    }
+                    transitionTo(mDisconnected);
+                    break;
                 case MSG_MAS_DISCONNECTED:
                     mMasClient = null;
                     transitionTo(mDisconnected);
