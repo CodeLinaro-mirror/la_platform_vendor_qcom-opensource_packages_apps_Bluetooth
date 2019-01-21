@@ -436,7 +436,6 @@ final class MceStateMachine extends StateMachine {
                     }
                     if (message.obj instanceof BluetoothDevice
                             && message.obj.equals(mDevice)) {
-                        removeMessages(MSG_CONNECTING_TIMEOUT);
                         transitionTo(mDisconnecting);
                     }
                     break;
