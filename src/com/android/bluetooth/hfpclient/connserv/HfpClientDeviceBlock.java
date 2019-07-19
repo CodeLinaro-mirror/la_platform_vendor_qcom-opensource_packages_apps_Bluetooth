@@ -62,7 +62,7 @@ public class HfpClientDeviceBlock {
         // Register the phone account since block is created only when devices are connected
         mTelecomManager.registerPhoneAccount(mPhoneAccount);
         mTelecomManager.enablePhoneAccount(mPhoneAccount.getAccountHandle(), true);
-        mTelecomManager.setUserSelectedOutgoingPhoneAccount(mPhoneAccount.getAccountHandle());
+        setUserSelectedOutgoingPhoneAccount();
         mHeadsetProfile = headsetProfile;
 
         // Read the current calls and add them to telecom if already present
@@ -319,6 +319,10 @@ public class HfpClientDeviceBlock {
             }
             mConnServ.addConference(mConference);
         }
+    }
+
+    public void setUserSelectedOutgoingPhoneAccount() {
+        mTelecomManager.setUserSelectedOutgoingPhoneAccount(mPhoneAccount.getAccountHandle());
     }
 
 }
