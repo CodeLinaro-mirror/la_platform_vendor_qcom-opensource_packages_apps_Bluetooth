@@ -47,6 +47,7 @@ import android.os.Bundle;
 import android.os.Message;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
@@ -451,6 +452,24 @@ public class AvrcpControllerService extends ProfileService {
         return 0;
     }
 
+    public void startFetchingAlbumArt(BluetoothDevice device, String mimeType, int height, int width, long maxSize) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (DBG) {
+            Log.d(TAG,"startFetchingAlbumArt mimeType " + mimeType + " pixel " + height + " * "
+                  + width + " maxSize: " + maxSize);
+        }
+
+        SystemProperties.set("persist.service.bt.avrcpct.imgtype", mimeType);
+        SystemProperties.set("persist.service.bt.avrcpct.imgheight", String.valueOf(height));
+        SystemProperties.set("persist.service.bt.avrcpct.imgwidth", String.valueOf(width));
+        SystemProperties.set("persist.service.bt.avrcpct.imgsize", String.valueOf(maxSize));
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_BIP_CONNECTED);
+        }
+    }
+
     /**
      * Get a List of MediaItems that are children of the specified media Id
      *
@@ -571,6 +590,16 @@ public class AvrcpControllerService extends ProfileService {
                 return BluetoothAvrcpController.BTRC_FEAT_NONE;
             }
             return service.getSupportedFeatures(device);
+        }
+
+        @Override
+        public void startFetchingAlbumArt(BluetoothDevice device, String mimeType, int height, int width, long maxSize) {
+            Log.v(TAG, "Binder Call: startFetchingAlbumArt");
+            AvrcpControllerService service = getService();
+            if (service == null) {
+                return;
+            }
+            service.startFetchingAlbumArt(device, mimeType, height, width, maxSize);
         }
 
         @Override
