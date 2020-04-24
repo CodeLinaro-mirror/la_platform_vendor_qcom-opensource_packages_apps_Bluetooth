@@ -570,7 +570,8 @@ public class AdapterService extends Service {
         mVendorSocket = new VendorSocket(this);
         mBluetoothKeystoreService = new BluetoothKeystoreService(isNiapMode());
         mBluetoothKeystoreService.start();
-        initNative(isGuest(), isNiapMode());
+        int configCompareResult = mBluetoothKeystoreService.getCompareResult();
+        initNative(isGuest(), isNiapMode(), configCompareResult);
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
         mAppOps = getSystemService(AppOpsManager.class);
@@ -4255,7 +4256,8 @@ public class AdapterService extends Service {
 
     static native void classInitNative();
 
-    native boolean initNative(boolean startRestricted, boolean isNiapMode);
+    native boolean initNative(boolean startRestricted, boolean isNiapMode,
+            int configCompareResult);
 
     native void cleanupNative();
 
