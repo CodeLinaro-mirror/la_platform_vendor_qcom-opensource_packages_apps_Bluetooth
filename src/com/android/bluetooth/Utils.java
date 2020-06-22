@@ -36,6 +36,9 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -323,7 +326,7 @@ public final class Utils {
         if (context.checkCallingOrSelfPermission(
                 android.Manifest.permission.ACCESS_COARSE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED
-                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage,
+                && isAppOppAllowed(appOps, AppOpsManager.OPSTR_FINE_LOCATION, callingPackage,
                     callingFeatureId)) {
             return true;
         }
@@ -348,7 +351,7 @@ public final class Utils {
         if (context.checkCallingOrSelfPermission(
                 android.Manifest.permission.ACCESS_FINE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED
-                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage,
+                && isAppOppAllowed(appOps, AppOpsManager.OPSTR_FINE_LOCATION, callingPackage,
                     callingFeatureId)) {
             return true;
         }
@@ -357,8 +360,13 @@ public final class Utils {
         if (context.checkCallingOrSelfPermission(
                 android.Manifest.permission.ACCESS_COARSE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED
-                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage,
+                && isAppOppAllowed(appOps, AppOpsManager.OPSTR_FINE_LOCATION, callingPackage,
                     callingFeatureId)) {
+            return true;
+        }
+
+        // Pre-M apps running in the foreground should continue getting scan results
+        if (isForegroundApp(context, callingPackage)) {
             return true;
         }
 
@@ -381,7 +389,7 @@ public final class Utils {
         if (context.checkCallingOrSelfPermission(
                 android.Manifest.permission.ACCESS_FINE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED
-                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage,
+                && isAppOppAllowed(appOps, AppOpsManager.OPSTR_FINE_LOCATION, callingPackage,
                     callingFeatureId)) {
             return true;
         }
@@ -428,9 +436,20 @@ public final class Utils {
         return true;
     }
 
-    private static boolean isAppOppAllowed(AppOpsManager appOps, int op, String callingPackage,
+    /**
+     * Return true if the specified package name is a foreground app.
+     *
+     * @param pkgName application package name.
+     */
+    private static boolean isForegroundApp(Context context, String pkgName) {
+        ActivityManager am = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(1);
+        return !tasks.isEmpty() && pkgName.equals(tasks.get(0).topActivity.getPackageName());
+    }
+
+    private static boolean isAppOppAllowed(AppOpsManager appOps, String op, String callingPackage,
             @NonNull String callingFeatureId) {
-        return appOps.noteOp(op, Binder.getCallingUid(), callingPackage)
+        return appOps.noteOp(op, Binder.getCallingUid(), callingPackage, callingFeatureId, null)
                 == AppOpsManager.MODE_ALLOWED;
     }
 
@@ -503,5 +522,15 @@ public final class Utils {
         context.enforceCallingOrSelfPermission(
                 android.Manifest.permission.BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
+    }
+
+    public static void skipCurrentTag(XmlPullParser parser)
+            throws XmlPullParserException, IOException {
+        int outerDepth = parser.getDepth();
+        int type;
+        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+                && (type != XmlPullParser.END_TAG
+                || parser.getDepth() > outerDepth)) {
+        }
     }
 }

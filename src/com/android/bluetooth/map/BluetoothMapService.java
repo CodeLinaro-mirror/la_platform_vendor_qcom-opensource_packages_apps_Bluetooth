@@ -41,6 +41,7 @@ import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.provider.Settings;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
@@ -611,6 +612,18 @@ public class BluetoothMapService extends ProfileService {
         return true;
     }
 
+    /**
+     * Get the connection policy of the profile.
+     *
+     * <p> The connection policy can be any of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Bluetooth device
+     * @return connection policy of the device
+     * @hide
+     */
     int getConnectionPolicy(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH_PRIVILEGED permission");
@@ -665,7 +678,8 @@ public class BluetoothMapService extends ProfileService {
         // Move SDP records creation to Handler Thread instead of main thread.
         BluetoothMapFixes.sendCreateMasInstances(this, CREATE_MAS_INSTANCES);
 
-        mSmsCapable = getResources().getBoolean(com.android.internal.R.bool.config_sms_capable);
+        TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        mSmsCapable = tm.isSmsCapable();
         if (DEBUG) {
              Log.d(TAG, "mSmsCapable :" + mSmsCapable);
         }

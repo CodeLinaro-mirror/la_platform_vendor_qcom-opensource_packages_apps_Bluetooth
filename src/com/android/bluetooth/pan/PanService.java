@@ -26,9 +26,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources.NotFoundException;
 import android.net.ConnectivityManager;
+import android.net.InetAddresses;
 import android.net.InterfaceConfiguration;
 import android.net.LinkAddress;
-import android.net.NetworkUtils;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.INetworkManagementService;
@@ -360,6 +360,8 @@ public class PanService extends ProfileService {
     }
 
     public int getConnectionState(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
         BluetoothPanDevice panDevice = mPanDevices.get(device);
         if (panDevice == null) {
             return BluetoothPan.STATE_DISCONNECTED;
@@ -383,6 +385,8 @@ public class PanService extends ProfileService {
 
     public boolean isTetheringOn() {
         // TODO(BT) have a variable marking the on/off state
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
         return mTetherOn;
     }
 
@@ -390,7 +394,8 @@ public class PanService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "setBluetoothTethering: " + value + ", mTetherOn: " + mTetherOn);
         }
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
         final Context context = getBaseContext();
 
         ConnectivityManager.enforceTetherChangePermission(context, pkgName);
@@ -425,7 +430,8 @@ public class PanService extends ProfileService {
      * @return true if connectionPolicy is set, false on error
      */
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
         if (DBG) {
             Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
         }
@@ -460,7 +466,8 @@ public class PanService extends ProfileService {
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
         List<BluetoothDevice> devices =
                 getDevicesMatchingConnectionStates(new int[]{BluetoothProfile.STATE_CONNECTED});
         return devices;
@@ -688,10 +695,10 @@ public class PanService extends ProfileService {
                 InetAddress addr = null;
                 LinkAddress linkAddr = ifcg.getLinkAddress();
                 if (linkAddr == null || (addr = linkAddr.getAddress()) == null || addr.equals(
-                        NetworkUtils.numericToInetAddress("0.0.0.0")) || addr.equals(
-                        NetworkUtils.numericToInetAddress("::0"))) {
+                        InetAddresses.parseNumericAddress("0.0.0.0")) || addr.equals(
+                        InetAddresses.parseNumericAddress("::0"))) {
                     address = BLUETOOTH_IFACE_ADDR_START;
-                    addr = NetworkUtils.numericToInetAddress(address);
+                    addr = InetAddresses.parseNumericAddress(address);
                 }
 
                 ifcg.setLinkAddress(new LinkAddress(addr, BLUETOOTH_PREFIX_LENGTH));
