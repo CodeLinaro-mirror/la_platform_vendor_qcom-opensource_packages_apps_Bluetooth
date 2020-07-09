@@ -26,6 +26,7 @@ import android.content.Attributable;
 import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
@@ -109,8 +110,11 @@ public class HeadsetClientService extends ProfileService {
         mSmFactory = new HeadsetClientStateMachineFactory();
         mStateMachineMap.clear();
 
-        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
-        filter.addAction(Intent.ACTION_BATTERY_CHANGED);
+        IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        // For automotive device use CarAudioManager callback to handle the volume change
+        if (!isAutomotive()) {
+            filter.addAction(AudioManager.VOLUME_CHANGED_ACTION);
+        }
         registerReceiver(mBroadcastReceiver, filter);
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
@@ -1084,5 +1088,9 @@ public class HeadsetClientService extends ProfileService {
                 }
             }
         }
+    }
+
+    boolean isAutomotive() {
+        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 }
