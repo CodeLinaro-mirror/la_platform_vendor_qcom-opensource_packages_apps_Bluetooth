@@ -314,6 +314,8 @@ public class AdapterService extends Service {
     private boolean mEnableNewAdapter = false;
     private boolean mDisableNewAdapter = false;
 
+    private boolean mIsBleSupported = AdapterUtil.isBleSupported();
+
     private void initAdapter() {
         mAdapterIndex = AdapterUtil.getAdapterIndex();
         mAdapter = AdapterUtil.getAdapter();
@@ -429,7 +431,9 @@ public class AdapterService extends Service {
                         setBluetoothClassFromConfig();
                         initProfileServices();
                         getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS);
-                        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE);
+                        if (mIsBleSupported) {
+                            getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE);
+                        }
                         getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_DYNAMIC_AUDIO_BUFFER);
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
                     }
@@ -687,16 +691,18 @@ public class AdapterService extends Service {
 
         mJniCallbacks.init(mBondStateMachine, mRemoteDevices);
 
-        try {
-            mBatteryStats.noteResetBleScan();
-        } catch (RemoteException e) {
-            Log.w(TAG, "RemoteException trying to send a reset to BatteryStats");
-        }
-        BluetoothStatsLog.write_non_chained(BluetoothStatsLog.BLE_SCAN_STATE_CHANGED, -1, null,
-                BluetoothStatsLog.BLE_SCAN_STATE_CHANGED__STATE__RESET, false, false, false);
+        if (mIsBleSupported) {
+            try {
+                mBatteryStats.noteResetBleScan();
+            } catch (RemoteException e) {
+                Log.w(TAG, "RemoteException trying to send a reset to BatteryStats");
+            }
+            BluetoothStatsLog.write_non_chained(BluetoothStatsLog.BLE_SCAN_STATE_CHANGED, -1, null,
+                    BluetoothStatsLog.BLE_SCAN_STATE_CHANGED__STATE__RESET, false, false, false);
 
-        //Start Gatt service
-        setProfileServiceState(AdapterUtil.getGattServiceClass(), BluetoothAdapter.STATE_ON);
+            //Start Gatt service
+            setProfileServiceState(AdapterUtil.getGattServiceClass(), BluetoothAdapter.STATE_ON);
+        }
     }
 
     void bringDownBle() {
@@ -706,9 +712,19 @@ public class AdapterService extends Service {
     void stateChangeCallback(int status) {
         if (status == AbstractionLayer.BT_STATE_OFF) {
             debugLog("stateChangeCallback: disableNative() completed");
-            mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
+            if (mIsBleSupported) {
+                debugLog("stateChangeCallback: disableNative() completed");
+                mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
+            } else {
+                debugLog("send BREDR_STOPPED due to BLE disabled");
+                mAdapterStateMachine.sendMessage(AdapterState.BREDR_STOPPED);
+            }
         } else if (status == AbstractionLayer.BT_STATE_ON) {
-            mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
+            if (mIsBleSupported) {
+                mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
+            } else {
+                mAdapterStateMachine.sendMessage(AdapterState.START_PROFILE_SERVICE);
+            }
         } else {
             Log.e(TAG, "Incorrect status " + status + " in stateChangeCallback");
         }
@@ -2635,7 +2651,13 @@ public class AdapterService extends Service {
 
         debugLog("enable() - Enable called with quiet mode status =  " + quietMode);
         mQuietmode = quietMode;
-        mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_ON);
+        if (mIsBleSupported)
+            mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_ON);
+        else {
+            debugLog("enable() - send USER_TURN_ON due to BLE disabled");
+            mAdapterStateMachine.sendMessage(AdapterState.USER_TURN_ON);
+        }
+
         return true;
     }
 
