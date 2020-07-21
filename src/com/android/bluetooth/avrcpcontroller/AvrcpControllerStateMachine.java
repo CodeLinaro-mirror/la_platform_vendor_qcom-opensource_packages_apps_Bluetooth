@@ -961,6 +961,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                         BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mRootNode);
                     }
                     removeUnusedArtworkFromBrowseTree();
+                    // Get playback state for new addressed player
+                    mService.getPlaybackStateNative(mDeviceAddress);
                     return true;
 
                 case MESSAGE_PROCESS_SUPPORTED_APPLICATION_SETTINGS:
