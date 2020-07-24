@@ -135,6 +135,7 @@ public class HeadsetService extends ProfileService {
     private vendorhfservice  mVendorHf;
     private Context mContext = null;
     private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
+    private static final int AUDIO_CONNECTION_DELAY_DEFAULT = 100;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -296,6 +297,9 @@ public class HeadsetService extends ProfileService {
             }
             mStateMachines.clear();
         }
+        // Reset A2DP suspend flag if bluetooth is turned off while call is already in progress
+        Log.d(TAG,"setting A2dpSuspended=false during BT off");
+        mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
         // Step 4: Destroy native interface
         mNativeInterface.cleanup();
         // Step 3: Destroy system interface
@@ -1640,6 +1644,9 @@ public class HeadsetService extends ProfileService {
 
     boolean connectAudio(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        int connDelay = SystemProperties.getInt("persist.vendor.bluetooth.audioconnect.delay",
+                AUDIO_CONNECTION_DELAY_DEFAULT);
+
         Log.i(TAG, "connectAudio: device=" + device + ", " + Utils.getUidPidString());
         synchronized (mStateMachines) {
             if (!isScoAcceptable(device)) {
@@ -1667,7 +1674,9 @@ public class HeadsetService extends ProfileService {
                         " ,returning true");
                 return true;
             }
-            stateMachine.sendMessage(HeadsetStateMachine.CONNECT_AUDIO, device);
+
+            Log.i(TAG, "connectAudio: connect audio after " + connDelay + " ms");
+            stateMachine.sendMessageDelayed(HeadsetStateMachine.CONNECT_AUDIO, device, connDelay);
         }
         return true;
     }
