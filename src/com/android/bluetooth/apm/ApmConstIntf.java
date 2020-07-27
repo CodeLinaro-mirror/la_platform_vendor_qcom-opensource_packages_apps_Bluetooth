@@ -49,11 +49,15 @@ public class ApmConstIntf {
     static Class AudioProfilesClass = null;
     public static Class StreamAudioService = null;
     public static Class CoordinatedAudioService = null;
+    public static Class MusicPlayerControlService = null;
+    public static Class MediaPlayerControlService = null;
     public static int LE_AUDIO_UNICAST;
     public static int COORDINATED_AUDIO_UNICAST;
+    public static int MUSIC_PLAYER_CONTROL;
 
     public static String groupAddress;
     public static String CoordinatedAudioServiceName;
+    public static String MusicPlayerControlServiceName;
 
     static {
         try {
@@ -77,7 +81,28 @@ public class ApmConstIntf {
         } catch(ClassNotFoundException ex) {
             Log.w(TAG, ex);
         }
-    }
+
+        try {
+            MediaPlayerControlService = Class.forName("com.android.bluetooth.apm.MediaControlManager");
+        } catch(ClassNotFoundException ex) {
+            Log.w(TAG, ex);
+        }
+        try {
+            
+            MusicPlayerControlServiceName = (String)MediaPlayerControlService.getDeclaredField("MusicPlayerControlServiceName").get(null);
+            MUSIC_PLAYER_CONTROL = (Integer)MediaPlayerControlService.getDeclaredField("MUSIC_PLAYER_CONTROL").get(null);
+        } catch(IllegalAccessException ex) {
+            Log.w(TAG, ex);
+        } catch (NoSuchFieldException ex) {
+            Log.w(TAG, ex);
+        }
+
+        try {
+            MusicPlayerControlService = Class.forName(MusicPlayerControlServiceName);
+        } catch(ClassNotFoundException ex) {
+            Log.w(TAG, ex);
+        }
+   }
 
     public static class AudioFeatures {
         public static int CALL_AUDIO;

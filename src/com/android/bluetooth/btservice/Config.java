@@ -48,6 +48,7 @@ import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.sap.SapService;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.ba.BATService;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -142,6 +143,8 @@ public class Config {
                     (1 << BluetoothProfile.HEARING_AID)),
             new ProfileConfig(BATService.class, R.bool.profile_supported_ba,
                     (1 << BATService.BA_TRANSMITTER)),
+            new ProfileConfig(ApmConstIntf.MusicPlayerControlService, R.bool.profile_supported_music_player_service,
+                    (1 << ApmConstIntf.MUSIC_PLAYER_CONTROL))
     };
 
     /* List of Unicast Advance Audio Profiles */
