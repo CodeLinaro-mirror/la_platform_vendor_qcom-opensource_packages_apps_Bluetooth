@@ -415,6 +415,10 @@
         </service>
         <service
             android:process="@string/process"
+            android:name = ".pc.PCService">
+        </service>
+        <service
+            android:process="@string/process"
             android:name = ".pbapclient.PbapClientService"
             android:enabled="@bool/profile_supported_pbapclient">
             <intent-filter>

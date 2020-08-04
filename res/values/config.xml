@@ -20,6 +20,7 @@
     <bool name="profile_supported_hfpclient">false</bool>
     <bool name="profile_supported_hid_host">true</bool>
     <bool name="profile_supported_opp">true</bool>
+    <bool name="profile_supported_pc">true</bool>
     <bool name="profile_supported_pan">true</bool>
     <bool name="profile_supported_pbap">true</bool>
     <bool name="profile_supported_gatt">true</bool>

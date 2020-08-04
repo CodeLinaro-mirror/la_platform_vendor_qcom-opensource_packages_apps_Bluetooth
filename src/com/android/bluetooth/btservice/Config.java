@@ -89,6 +89,17 @@ public class Config {
             Log.w(TAG, ex);
         }
     }
+
+    private static Class mPCServiceClass = null;
+    static {
+        try {
+            mPCServiceClass = Class.forName("com.android.bluetooth.pc.PCService");
+        } catch (ClassNotFoundException ex) {
+            Log.e(TAG, "no PCService: exists");
+            mPCServiceClass = null;
+        }
+    }
+
     /**
      * List of profile services with the profile-supported resource flag and bit mask.
      */
@@ -148,7 +159,9 @@ public class Config {
                         (1 << BluetoothProfile.BC_PROFILE)),
                     new ProfileConfig(mBroadcastClass,
                          R.bool.profile_supported_broadcast,
-                        (1 << BluetoothProfile.BROADCAST))
+                        (1 << BluetoothProfile.BROADCAST)),
+                    new ProfileConfig(mPCServiceClass, R.bool.profile_supported_pc,
+                        (1 << BluetoothProfile.PC_PROFILE))
             ));
 
     /* List of Profiles common for Unicast and Broadcast advance audio features */
