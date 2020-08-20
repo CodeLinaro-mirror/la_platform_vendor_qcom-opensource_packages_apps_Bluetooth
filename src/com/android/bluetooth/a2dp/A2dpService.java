@@ -302,10 +302,14 @@ public class A2dpService extends ProfileService {
         setA2dpService(null);
 
         // Step 7: Unregister broadcast receivers
-        unregisterReceiver(mConnectionStateChangedReceiver);
-        mConnectionStateChangedReceiver = null;
-        unregisterReceiver(mBondStateChangedReceiver);
-        mBondStateChangedReceiver = null;
+        if (mConnectionStateChangedReceiver != null) {
+            unregisterReceiver(mConnectionStateChangedReceiver);
+            mConnectionStateChangedReceiver = null;
+        }
+        if (mBondStateChangedReceiver != null) {
+            unregisterReceiver(mBondStateChangedReceiver);
+            mBondStateChangedReceiver = null;
+        }
         // Step 6: Cleanup native interface
         try {
             mA2dpNativeInterfaceLock.writeLock().lock();
@@ -562,6 +566,7 @@ public class A2dpService extends ProfileService {
     private boolean connectionAllowedCheckMaxDevices(BluetoothDevice device) {
         int connected = 0;
         int tws_device = 0;
+
         // Count devices that are in the process of connecting or already connected
         synchronized (mBtA2dpLock) {
              for (A2dpStateMachine sm : mStateMachines.values()) {
@@ -584,14 +589,16 @@ public class A2dpService extends ProfileService {
         }
         Log.d(TAG,"connectionAllowedCheckMaxDevices connected = " + connected +
               "tws connected = " + tws_device);
-        synchronized (mVariableLock) {
-            if (mAdapterService != null &&  mAdapterService.isVendorIntfEnabled() &&
-                ((tws_device > 0) || mAdapterService.isTwsPlusDevice(device) ||
-                ((tws_device > 0) && connected == mMaxConnectedAudioDevices &&
-                !mAdapterService.isTwsPlusDevice(device)))) {
-                return isConnectionAllowed(device, tws_device, connected);
+        synchronized (mBtA2dpLock) {
+            Log.d(TAG, "Going to acquire mVariableLock");
+            synchronized (mVariableLock) {
+                if (mAdapterService != null &&  mAdapterService.isVendorIntfEnabled() &&
+                    ((tws_device > 0) || mAdapterService.isTwsPlusDevice(device))) {
+                    return isConnectionAllowed(device, tws_device, connected);
+                }
             }
         }
+
         if (mSetMaxConnectedAudioDevices == 1 &&
             connected == mSetMaxConnectedAudioDevices) {
             disconnectExisting = true;
@@ -880,11 +887,11 @@ public class A2dpService extends ProfileService {
 
         if (device == null) {
             // Remove active device and continue playing audio only if necessary.
-            removeActiveDevice(false);
             synchronized(mBtAvrcpLock) {
                 if(mAvrcp_ext != null)
                     mAvrcp_ext.setActiveDevice(device);
             }
+            removeActiveDevice(false);
             return true;
         }
 
@@ -910,7 +917,7 @@ public class A2dpService extends ProfileService {
                              mAdapterService.isTwsPlusDevice(previousActiveDevice))) {
                     if(getConnectionState(previousActiveDevice) == BluetoothProfile.STATE_CONNECTED) {
                         Log.d(TAG,"Ignore setActiveDevice request for pair-earbud of active earbud");
-                    return false;
+                        return false;
                     }
                     Log.d(TAG,"TWS+ active device disconnected, setting its pair-earbud as active");
                     tws_switch = true;
@@ -932,9 +939,6 @@ public class A2dpService extends ProfileService {
                     }
                 }
             }
-
-            // This needs to happen before we inform the audio manager that the device
-            // disconnected. Please see comment in updateAndBroadcastActiveDevice() for why.
             Log.w(TAG, "setActiveDevice coming out of mutex lock");
         }
 
@@ -944,11 +948,9 @@ public class A2dpService extends ProfileService {
                 Log.e(TAG, "setActiveDevice(" + device + "): Cannot set as active in native layer");
                 return false;
             }
-
         } finally {
             mA2dpNativeInterfaceLock.readLock().unlock();
         }
-
 
         updateAndBroadcastActiveDevice(device);
         Log.d(TAG, "setActiveDevice(" + device + "): completed");

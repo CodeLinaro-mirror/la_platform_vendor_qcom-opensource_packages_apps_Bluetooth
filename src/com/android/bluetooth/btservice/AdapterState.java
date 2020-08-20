@@ -18,6 +18,7 @@ package com.android.bluetooth.btservice;
 
 import android.bluetooth.BluetoothAdapter;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.internal.util.State;
@@ -78,6 +79,13 @@ final class AdapterState extends StateMachine {
     // TODO: To be optimized : Increased BLE_START_TIMEOUT_DELAY to 6 sec
     // as OMR1 Total timeout value was 14 seconds
     static final int BLE_START_TIMEOUT_DELAY = 6000;
+    // Increased BLE_START_TIMEOUT_DELAY to 15 sec for XMEM patch download.
+    static final int BLE_START_DEFAULT_XMEM_TIMEOUT_DELAY = 15000;
+    /* Increased STARTUP time to 23 sec for XMEM patch with download configuration
+     * set to have rsp for every tlv download cmd.
+     */
+    static final int BLE_START_XMEM_TIMEOUT_DELAY = 23000;
+
     static final int BLE_STOP_TIMEOUT_DELAY = 1000;
     static final int BREDR_START_TIMEOUT_DELAY = 4000;
     static final int BREDR_STOP_TIMEOUT_DELAY = 4000;
@@ -275,7 +283,18 @@ final class AdapterState extends StateMachine {
         @Override
         public void enter() {
             super.enter();
-            sendMessageDelayed(BLE_START_TIMEOUT, BLE_START_TIMEOUT_DELAY);
+            int timeout;
+            String value = SystemProperties.get("persist.vendor.bluetooth.enable_XMEM", "0");
+            if (value.equals("1")) {
+                infoLog("XMEM enabled: " + value);
+                timeout = BLE_START_DEFAULT_XMEM_TIMEOUT_DELAY;
+            } else if (value.equals("2")) {
+                infoLog("XMEM enabled: " + value);
+                timeout = BLE_START_XMEM_TIMEOUT_DELAY;
+            } else {
+                timeout = BLE_START_TIMEOUT_DELAY;
+            }
+            sendMessageDelayed(BLE_START_TIMEOUT, timeout);
             mAdapterService.bringUpBle();
         }
 
@@ -407,6 +426,7 @@ final class AdapterState extends StateMachine {
 
                 case BREDR_CLEANUP_TIMEOUT:
                     errorLog("Error cleaningup Bluetooth profiles (cleanup timeout)");
+                    mAdapterService.informTimeoutToHidl();
                     mAdapterService.disableProfileServices(false);
                     mAdapterService.StartHCIClose();
                     errorLog("BREDR_CLEANUP_TIMEOUT going to kill the process as part of cleanup");
@@ -472,6 +492,7 @@ final class AdapterState extends StateMachine {
                     break;
 
                 case STACK_DISABLE_TIMEOUT:
+                    mAdapterService.informTimeoutToHidl();
                     mAdapterService.disableProfileServices(true);
                     mAdapterService.StartHCIClose();
                     errorLog("STACK_DISABLE_TIMEOUT going to kill the process as part of cleanup");
