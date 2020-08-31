@@ -59,6 +59,7 @@ static jmethodID method_acquireWakeLock;
 static jmethodID method_releaseWakeLock;
 static jmethodID method_energyInfo;
 static jmethodID method_getLinkKeyCallback;
+static jmethodID method_readLocalOobDataback;
 
 static struct {
   jclass clazz;
@@ -488,6 +489,66 @@ static void get_link_key_callback(RawAddress* bd_addr, bool key_found,
                                linkkey.get(), addr.get(), key_found, key_type);
 }
 
+static void read_local_oob_data_callback(bt_status_t status,
+                                         bt_out_of_band_data_t* oob_data) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  ALOGV("%s: Status is: %d", __func__, status);
+
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("%s: Status %d is incorrect", __func__, status);
+    return;
+  }
+
+  ScopedLocalRef<jbyteArray> c192(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(OOB_LE_SC_C_SIZE));
+  if (!c192.get()) {
+    ALOGE("Error while allocating in: %s", __func__);
+    return;
+  }
+
+  sCallbackEnv->SetByteArrayRegion(c192.get(), 0, OOB_LE_SC_C_SIZE,
+                                   (jbyte*)oob_data->c192);
+
+  ScopedLocalRef<jbyteArray> r192(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(OOB_LE_SC_R_SIZE));
+  if (!r192.get()) {
+    ALOGE("Error while allocating in: %s", __func__);
+    return;
+  }
+
+  sCallbackEnv->SetByteArrayRegion(r192.get(), 0, OOB_LE_SC_R_SIZE,
+                                   (jbyte*)oob_data->r192);
+
+  ScopedLocalRef<jbyteArray> c256(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(OOB_LE_SC_C_SIZE));
+  if (!c256.get()) {
+    ALOGE("Error while allocating in: %s", __func__);
+    return;
+  }
+
+  sCallbackEnv->SetByteArrayRegion(c256.get(), 0, OOB_LE_SC_C_SIZE,
+                                   (jbyte*)oob_data->c256);
+
+  ScopedLocalRef<jbyteArray> r256(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(OOB_LE_SC_R_SIZE));
+  if (!r256.get()) {
+    ALOGE("Error while allocating in: %s", __func__);
+    return;
+  }
+
+  sCallbackEnv->SetByteArrayRegion(r256.get(), 0, OOB_LE_SC_R_SIZE,
+                                   (jbyte*)oob_data->r256);
+
+
+  sCallbackEnv->CallVoidMethod(sJniAdapterServiceObj,
+                               method_readLocalOobDataback,
+                               c192.get(), r192.get(),
+                               c256.get(), r256.get());
+}
+
+
 static bt_callbacks_t sBluetoothCallbacks = {
     sizeof(sBluetoothCallbacks), adapter_state_change_callback,
     adapter_properties_callback, remote_device_properties_callback,
@@ -496,7 +557,7 @@ static bt_callbacks_t sBluetoothCallbacks = {
     bond_state_changed_callback, acl_state_changed_callback,
     callback_thread_event,       dut_mode_recv_callback,
     le_test_mode_recv_callback,  energy_info_recv_callback,
-    get_link_key_callback};
+    get_link_key_callback, read_local_oob_data_callback};
 
 // The callback to call when the wake alarm fires.
 static alarm_cb sAlarmCallback;
@@ -715,6 +776,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
   method_getLinkKeyCallback =
       env->GetMethodID(clazz, "onGetLinkKey", "(Ljava/lang/String;[BZI)V");
+  method_readLocalOobDataback =
+      env->GetMethodID(clazz, "readLocalOobDataCallback", "([B[B[B[B)V");
 
   if (env->GetJavaVM(&vm) != JNI_OK) {
     ALOGE("Could not get JavaVM");
@@ -861,6 +924,8 @@ static jbyteArray callByteArrayGetter(JNIEnv* env, jobject object,
 static jboolean createBondOutOfBandNative(JNIEnv* env, jobject obj,
                                           jbyteArray address, jint transport,
                                           jobject oobData) {
+  ALOGV("%s", __func__);
+
   bt_out_of_band_data_t oob_data;
 
   memset(&oob_data, 0, sizeof(oob_data));
@@ -877,10 +942,18 @@ static jboolean createBondOutOfBandNative(JNIEnv* env, jobject obj,
   jbyte* smTKBytes = NULL;
   jbyte* leScCBytes = NULL;
   jbyte* leScRBytes = NULL;
+  jbyte* c192Bytes = NULL;
+  jbyte* r192Bytes = NULL;
+  jbyte* c256Bytes = NULL;
+  jbyte* r256Bytes = NULL;
   jbyteArray leBtDeviceAddress = NULL;
   jbyteArray smTK = NULL;
   jbyteArray leScC = NULL;
   jbyteArray leScR = NULL;
+  jbyteArray c192 = NULL;
+  jbyteArray r192 = NULL;
+  jbyteArray c256 = NULL;
+  jbyteArray r256 = NULL;
   int status = BT_STATUS_FAIL;
 
   leBtDeviceAddress = callByteArrayGetter(
@@ -942,6 +1015,64 @@ static jboolean createBondOutOfBandNative(JNIEnv* env, jobject obj,
     memcpy(oob_data.le_sc_r, leScRBytes, len);
   }
 
+  c192 = callByteArrayGetter(env, oobData, "android/bluetooth/OobData",
+                             "getC192");
+  if (c192 != NULL) {
+    c192Bytes = env->GetByteArrayElements(c192, NULL);
+    int len = env->GetArrayLength(c192);
+    ALOGE("%s: c192 len is %d ", __func__, len);
+    if (len != OOB_LE_SC_C_SIZE) {
+      ALOGI("%s: wrong length of c192, should be empty or %d bytes.", __func__,
+            OOB_LE_SC_C_SIZE);
+      jniThrowIOException(env, EINVAL);
+      goto done;
+    }
+    memcpy(oob_data.c192, c192Bytes, len);
+  }
+
+  r192 = callByteArrayGetter(env, oobData, "android/bluetooth/OobData",
+                             "getR192");
+  if (r192 != NULL) {
+    r192Bytes = env->GetByteArrayElements(r192, NULL);
+    int len = env->GetArrayLength(r192);
+    if (len != OOB_LE_SC_R_SIZE) {
+      ALOGI("%s: wrong length of r192, should be empty or %d bytes.", __func__,
+            OOB_LE_SC_R_SIZE);
+      jniThrowIOException(env, EINVAL);
+      goto done;
+    }
+    memcpy(oob_data.r192, r192Bytes, len);
+  }
+
+  c256 = callByteArrayGetter(env, oobData, "android/bluetooth/OobData",
+                             "getC256");
+  if (c256 != NULL) {
+    c256Bytes = env->GetByteArrayElements(c256, NULL);
+    int len = env->GetArrayLength(c256);
+    if (len != OOB_LE_SC_C_SIZE) {
+      ALOGI("%s: wrong length of c256, should be empty or %d bytes.", __func__,
+            OOB_LE_SC_C_SIZE);
+      jniThrowIOException(env, EINVAL);
+      goto done;
+    }
+    memcpy(oob_data.c256, c256Bytes, len);
+  }
+
+  r256 = callByteArrayGetter(env, oobData, "android/bluetooth/OobData",
+                             "getR256");
+  if (r256 != NULL) {
+    r256Bytes = env->GetByteArrayElements(r256, NULL);
+    int len = env->GetArrayLength(r256);
+    if (len != OOB_LE_SC_R_SIZE) {
+      ALOGI("%s: wrong length of r256, should be empty or %d bytes.", __func__,
+            OOB_LE_SC_R_SIZE);
+      jniThrowIOException(env, EINVAL);
+      goto done;
+    }
+    memcpy(oob_data.r256, r256Bytes, len);
+  }
+
+
   status = sBluetoothInterface->create_bond_out_of_band((RawAddress*)addr,
                                                         transport, &oob_data);
 
@@ -956,6 +1087,14 @@ done:
   if (leScC != NULL) env->ReleaseByteArrayElements(leScC, leScCBytes, 0);
 
   if (leScR != NULL) env->ReleaseByteArrayElements(leScR, leScRBytes, 0);
+
+  if (c192 != NULL) env->ReleaseByteArrayElements(c192, c192Bytes, 0);
+
+  if (r192 != NULL) env->ReleaseByteArrayElements(r192, r192Bytes, 0);
+
+  if (c256 != NULL) env->ReleaseByteArrayElements(c256, c256Bytes, 0);
+
+  if (r256 != NULL) env->ReleaseByteArrayElements(r256, r256Bytes, 0);
 
   return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
@@ -1396,6 +1535,15 @@ static void getLinkKeyNative(JNIEnv* env, jobject obj, jbyteArray address) {
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 
+static jboolean readLocalOobDataNative(JNIEnv* env, jobject obj) {
+  ALOGV("%s", __func__);
+
+  if (!sBluetoothInterface) return JNI_FALSE;
+
+  int ret = sBluetoothInterface->read_local_oob_data();
+  return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+}
+
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void*)classInitNative},
@@ -1435,7 +1583,8 @@ static JNINativeMethod sMethods[] = {
      (void*)createSocketChannelNative},
     {"requestMaximumTxDataLengthNative", "([B)V",
      (void*)requestMaximumTxDataLengthNative},
-    {"getLinkKeyNative", "([B)V", (void*) getLinkKeyNative}};
+    {"getLinkKeyNative", "([B)V", (void*) getLinkKeyNative},
+    {"readLocalOobDataNative", "()Z", (void*)readLocalOobDataNative}};
 
 int register_com_android_bluetooth_btservice_AdapterService(JNIEnv* env) {
   return jniRegisterNativeMethods(
