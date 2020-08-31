@@ -326,6 +326,14 @@ final class BondStateMachine extends StateMachine {
             byte[] addr = Utils.getBytesFromAddress(dev.getAddress());
             boolean result;
             if (oobData != null) {
+                if (oobData.getC192() != null && oobData.getR192() != null)
+                    infoLog(" remote c192 is: "+ Utils.byteArrayToString(oobData.getC192())
+                            + "\n remote r192 is: " + Utils.byteArrayToString(oobData.getR192()));
+
+                if (oobData.getC256() != null && oobData.getR256() != null)
+                    infoLog(" remote c256 is: " + Utils.byteArrayToString(oobData.getC256())
+                            + "\n remote r256 is: " + Utils.byteArrayToString(oobData.getR256()));
+
                 result = mAdapterService.createBondOutOfBandNative(addr, transport, oobData);
             } else {
                 result = mAdapterService.createBondNative(addr, transport);
