@@ -29,6 +29,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.support.v4.media.session.PlaybackStateCompat;
+import android.media.session.PlaybackState;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -91,6 +92,16 @@ public class AvrcpControllerService extends ProfileService {
     public static final int PASS_THRU_CMD_ID_REWIND = 0x48;
     public static final int PASS_THRU_CMD_ID_FORWARD = 0x4B;
     public static final int PASS_THRU_CMD_ID_BACKWARD = 0x4C;
+
+    /*
+     * AVRCP Error types as defined in spec. Also they should be in sync with btrc_status_t
+     * NOTE: Not all may be defined.
+     */
+    public static final int JNI_AVRC_STS_INVALID_CMD = 0x00;
+    public static final int JNI_AVRC_STS_INVALID_PARAMETER = 0x01;
+    public static final int JNI_AVRC_STS_NO_ERROR = 0x04;
+    public static final int JNI_AVRC_STS_INVALID_SCOPE = 0x0a;
+    public static final int JNI_AVRC_INV_RANGE = 0x0b;
 
     /* Key State Variables */
     public static final int KEY_STATE_PRESSED = 0;
@@ -860,6 +871,20 @@ public class AvrcpControllerService extends ProfileService {
         }
     }
 
+    private void handleSearchRsp(byte[] address, int status, int uid, int items) {
+        if (DBG) {
+            Log.d(TAG, "handleSearchRsp status: " + status + ", uid: " + uid + ", items: " + items);
+        }
+        BluetoothDevice device = getAnonymousDevice(address);
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_SEARCH_RESP, status, items);
+        }
+    }
+
     /* Generic Profile Code */
 
     /**
@@ -1125,4 +1150,22 @@ public class AvrcpControllerService extends ProfileService {
      * @param playerId player number
      */
     public native void setAddressedPlayerNative(byte[] address, int playerId);
+
+    /**
+     * Search
+     *
+     * @param address      address
+     * @param address      charset
+     * @param strLen       strLen
+     * @param pattern      pattern
+     */
+    public native static void searchNative(byte[] address, int charset, int strLen, String pattern);
+    /**
+     * Get Search List
+     *
+     * @param address      address
+     * @param address      start
+     * @param strLen       end
+     */
+    public native static void getSearchListNative(byte[] address, int start, int end);
 }
