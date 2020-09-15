@@ -35,6 +35,8 @@ import android.media.MediaMetadata;
 import android.media.browse.MediaBrowser.MediaItem;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
+import android.media.MediaMetadata;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Message;
 import android.os.SystemProperties;
@@ -92,12 +94,30 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_CURRENT_APPLICATION_SETTINGS = 218;
     static final int MESSAGE_PROCESS_AVAILABLE_PLAYER_CHANGED = 219;
     static final int MESSAGE_PROCESS_RC_FEATURES = 220;
+    static final int MESSAGE_PROCESS_UIDS_CHANGED = 221;
+    static final int MESSAGE_PROCESS_ADD_TO_NOW_PLAYING = 222;
+    static final int MESSAGE_PROCESS_SEARCH_RESP = 224;
 
     //300->399 Events for Browsing
+    //Internal
     static final int MESSAGE_GET_FOLDER_ITEMS = 300;
     static final int MESSAGE_PLAY_ITEM = 301;
-    static final int MSG_AVRCP_PASSTHRU = 302;
-    static final int MSG_AVRCP_PASSTHRU_EXT = 303;
+    // Internal message to get element attributes
+    static final int MSG_AVRCP_GET_ELEMENT_ATTR = 307;
+    // Internal message to get folder items(PTS verification only)
+    static final int MSG_GET_FOLDER_ITEMS_PTS = 308;
+    // Internal message to request for continuing response
+    static final int MSG_AVRCP_REQUEST_CONTINUING_RESPONSE = 309;
+    // Internal message to abort continuing response
+    static final int MSG_AVRCP_ABORT_CONTINUING_RESPONSE = 310;
+    // Internal message to add item into NowPlaying
+    static final int MSG_AVRCP_ADD_TO_NOW_PLAYING = 311;
+
+    //External
+    static final int MSG_AVRCP_PASSTHRU = 350;
+    static final int MSG_AVRCP_PASSTHRU_EXT = 351;
+    static final int MSG_AVRCP_SEARCH = 354;
+    static final int MSG_AVRCP_GET_ITEM_ATTR = 355;
 
     static final int MESSAGE_INTERNAL_ABS_VOL_TIMEOUT = 404;
 
@@ -111,6 +131,9 @@ class AvrcpControllerStateMachine extends StateMachine {
      */
     private static final byte NOTIFICATION_RSP_TYPE_INTERIM = 0x00;
     private static final byte NOTIFICATION_RSP_TYPE_CHANGED = 0x01;
+
+    // The value of UTF-8 as defined in IANA character set document
+    private static final int AVRC_CHARSET_UTF8 = 0x006A;
 
     private final AudioManager mAudioManager;
     protected final BluetoothDevice mDevice;
@@ -142,7 +165,155 @@ class AvrcpControllerStateMachine extends StateMachine {
      public static final String KEY_CMD = "cmd";
      public static final String KEY_STATE = "state";
 
+    // assume that TG is database unaware player, set default value as zero
+    // refresh this value once we receive UIDS_CHANGED_EVENT interim/resp_changed from TG
+    private int mUidCounter = 0;
+
+    /**
+     * Custom action to search.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * <p>Intent {@link #ACTION_CUSTOM_ACTION_RESULT} will be broadcast to notify the result.
+     * {@link AvrcpControllerService} will also receive search result.
+     * Application can find search list when to browse AVRCP folder.
+     *
+     * @param Bundle wrapped with {@link #KEY_SEARCH}
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     *      {@link com.android.bluetooth.avrcpcontroller.AvrcpControllerService}
+     */
+    public static final String CUSTOM_ACTION_SEARCH =
+        "android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_SEARCH";
+    public static final String KEY_SEARCH = "search";
+
+    /**
+     * Custom action to get item attributes.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * <p>Intent {@link AvrcpControllerService.ACTION_TRACK_EVENT} will be broadcast.
+     * to notify the item attributes retrieved.
+     *
+     * @param Bundle wrapped with {@link MediaMetadata.METADATA_KEY_MEDIA_ID}
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     *      {@link android.media.MediaMetadata}
+     *      {@link com.android.bluetooth.avrcpcontroller.AvrcpControllerService}
+     */
+    public static final String CUSTOM_ACTION_GET_ITEM_ATTR =
+        "android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_GET_ITEM_ATTR";
+    public static final String KEY_BROWSE_SCOPE = "scope";
+    public static final String KEY_ATTRIBUTE_ID = "attribute_id";
+
+    // Intent used to broadcast A2DP/AVRCP custom action result
+    // Requires {@link android.Manifest.permission#BLUETOOTH} permission to receive
+    public static final String ACTION_CUSTOM_ACTION_RESULT =
+        "android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_RESULT";
+    public static final String EXTRA_CUSTOM_ACTION =
+        "android.bluetooth.avrcp-controller.profile.extra.CUSTOM_ACTION";
+    public static final String EXTRA_CUSTOM_ACTION_RESULT =
+        "android.bluetooth.avrcp-controller.profile.extra.CUSTOM_ACTION_RESULT";
+    public static final String EXTRA_NUM_OF_ITEMS =
+        "android.bluetooth.avrcp-controller.profile.extra.NUM_OF_ITEMS";
+
+    public static final String CUSTOM_ACTION_ADD_TO_NOW_PLAYING =
+        "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_ADD_TO_NOW_PLAYING";
+
+    // Result code
+    public static final int RESULT_SUCCESS = 0;
+    public static final int RESULT_ERROR = 1;
+    public static final int RESULT_INVALID_PARAMETER = 2;
+    public static final int RESULT_NOT_SUPPORTED = 3;
+    public static final int RESULT_TIMEOUT = 4;
+
+    /**
+     * Custom action to request for continuing response packets.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * @param Bundle wrapped with {@link #KEY_PDU_ID}
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     */
+    public static final String CUSTOM_ACTION_REQUEST_CONTINUING_RESPONSE =
+        "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_REQUEST_CONTINUING_RESPONSE";
+    public static final String KEY_PDU_ID = "pdu_id";
+
+    /**
+     * Custom action to abort continuing response.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * @param Bundle wrapped with {@link #KEY_PDU_ID}
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     */
+    public static final String CUSTOM_ACTION_ABORT_CONTINUING_RESPONSE =
+        "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_ABORT_CONTINUING_RESPONSE";
+
+     /**
+     * Custom action to get element attributes.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * <p>Intent {@link AvrcpControllerService.ACTION_TRACK_EVENT} will be broadcast.
+     * to notify the item attributes retrieved.
+     *
+     * @param Bundle wrapped with KEY_ATTRIBUTE_ID
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     *      {@link android.media.MediaMetadata}
+     *      {@link com.android.bluetooth.avrcpcontroller.AvrcpControllerService}
+     */
+     public static final String CUSTOM_ACTION_GET_ELEMENT_ATTR =
+         "android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_GET_ELEMENT_ATTR";
+
+     /**
+     * Custom action to get folder items.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * <p>Intent {@link AvrcpControllerService.EXTRA_FOLDER_LIST} will be broadcast.
+     * to notify the items(player or folder/item) retrieved.
+     *
+     * @param Bundle wrapped with KEY_BROWSE_SCOPE and KEY_ATTRIBUTE_ID
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     *      {@link android.media.MediaMetadata}
+     *      {@link com.android.bluetooth.avrcpcontroller.AvrcpControllerService}
+     */
+     public static final String CUSTOM_ACTION_GET_FOLDER_ITEM =
+         "android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_GET_FOLDER_ITEM";
+    public static final String KEY_START = "start";
+    public static final String KEY_END = "end";
+
     GetFolderList mGetFolderList = null;
+    AddToNowPlaying mAddToNowPlaying = null;
 
     //Number of items to get in a single fetch
     static final int ITEM_PAGE_SIZE = 20;
@@ -171,6 +342,12 @@ class AvrcpControllerStateMachine extends StateMachine {
         smActive = true;
         mGetFolderList = new GetFolderList();
         addState(mGetFolderList, mConnected);
+
+        mAddToNowPlaying = new AddToNowPlaying();
+        addState(mAddToNowPlaying, mConnected);
+
+        mSearch = new Search();
+        addState(mSearch, mConnected);
 
         mRemoteDevice = new RemoteDevice(device);
 
@@ -293,10 +470,28 @@ class AvrcpControllerStateMachine extends StateMachine {
         sendMessage(MESSAGE_GET_FOLDER_ITEMS, mBrowseTree.mNowPlayingNode);
     }
 
+    void refreshSearchNode(boolean isAddNode) {
+        mBrowseTree.mSearchNode.setCached(false);
+
+        BrowseTree.BrowseNode currBrPlayer = mBrowseTree.getCurrentBrowsedPlayer();
+        if (currBrPlayer != null) {
+            if (isAddNode) {
+                currBrPlayer.addChild(mBrowseTree.mSearchNode);
+            } else {
+                currBrPlayer.removeChild(mBrowseTree.mSearchNode);
+            }
+
+            BluetoothMediaBrowserService.notifyChanged(currBrPlayer);
+        } else {
+            Log.d(TAG, "currBrPlayer is NULL");
+        }
+    }
+
     protected class Disconnected extends State {
         @Override
         public void enter() {
             logD("Enter Disconnected mDevice:" + mDevice);
+            refreshSearchNode(false);
             if (mMostRecentState != BluetoothProfile.STATE_DISCONNECTED) {
                 sendMessage(CLEANUP);
             }
@@ -361,6 +556,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
 
                 case MESSAGE_GET_FOLDER_ITEMS:
+                    mGetFolderList.setPTSTag(false);
                     transitionTo(mGetFolderList);
                     return true;
 
@@ -374,6 +570,37 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
                 case MSG_AVRCP_PASSTHRU_EXT:
                     passThru(msg.arg1, msg.arg2);
+                    return true;
+
+                case MSG_AVRCP_SEARCH:
+                    processSearchReq((String) msg.obj);
+                    return true;
+
+               case MSG_AVRCP_ADD_TO_NOW_PLAYING:
+                   mAddToNowPlaying.setMediaId((String) msg.obj);
+                   transitionTo(mAddToNowPlaying);
+                   return true;
+
+                case MSG_AVRCP_REQUEST_CONTINUING_RESPONSE:
+                    RequestContinuingResponse(msg.arg1);
+                    return true;
+
+                case MSG_AVRCP_ABORT_CONTINUING_RESPONSE:
+                    AbortContinuingResponse(msg.arg1);
+                    return true;
+
+                case MSG_AVRCP_GET_ITEM_ATTR:
+                    getItemAttributes((Bundle) msg.obj);
+                    return true;
+
+                case MSG_AVRCP_GET_ELEMENT_ATTR:
+                    getElementAttributes((Bundle) msg.obj);
+                    return true;
+
+                case MSG_GET_FOLDER_ITEMS_PTS:
+                    getFolderItem((Bundle) msg.obj);
+                    mGetFolderList.setPTSTag(true);
+                    transitionTo(mGetFolderList);
                     return true;
 
                 case MESSAGE_PROCESS_TRACK_CHANGED:
@@ -446,6 +673,10 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                 case MSG_DEVICE_UPDATED:
                     msgDeviceUpdated((BluetoothDevice)msg.obj);
+                    return true;
+
+                case MESSAGE_PROCESS_UIDS_CHANGED:
+                    processUIDSChange(msg);
                     return true;
 
                 case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION: {
@@ -586,6 +817,29 @@ class AvrcpControllerStateMachine extends StateMachine {
                     || (cmd == AvrcpControllerService.PASS_THRU_CMD_ID_FF);
         }
 
+        private synchronized void getItemAttributes(Bundle extras) {
+            int scope = extras.getInt(KEY_BROWSE_SCOPE, 0);
+            String mediaId = extras.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
+            int [] attributeId = extras.getIntArray(KEY_ATTRIBUTE_ID);
+
+            if (mediaId != null) {
+                BrowseTree.BrowseNode currItem = mBrowseTree.findBrowseNodeByID(mediaId);
+                logD("processGetItemAttrReq mediaId=" + mediaId + " node=" + currItem);
+                if (currItem != null) {
+                    if (mRemoteDevice.isBrowsingSupported()) {
+                        AvrcpControllerService.getItemAttributesNative(
+                            mDeviceAddress, (byte) scope,
+                            currItem.getBluetoothID(),
+                            mUidCounter, (byte) attributeId.length, attributeId);
+                    } else {
+                        logD("Browsing channel not supported!!!");
+                    }
+                }
+            } else {
+                logD("processGetItemAttrReq() failed. MediaID is null");
+            }
+        }
+
         private void processAvailablePlayerChanged() {
             logD("processAvailablePlayerChanged");
             mBrowseTree.mRootNode.setCached(false);
@@ -599,6 +853,47 @@ class AvrcpControllerStateMachine extends StateMachine {
                     mDeviceAddress, cmd,
                      state);
         }
+
+        private void processSearchReq(String query) {
+            if (mSearch.isSearchingSupported()) {
+                logD("processSearchReq search: " + query);
+                // Reset search node before processing new search request.
+                refreshSearchNode(false);
+                AvrcpControllerService.searchNative(mDeviceAddress,
+                    AVRC_CHARSET_UTF8, query.length(), query);
+                transitionTo(mSearch);
+            } else {
+                Log.w(TAG, "Search not supported");
+            }
+        }
+
+        private void RequestContinuingResponse(int pduId) {
+            logD("processRequestContinuingResponse pduId=" + pduId);
+            AvrcpControllerService.requestContinuingResponseNative(
+                mDeviceAddress, (byte) pduId);
+        }
+
+        private void AbortContinuingResponse(int pduId) {
+            Log.d(TAG, "processAbortContinuingResponse pduId=" + pduId);
+            AvrcpControllerService.abortContinuingResponseNative(
+                mDeviceAddress, (byte) pduId);
+        }
+
+        private synchronized void getElementAttributes(Bundle extras) {
+            int [] attributeId = extras.getIntArray(KEY_ATTRIBUTE_ID);
+            AvrcpControllerService.getElementAttributesNative(
+                mDeviceAddress, (byte) attributeId.length, attributeId);
+        }
+
+        private synchronized void getFolderItem(Bundle extras) {
+            int scope = extras.getInt(KEY_BROWSE_SCOPE, 0);
+            int start = extras.getInt(KEY_START, 0);
+            int end = extras.getInt(KEY_END, 0xFF);
+            int [] attributeId = extras.getIntArray(KEY_ATTRIBUTE_ID);
+            AvrcpControllerService.getFolderItemsNative(
+                mDeviceAddress, (byte) scope, (byte) start, (byte) end,
+                (byte) attributeId.length, attributeId);
+        }
     }
 
     // Handle the get folder listing action
@@ -608,8 +903,15 @@ class AvrcpControllerStateMachine extends StateMachine {
         private static final String STATE_TAG = "Avrcp.GetFolderList";
 
         boolean mAbort;
+        byte mScope = AvrcpControllerService.BROWSE_SCOPE_VFS;
         BrowseTree.BrowseNode mBrowseNode;
         BrowseTree.BrowseNode mNextStep;
+
+        boolean mPTSTag = false;
+
+        public void setPTSTag(boolean isPTS) {
+            mPTSTag = isPTS;
+        }
 
         @Override
         public void enter() {
@@ -618,6 +920,11 @@ class AvrcpControllerStateMachine extends StateMachine {
             sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
             super.enter();
             mAbort = false;
+
+            if (mPTSTag == true) {
+                return;
+            }
+
             Message msg = getCurrentMessage();
             if (msg.what == MESSAGE_GET_FOLDER_ITEMS) {
                 {
@@ -627,10 +934,21 @@ class AvrcpControllerStateMachine extends StateMachine {
             }
 
             if (mBrowseNode == null) {
+                setScope(AvrcpControllerService.BROWSE_SCOPE_VFS);
                 transitionTo(mConnected);
             } else {
+                if (mBrowseNode.equals(mBrowseTree.mSearchNode)) {
+                    setScope(AvrcpControllerService.BROWSE_SCOPE_SEARCH);
+                } else {
+                    setScope(AvrcpControllerService.BROWSE_SCOPE_VFS);
+                }
+
                 navigateToFolderOrRetrieve(mBrowseNode);
             }
+        }
+
+        public void setScope(byte scope) {
+            mScope = scope;
         }
 
         @Override
@@ -645,7 +963,8 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                     // Always update the node so that the user does not wait forever
                     // for the list to populate.
-                    mBrowseNode.addChildren(folderList);
+                    int newSize = mBrowseNode.addChildren(folderList, mScope);
+                    logD("Added " + newSize + " items to the browse tree");
                     notifyChanged(mBrowseNode);
 
                     if (mBrowseNode.getChildrenCount() >= endIndicator || folderList.size() == 0
@@ -664,7 +983,14 @@ class AvrcpControllerStateMachine extends StateMachine {
                     }
                     break;
                 case MESSAGE_PROCESS_SET_BROWSED_PLAYER:
+                    BrowseTree.BrowseNode preBrPlayer = mBrowseTree.getCurrentBrowsedPlayer();
                     mBrowseTree.setCurrentBrowsedPlayer(mNextStep.getID(), msg.arg1, msg.arg2);
+                    BrowseTree.BrowseNode currBrPlayer = mBrowseTree.getCurrentBrowsedPlayer();
+                    // Reset search node if browsed player is invalid or changed.
+                    if (currBrPlayer == null ||
+                            (currBrPlayer != null && (!currBrPlayer.equals(preBrPlayer)))) {
+                          refreshSearchNode(false);
+                    }
                     removeMessages(MESSAGE_INTERNAL_CMD_TIMEOUT);
                     sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
                     navigateToFolderOrRetrieve(mBrowseNode);
@@ -740,8 +1066,13 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION:
                 case MESSAGE_PLAY_ITEM:
                 case MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED:
-                    // All of these messages should be handled by parent state immediately.
-                    return false;
+                  // All of these messages should be handled by parent state immediately.
+                  return false;
+
+                case MSG_AVRCP_SEARCH:
+                    mAbort = true;
+                    deferMessage(msg);
+                    break;
 
                 default:
                     logD(STATE_TAG + " deferring message " + msg.what
@@ -785,6 +1116,11 @@ class AvrcpControllerStateMachine extends StateMachine {
                     AvrcpControllerService.getFolderListNative(mDeviceAddress,
                             start, end);
                     break;
+                case AvrcpControllerService.BROWSE_SCOPE_SEARCH:
+                    AvrcpControllerService.getSearchListNative(
+                            mDeviceAddress, start, end);
+                    break;
+
                 default:
                     Log.e(TAG, STATE_TAG + " Scope " + target.getScope()
                             + " cannot be handled here.");
@@ -811,7 +1147,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                 return;
             } else if (target.equals(mBrowseTree.mNowPlayingNode)
                     || target.equals(mBrowseTree.mRootNode)
-                    || mNextStep.equals(mBrowseTree.getCurrentBrowsedFolder())) {
+                    || mNextStep.equals(mBrowseTree.getCurrentBrowsedFolder())
+                    || target.equals(mBrowseTree.mSearchNode)) {
                 fetchContents(mNextStep);
             } else if (mNextStep.isPlayer()) {
                 logD("NAVIGATING Player " + mNextStep.toString());
@@ -827,16 +1164,15 @@ class AvrcpControllerStateMachine extends StateMachine {
                 logD("NAVIGATING UP " + mNextStep.toString());
                 mNextStep = mBrowseTree.getCurrentBrowsedFolder().getParent();
                 mBrowseTree.getCurrentBrowsedFolder().setCached(false);
-
                 AvrcpControllerService.changeFolderPathNative(
-                        mDeviceAddress,
+                        mDeviceAddress, mUidCounter,
                         AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_UP,
                         0);
 
             } else {
                 logD("NAVIGATING DOWN " + mNextStep.toString());
                 AvrcpControllerService.changeFolderPathNative(
-                        mDeviceAddress,
+                        mDeviceAddress, mUidCounter,
                         AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_DOWN,
                         mNextStep.getBluetoothID());
             }
@@ -849,6 +1185,156 @@ class AvrcpControllerStateMachine extends StateMachine {
             super.exit();
         }
     }
+
+    // Handle the search action
+    class Search extends State {
+        private String STATE_TAG = "Avrcp.Search";
+
+        public boolean isSearchingSupported() {
+            boolean supported = false;
+            BrowseTree.BrowseNode currBrPlayer =
+                mBrowseTree.getCurrentBrowsedPlayer();
+            if (currBrPlayer != null) {
+              int playerId = (int)currBrPlayer.getBluetoothID();
+              if (DBG) {
+                Log.d(TAG, "current browsed playerId " + playerId);
+              }
+              for (int i = 0; i < mAvailablePlayerList.size(); i++) {
+                AvrcpPlayer player = mAvailablePlayerList.valueAt(i);
+                if (player.getId() == playerId) {
+                  supported = player.isSearchingSupported();
+                  Log.d(STATE_TAG, "Player isSearchingSupported "+supported);
+                  break;
+                }
+              }
+            }
+            return supported;
+        }
+
+        @Override
+        public void enter() {
+            super.enter();
+            sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
+        }
+
+        @Override
+        public boolean processMessage(Message msg) {
+            if (DBG) Log.d(STATE_TAG, "processMessage " + msg);
+            switch (msg.what) {
+                case MESSAGE_PROCESS_SEARCH_RESP:
+                    int status = msg.arg1;
+                    int items = msg.arg2;
+                    if (DBG) Log.d(STATE_TAG, "search response, status: " + status + ", items: " + items);
+                    mBrowseTree.mSearchNode.setExpectedChildren(items);
+                    broadcastNumOfItems(CUSTOM_ACTION_SEARCH, status, items);
+                    refreshSearchNode(true);
+                    transitionTo(mConnected);
+                    break;
+
+                case MESSAGE_INTERNAL_CMD_TIMEOUT:
+                    Log.e(STATE_TAG, "search timeout");
+                    transitionTo(mConnected);
+                    break;
+
+                default:
+                    if (DBG) Log.d(STATE_TAG, "deferring message " + msg + " to connected!");
+                    deferMessage(msg);
+            }
+            return true;
+        }
+
+        @Override
+        public void exit() {
+            removeMessages(MESSAGE_INTERNAL_CMD_TIMEOUT);
+            super.exit();
+        }
+    }
+
+    class AddToNowPlaying extends State {
+        private String STATE_TAG = "Avrcp.AddToNowPlaying";
+        private String mMediaId = null;
+
+        public void setMediaId(String mediaId) {
+            mMediaId = mediaId;
+        }
+
+        private boolean isSupported() {
+            boolean supported = false;
+            BrowseTree.BrowseNode currBrPlayer =
+                mBrowseTree.getCurrentBrowsedPlayer();
+            if (currBrPlayer != null) {
+                int playerId = currBrPlayer.getPlayerID();
+                if (DBG) {
+                    Log.d(STATE_TAG, "current browsed playerId " + playerId);
+                }
+                for (int i = 0; i < mAvailablePlayerList.size(); i++) {
+                    AvrcpPlayer player = mAvailablePlayerList.valueAt(i);
+                    if (player.getId() == playerId) {
+                        supported = player.isAddToNowPlayingSupported();
+                        break;
+                    }
+                }
+            }
+            return supported;
+        }
+
+        @Override
+        public void enter() {
+            BrowseTree.BrowseNode currItem = mBrowseTree.findBrowseNodeByID(mMediaId);
+            BrowseTree.BrowseNode currFolder = mBrowseTree.getCurrentBrowsedFolder();
+            Log.d(STATE_TAG, "processAddToNowPlayingReq mediaId=" + mMediaId + " node=" + currItem);
+            if (currItem != null) {
+                int scope = currFolder.getScope();
+
+                if (isSupported()) {
+                    Log.d(STATE_TAG, "Add to now playing, scope: " + scope);
+
+                    if (scope != AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST) {
+                        AvrcpControllerService.addToNowPlayingNative(
+                            mDeviceAddress, (byte)scope,
+                            currItem.getBluetoothID(), mUidCounter);
+                        sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
+                    } else {
+                        Log.w(STATE_TAG, "Add to now playing invalid scope: " + scope);
+                        broadcastAddToNowPlayingResult(AvrcpControllerService.JNI_AVRC_STS_INVALID_SCOPE);
+                        transitionTo(mConnected);
+                    }
+                } else {
+                    Log.w(STATE_TAG, "Add to now playing not supported");
+                    broadcastAddToNowPlayingResult(AvrcpControllerService.JNI_AVRC_STS_INVALID_CMD);
+                    transitionTo(mConnected);
+                }
+            } else {
+                transitionTo(mConnected);
+            }
+        }
+
+        @Override
+        public boolean processMessage(Message msg) {
+            Log.d(STATE_TAG, "processMessage " + msg);
+            switch (msg.what) {
+                case MESSAGE_PROCESS_ADD_TO_NOW_PLAYING:
+                    removeMessages(MESSAGE_INTERNAL_CMD_TIMEOUT);
+                    broadcastAddToNowPlayingResult(msg.arg1);
+                    transitionTo(mConnected);
+                    break;
+
+                case MESSAGE_INTERNAL_CMD_TIMEOUT:
+                    transitionTo(mConnected);
+                    break;
+
+                case MESSAGE_PROCESS_UIDS_CHANGED:
+                    processUIDSChange(msg);
+                    break;
+
+                default:
+                    Log.d(STATE_TAG, "deferring message " + msg + " to connected!");
+                    deferMessage(msg);
+            }
+            return true;
+        }
+    }
+
 
     protected class Disconnecting extends State {
         @Override
@@ -894,6 +1380,21 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
         // we should disacrd, all currently queuedup messages.
         quitNow();
+    }
+
+    private void processUIDSChange(Message msg) {
+        BluetoothDevice device = (BluetoothDevice) msg.obj;
+        int uidCounter = msg.arg1;
+        if (DBG) {
+            Log.d(TAG, " processUIDSChange device: " + device + ", uidCounter: " + uidCounter);
+        }
+        mUidCounter = uidCounter;
+
+        // Refresh Root node and Now Playing List
+        mBrowseTree.mRootNode.setCached(false);
+        requestContents(mBrowseTree.mRootNode);
+        mBrowseTree.mNowPlayingNode.setCached(false);
+        requestContents(mBrowseTree.mNowPlayingNode);
     }
 
     private void setAbsVolume(int absVol, int label) {
@@ -1025,6 +1526,22 @@ class AvrcpControllerStateMachine extends StateMachine {
             logD("onCustomAction:" + action);
             if (CUSTOM_ACTION_SEND_PASS_THRU_CMD.equals(action)) {
                  handleCustomActionSendPassThruCmd(extras);
+            } else if(CUSTOM_ACTION_SEARCH.equals(action)) {
+                handleCustomActionSearch(extras);
+            }  else if (AvrcpControllerStateMachine.CUSTOM_ACTION_ADD_TO_NOW_PLAYING.equals(action)) {
+                handleCustomActionAddToNowPlaying(extras);
+            }  else if (CUSTOM_ACTION_REQUEST_CONTINUING_RESPONSE.equals(action)) {
+                handleCustomActionRequestContinuingResponse(extras);
+            } else if (CUSTOM_ACTION_ABORT_CONTINUING_RESPONSE.equals(action)) {
+                handleCustomActionAbortContinuingResponse(extras);
+            } else if (CUSTOM_ACTION_GET_ITEM_ATTR.equals(action)) {
+                handleCustomActionGetItemAttributes(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_GET_ELEMENT_ATTR.equals(action)) {
+                handleCustomActionGetElementAttributes(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_GET_FOLDER_ITEM.equals(action)) {
+                handleCustomActionGetFolderItems(extras);
+            } else {
+                 Log.w(TAG, "Custom action " + action + " not supported.");
             }
         }
     };
@@ -1056,6 +1573,21 @@ class AvrcpControllerStateMachine extends StateMachine {
         mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
     }
 
+    private void broadcastAddToNowPlayingResult(int status) {
+        logD("broadcastAddToNowPlayingResult status: " + status);
+        broadcastResult(CUSTOM_ACTION_ADD_TO_NOW_PLAYING, status);
+    }
+
+    private void broadcastResult(String cmd, int status) {
+        int result = getResult(status);
+        logD("broadcastResult cmd: " + cmd + ", result: " + result + ", status: " + status);
+
+        Intent intent = new Intent(ACTION_CUSTOM_ACTION_RESULT);
+        intent.putExtra(EXTRA_CUSTOM_ACTION, cmd);
+        intent.putExtra(EXTRA_CUSTOM_ACTION_RESULT, result);
+
+        mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
+    }
 
     private boolean shouldRequestFocus() {
         return mService.getResources()
@@ -1071,4 +1603,105 @@ class AvrcpControllerStateMachine extends StateMachine {
         int state = extras.getInt(KEY_STATE);
         sendMessage(MSG_AVRCP_PASSTHRU_EXT, cmd, state);
    }
+
+    private void handleCustomActionSearch(Bundle extras) {
+        logD("handleCustomActionSearch extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        String searchQuery = extras.getString(KEY_SEARCH);
+        sendMessage(MSG_AVRCP_SEARCH, searchQuery);
+    }
+
+    public void handleCustomActionAddToNowPlaying(Bundle extras) {
+        logD("handleCustomActionAddToNowPlaying extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        String mediaId = extras.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
+        sendMessage(MSG_AVRCP_ADD_TO_NOW_PLAYING, mediaId);
+    }
+
+    public void handleCustomActionGetItemAttributes(Bundle extras) {
+        logD("handleCustomActionGetItemAttributes extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        sendMessage(MSG_AVRCP_GET_ITEM_ATTR, extras);
+    }
+
+    private void broadcastNumOfItems(String cmd, int status, int items) {
+        logD("broadcastNumOfItems cmd: " + cmd + ", status: " + status + ", items: " + items);
+        Intent intent = createIntent(cmd, status);
+        intent.putExtra(EXTRA_NUM_OF_ITEMS, items);
+        mService.sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
+    }
+
+    private Intent createIntent(String cmd, int status) {
+        int result = getResult(status);
+        Intent intent = new Intent(ACTION_CUSTOM_ACTION_RESULT);
+        intent.putExtra(EXTRA_CUSTOM_ACTION, cmd);
+        intent.putExtra(EXTRA_CUSTOM_ACTION_RESULT, result);
+        return intent;
+    }
+
+    private int getResult(int status) {
+        switch (status) {
+            case AvrcpControllerService.JNI_AVRC_STS_NO_ERROR:
+                return RESULT_SUCCESS;
+
+            case AvrcpControllerService.JNI_AVRC_STS_INVALID_CMD:
+                return RESULT_NOT_SUPPORTED;
+
+            case AvrcpControllerService.JNI_AVRC_STS_INVALID_PARAMETER:
+            case AvrcpControllerService.JNI_AVRC_STS_INVALID_SCOPE:
+            case AvrcpControllerService.JNI_AVRC_INV_RANGE:
+                return RESULT_INVALID_PARAMETER;
+
+            default:
+                return RESULT_ERROR;
+        }
+    }
+
+    public void handleCustomActionRequestContinuingResponse(Bundle extras) {
+        logD("handleCustomActionRequestContinuingResponse extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        int pduId = extras.getInt(KEY_PDU_ID, 0);
+        sendMessage(MSG_AVRCP_REQUEST_CONTINUING_RESPONSE, pduId, 0);
+    }
+
+    public void handleCustomActionAbortContinuingResponse(Bundle extras) {
+        logD("handleCustomActionAbortContinuingResponse extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        int pduId = extras.getInt(KEY_PDU_ID, 0);
+        sendMessage(MSG_AVRCP_ABORT_CONTINUING_RESPONSE, pduId, 0);
+    }
+
+
+    public void handleCustomActionGetElementAttributes(Bundle extras) {
+        logD("handleCustomActionGetElementAttributes extras" + extras);
+        if (extras == null) {
+            return;
+        }
+
+        sendMessage(MSG_AVRCP_GET_ELEMENT_ATTR, extras);
+    }
+
+    public void handleCustomActionGetFolderItems(Bundle extras) {
+        logD("handleCustomActionGetFolderItems extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        sendMessage(MSG_GET_FOLDER_ITEMS_PTS, extras);
+    }
 }

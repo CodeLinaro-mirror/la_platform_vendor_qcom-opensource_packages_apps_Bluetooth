@@ -44,15 +44,33 @@ class AvrcpPlayer {
     public static final int FEATURE_FORWARD = 47;
     public static final int FEATURE_PREVIOUS = 48;
     public static final int FEATURE_BROWSING = 59;
+    public static final int FEATURE_ADD_TO_NOWPLAYING = 61;
+
+    // Same to BTRC_FEATURE_BIT_MASK_SIZE in bt_rc.h
+    public static final int FEATURE_BIT_MASK_SIZE = 16;
+
+    // Octect value for Feature Bit Mask
+    public static final int UIDS_UNIQUE_OCTECT_VALUE = 7;
+    // Bit value for Feature Bit Mask
+    public static final int UIDS_UNIQUE_BIT_VALUE = 2 << 6;
+
+    // Octect value for Searching
+    public static final int SEARCHING_OCTECT_VALUE = 7;
+    // Bit value for Searching
+    public static final int SEARCHING_BIT_VALUE = 1 << 4;
 
     private int mPlayStatus = PlaybackState.STATE_NONE;
     private long mPlayTime = PlaybackState.PLAYBACK_POSITION_UNKNOWN;
+    //TODO: RAMESH
+    //private int mPlayStatus = PlaybackStateCompat.STATE_NONE;
+    //private long mPlayTime = PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN;
+
     private long mPlayTimeUpdate = 0;
     private float mPlaySpeed = 1;
     private int mId;
     private String mName = "";
     private int mPlayerType;
-    private byte[] mPlayerFeatures;
+    private byte[] mPlayerFeatures = new byte[FEATURE_BIT_MASK_SIZE];
     private long mAvailableActions;
     private MediaMetadata mCurrentTrack;
     private PlaybackState mPlaybackState;
@@ -82,12 +100,41 @@ class AvrcpPlayer {
         mPlaybackState = playbackStateBuilder.build();
     }
 
+    public void setId(int id) {
+        mId = id;
+    }
+
     public int getId() {
         return mId;
     }
 
+    public void setName(String name) {
+        mName = name;
+    }
+
     public String getName() {
         return mName;
+    }
+
+    public void setPlayerFeatures(byte[] playerFeatures) {
+        System.arraycopy(playerFeatures, 0, mPlayerFeatures, 0, FEATURE_BIT_MASK_SIZE);
+    }
+
+    public byte[] getPlayerFeatures() {
+        return mPlayerFeatures;
+    }
+
+    public boolean isSearchingSupported() {
+        return isFeatureSupported(SEARCHING_OCTECT_VALUE, SEARCHING_BIT_VALUE);
+    }
+
+    private boolean isFeatureSupported(int octVal, int bitVal) {
+        if (octVal < FEATURE_BIT_MASK_SIZE) {
+            byte flag = mPlayerFeatures[octVal];
+            return (flag & bitVal) == bitVal ? true : false;
+        } else {
+            return false;
+        }
     }
 
     public void setPlayTime(int playTime) {
@@ -135,6 +182,10 @@ class AvrcpPlayer {
         int byteNumber = featureId / 8;
         byte bitMask = (byte) (1 << (featureId % 8));
         return (mPlayerFeatures[byteNumber] & bitMask) == bitMask;
+    }
+
+    public boolean isAddToNowPlayingSupported() {
+        return supportsFeature(FEATURE_ADD_TO_NOWPLAYING);
     }
 
     public PlaybackState getPlaybackState() {
