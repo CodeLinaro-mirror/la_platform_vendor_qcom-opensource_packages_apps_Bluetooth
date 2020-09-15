@@ -24,6 +24,7 @@ import android.bluetooth.IBluetoothAvrcpController;
 import android.content.Intent;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.support.v4.media.session.PlaybackStateCompat;
+import android.media.session.PlaybackState;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -83,6 +84,16 @@ public class AvrcpControllerService extends ProfileService {
     public static final int PASS_THRU_CMD_ID_REWIND = 0x48;
     public static final int PASS_THRU_CMD_ID_FORWARD = 0x4B;
     public static final int PASS_THRU_CMD_ID_BACKWARD = 0x4C;
+
+    /*
+     * AVRCP Error types as defined in spec. Also they should be in sync with btrc_status_t
+     * NOTE: Not all may be defined.
+     */
+    public static final int JNI_AVRC_STS_INVALID_CMD = 0x00;
+    public static final int JNI_AVRC_STS_INVALID_PARAMETER = 0x01;
+    public static final int JNI_AVRC_STS_NO_ERROR = 0x04;
+    public static final int JNI_AVRC_STS_INVALID_SCOPE = 0x0a;
+    public static final int JNI_AVRC_INV_RANGE = 0x0b;
 
     /* Key State Variables */
     public static final int KEY_STATE_PRESSED = 0;
@@ -622,8 +633,28 @@ public class AvrcpControllerService extends ProfileService {
                             + transportFlags + " play status " + playStatus + " player type "
                             + playerType);
         }
+        int playbackState = PlaybackState.STATE_NONE;
+        switch (playStatus) {
+            case JNI_PLAY_STATUS_STOPPED:
+                playbackState =  PlaybackState.STATE_STOPPED;
+                break;
+            case JNI_PLAY_STATUS_PLAYING:
+                playbackState =  PlaybackState.STATE_PLAYING;
+                break;
+            case JNI_PLAY_STATUS_PAUSED:
+                playbackState = PlaybackState.STATE_PAUSED;
+                break;
+            case JNI_PLAY_STATUS_FWD_SEEK:
+                playbackState = PlaybackState.STATE_FAST_FORWARDING;
+                break;
+            case JNI_PLAY_STATUS_REV_SEEK:
+                playbackState = PlaybackState.STATE_FAST_FORWARDING;
+                break;
+            default:
+                playbackState = PlaybackState.STATE_NONE;
+        }
         BluetoothDevice device = mAdapter.getRemoteDevice(address);
-        AvrcpPlayer player = new AvrcpPlayer(device, id, name, transportFlags, playStatus,
+        AvrcpPlayer player = new AvrcpPlayer(device, id, name, transportFlags, playbackState,
                 playerType);
         return player;
     }
@@ -688,6 +719,20 @@ public class AvrcpControllerService extends ProfileService {
         AvrcpControllerStateMachine stateMachine = getStateMachine(device);
         if (stateMachine != null) {
             stateMachine.nowPlayingContentChanged();
+        }
+    }
+
+    private void handleSearchRsp(byte[] address, int status, int uid, int items) {
+        if (DBG) {
+            Log.d(TAG, "handleSearchRsp status: " + status + ", uid: " + uid + ", items: " + items);
+        }
+        BluetoothDevice device = mAdapter.getRemoteDevice(address);
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_SEARCH_RESP, status, items);
         }
     }
 
@@ -919,4 +964,22 @@ public class AvrcpControllerService extends ProfileService {
      * @param playerId player number
      */
     public native void setAddressedPlayerNative(byte[] address, int playerId);
+
+    /**
+     * Search
+     *
+     * @param address      address
+     * @param address      charset
+     * @param strLen       strLen
+     * @param pattern      pattern
+     */
+    public native static void searchNative(byte[] address, int charset, int strLen, String pattern);
+    /**
+     * Get Search List
+     *
+     * @param address      address
+     * @param address      start
+     * @param strLen       end
+     */
+    public native static void getSearchListNative(byte[] address, int start, int end);
 }
