@@ -1425,6 +1425,12 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     return JNI_ERR;
   }
 
+  status = android::register_com_android_bluetooth_bap_broadcast(e);
+  if (status < 0) {
+    ALOGE("jni bap broadcast registration failure: %d", status);
+    return JNI_ERR;
+  }
+
   status = android::register_com_android_bluetooth_hearing_aid(e);
   if (status < 0) {
     ALOGE("jni hearing aid registration failure: %d", status);
@@ -1443,5 +1449,10 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     return JNI_ERR;
   }
 
+  status = android::register_com_android_bluetooth_csip_client(e);
+  if (status < 0) {
+    ALOGE("jni csip registration failure: %d", status);
+    return JNI_ERR;
+  }
   return JNI_VERSION_1_6;
 }

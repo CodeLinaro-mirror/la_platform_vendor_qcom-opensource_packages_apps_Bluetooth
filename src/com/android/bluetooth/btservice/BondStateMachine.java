@@ -47,6 +47,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Iterator;
+
 
 /**
  * This state machine handles Bluetooth Adapter State.
@@ -70,6 +74,7 @@ final class BondStateMachine extends StateMachine {
     static final int BOND_STATE_NONE = 0;
     static final int BOND_STATE_BONDING = 1;
     static final int BOND_STATE_BONDED = 2;
+    static final int ADD_DEVICE_BOND_QUEUE = 11;
 
     private AdapterService mAdapterService;
     private AdapterProperties mAdapterProperties;
@@ -89,6 +94,12 @@ final class BondStateMachine extends StateMachine {
 
     private final ArrayList<BluetoothDevice> mDevices =
         new ArrayList<BluetoothDevice>();
+
+    private final HashMap<BluetoothDevice, Integer> mBondingQueue
+        = new HashMap<BluetoothDevice, Integer>();
+
+    private final HashMap<BluetoothDevice, Integer> mBondingDevStatus
+        = new HashMap<BluetoothDevice, Integer>();
 
     private BondStateMachine(PowerManager pm, AdapterService service,
             AdapterProperties prop, RemoteDevices remoteDevices) {
@@ -170,6 +181,23 @@ final class BondStateMachine extends StateMachine {
                         Log.e(TAG, "In stable state, received invalid newState: "
                                 + state2str(newState));
                     }
+                    break;
+                 case ADD_DEVICE_BOND_QUEUE:
+                    int setIdentifer = msg.arg1;
+                    Log.i(TAG, "Adding to bonding queue in stable state "
+                        +dev.getAddress());
+                    Integer setId = new Integer(setIdentifer);
+                    mBondingQueue.put(dev , setId);
+                    mBondingDevStatus.put(dev, 0);
+
+                    if (mDevices.size() == 0) {
+                        if (mAdapterService.isSdpCompleted(dev)) {
+                            boolean status = createBond(dev, 0, null, true);
+                            if (status)
+                                mBondingDevStatus.put(dev, 1);
+                        }
+                    }
+
                     break;
                 case UUID_UPDATE:
                     if (mPendingBondedDevices.contains(dev)) {
@@ -308,11 +336,29 @@ final class BondStateMachine extends StateMachine {
                     }
 
                     break;
+                case ADD_DEVICE_BOND_QUEUE:
+                    int setIdentifer = msg.arg1;
+                    Log.i(TAG, "Adding to bonding queue pendingState " + dev.getAddress());
+                    Integer setId = new Integer(setIdentifer);
+                    //mAdapterProperties.onBondStateChanged(dev, BluetoothDevice.BOND_NONE);
+                    mBondingQueue.put(dev , setId);
+                    mBondingDevStatus.put(dev, 0);
+
+                    if (mDevices.size() == 0) {
+                        if (mAdapterService.isSdpCompleted(dev)) {
+                            boolean status = createBond(dev, 0, null, true);
+                            if (status)
+                                mBondingDevStatus.put(dev, 1);
+                        }
+                    }
+
+                    break;
                 default:
                     Log.e(TAG, "Received unhandled event:" + msg.what);
                     return false;
             }
             if (result) {
+                Log.i(TAG, "Adding to Device Queue" +dev.getAddress());
                 mDevices.add(dev);
             }
 
@@ -359,6 +405,10 @@ final class BondStateMachine extends StateMachine {
             infoLog("Bond address is:" + dev);
             byte[] addr = Utils.getBytesFromAddress(dev.getAddress());
             boolean result;
+            if (mAdapterService.isLeAudioDevice(dev)) {
+                infoLog("createBond LE AUDIO DEVICE going through LE Transport " + dev);
+                transport = BluetoothDevice.TRANSPORT_LE;
+            }
             if (oobData != null) {
                 result = mAdapterService.createBondOutOfBandNative(addr, transport, oobData);
             } else {
@@ -404,6 +454,39 @@ final class BondStateMachine extends StateMachine {
         mWakeLock.release();
     }
 
+    private BluetoothDevice getNextBondingCsipDevice() {
+
+        Iterator<Map.Entry<BluetoothDevice, Integer>> tmpItr
+            = mBondingDevStatus.entrySet().iterator();
+
+        while (tmpItr.hasNext()) {
+            Map.Entry<BluetoothDevice, Integer> setMember
+                = (Map.Entry)tmpItr.next();
+            if (setMember != null) {
+                BluetoothDevice device = setMember.getKey();
+                int bondStatus = setMember.getValue().intValue();
+                if (bondStatus == 0) {
+                  infoLog("Found device with status 0 " + device.getAddress());
+                  return device;
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isLeaDevice(BluetoothDevice device) {
+        if (mAdapterService.isLeAudioDevice(device))
+            return true;
+
+        if(mBondingQueue.containsKey(device)) {
+            infoLog("Found isLeaDevice in CSIP Bonding Queue "
+                + device.getAddress());
+            return true;
+        }
+
+        return false;
+    }
+
     @VisibleForTesting
     void sendIntent(BluetoothDevice device, int newState, int reason) {
         DeviceProperties devProp = mRemoteDevices.getDeviceProperties(device);
@@ -443,8 +526,9 @@ final class BondStateMachine extends StateMachine {
 
         mAdapterProperties.onBondStateChanged(device, newState);
 
-        if (devProp != null && ((devProp.getDeviceType() == BluetoothDevice.DEVICE_TYPE_CLASSIC
-                || devProp.getDeviceType() == BluetoothDevice.DEVICE_TYPE_DUAL)
+        if (devProp != null && (((devProp.getDeviceType() == BluetoothDevice.DEVICE_TYPE_CLASSIC
+                || devProp.getDeviceType() == BluetoothDevice.DEVICE_TYPE_DUAL) ||
+                (isLeaDevice(device)))
                 && newState == BluetoothDevice.BOND_BONDED && devProp.getUuids() == null)) {
             infoLog(device + " is bonded, wait for SDP complete to broadcast bonded intent");
             if (!mPendingBondedDevices.contains(device)) {
@@ -454,10 +538,16 @@ final class BondStateMachine extends StateMachine {
                 // Broadcast NONE->BONDING for NONE->BONDED case.
                 newState = BluetoothDevice.BOND_BONDING;
             } else {
+                if (newState == BluetoothDevice.BOND_BONDED ) {
+                    mAdapterProperties.updateSdpProgress(device, false /*SDP pending*/);
+                }
                 return;
             }
         }
 
+        if (newState == BluetoothDevice.BOND_BONDED ) {
+            mAdapterProperties.updateSdpProgress(device, true /* SDP Completed */);
+        }
         Intent intent = new Intent(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.putExtra(BluetoothDevice.EXTRA_BOND_STATE, newState);
@@ -465,9 +555,75 @@ final class BondStateMachine extends StateMachine {
         if (newState == BluetoothDevice.BOND_NONE) {
             intent.putExtra(BluetoothDevice.EXTRA_REASON, reason);
         }
+        if (newState == BluetoothDevice.BOND_BONDED) {
+            int validAddr = devProp.getLeaValidAddr();
+            if (validAddr == 0) {
+                intent.putExtra(BluetoothDevice.EXTRA_IS_PRIVATE_ADDRESS, true);
+            }
+            infoLog("SEND INTENT of " + device + "with validAddr " + validAddr);
+        }
+
+        if (mAdapterService.isLeAudioDevice(device) &&
+            (newState == BluetoothDevice.BOND_BONDED)) {
+            if (mAdapterService.isCsipDevice(device)) {
+                int csipSetId = mAdapterService.csipGetSetId(device);
+                if ((csipSetId >= 0) && csipSetId <= 15) {
+                    infoLog("SEND INTENT of " + device +
+                        " with setid " + csipSetId);
+                    intent.putExtra(BluetoothDevice.EXTRA_GROUP_ID, csipSetId);
+                }
+            } else {
+                BluetoothDevice mapBdAddr =
+                    mAdapterService.getIdentityAddress(device);
+                if (mapBdAddr != null) {
+                    if  (mBondingQueue.containsKey(mapBdAddr)) {
+                        infoLog(" Mapped Address in the queue" + mapBdAddr);
+                        Integer setid = mBondingQueue.get(mapBdAddr);
+                        if ((setid != null)
+                            && ((setid.intValue() >= 0)  && ((setid.intValue() <= 15)))) {
+                            infoLog("Device in Bonding queue" + device
+                                + " with setid " + setid);
+                            intent.putExtra(BluetoothDevice.EXTRA_GROUP_ID, setid);
+                        }
+                    }
+                }
+            }
+        }
         mAdapterService.sendBroadcastAsUser(intent, UserHandle.ALL, AdapterService.BLUETOOTH_PERM);
         infoLog("Bond State Change Intent:" + device + " " + state2str(oldState) + " => "
                 + state2str(newState));
+
+        //TODO Move below code separate API
+        if (newState == BluetoothDevice.BOND_NONE ||
+            newState == BluetoothDevice.BOND_BONDED) {
+            if(mBondingQueue.containsKey(device)) {
+                if (mAdapterService.isCsipDevice(device) &&
+                    (newState == BluetoothDevice.BOND_NONE)) {
+                    //int setid = mBondingQueue.get(device);
+                    //TODO Inform CSIP profile about Failed Bond
+                }
+                infoLog("Removing Device from Bonding Queue");
+                mBondingQueue.remove(device);
+                mBondingDevStatus.remove(device);
+            }
+            infoLog("Bonded Completed " + device);
+            infoLog("mBondingDevStatus size " + mBondingDevStatus.size());
+            //TODO Move below code to separate API
+            if (mBondingDevStatus.size() > 0) {
+                BluetoothDevice dev =  getNextBondingCsipDevice();
+                infoLog("Try to bond next device in queue " + dev);
+                if (dev != null) {
+                    if (createBond(dev, 0, null, true)) {
+                        infoLog("Bonding next Device from Bonding Queue"
+                            + dev.getAddress());
+                        mBondingDevStatus.put(dev, 1);
+                    } else {
+                        infoLog("Failed Retry Next time "
+                            +dev.getAddress() + " bond state " + dev.getBondState());
+                    }
+                }
+            }
+        }
     }
 
     void bondStateChangeCallback(int status, byte[] address, int newState) {

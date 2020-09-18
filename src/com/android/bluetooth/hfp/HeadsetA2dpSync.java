@@ -40,7 +40,9 @@ import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import java.util.List;
-
+import com.android.bluetooth.bms.BapBroadcastService;
+import com.android.bluetooth.btservice.ServiceFactory;
+import android.bluetooth.BluetoothBapBroadcast;
 /**
  * Defines methods used for synchronization between HFP and A2DP
  */
@@ -71,7 +73,7 @@ public class HeadsetA2dpSync {
     public static final int A2DP_DISCONNECTING = 3;
     public static final int A2DP_PLAYING = 4;// this implies connected and PLaying
     public static final int A2DP_SUSPENDED = 5;
-
+    ServiceFactory mFactory = new ServiceFactory();
     HeadsetA2dpSync(HeadsetSystemInterface systemInterface,HeadsetService service) {
         mSystemInterface = systemInterface;
         mHeadsetService = service;
@@ -130,6 +132,7 @@ public class HeadsetA2dpSync {
 
         Log.d(TAG," suspendA2DP currPlayingState = "+ a2dpState + " for reason " + reason
               + "mA2dpSuspendTriggered = " + mA2dpSuspendTriggered + " for device " + device);
+        BapBroadcastService bapBroadcastService = mFactory.getBapBroadcastService();
 
         a2dpSuspendStatus = mSystemInterface.getAudioManager().getParameters("A2dpSuspended");
 
@@ -141,8 +144,27 @@ public class HeadsetA2dpSync {
             if(a2dpState == A2DP_PLAYING) {
                 // we are still waiting for suspend from a2dp.Caller shld wait
                 return true;
+            } else if (bapBroadcastService != null && bapBroadcastService.isBapBroadcastActive()){
+                if (bapBroadcastService.isBapBroadcastStreaming()) {
+                    return true;
+                } else {
+                    return false;
+                }
             } else {
                 // not playing, caller need not wait.
+                return false;
+            }
+        }
+        if (bapBroadcastService != null && bapBroadcastService.isBapBroadcastActive()) {
+            if (bapBroadcastService.isBapBroadcastStreaming()) {
+                Log.d(TAG," BapBroadcast Playing ,wait for suspend ");
+                mA2dpSuspendTriggered = reason;
+                mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+                return true;
+            } else {
+                mA2dpSuspendTriggered = reason;
+                mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+                Log.d(TAG," BapBroadcast is in configured state, dont wait for suspend");
                 return false;
             }
         }
@@ -266,5 +288,27 @@ public class HeadsetA2dpSync {
             break;
         }
         Log.d(TAG," device: " + device + " state = " + mA2dpConnState.get(device));
+    }
+
+    public void updateBapBroadcastState(Intent intent) {
+        int currState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE,
+                                       BluetoothBapBroadcast.STATE_DISABLED);
+        Log.d(TAG,"updateBapBroadcastState: " + currState);
+        switch(currState) {
+        case BluetoothBapBroadcast.STATE_ENABLED:
+            if (mA2dpSuspendTriggered != A2DP_SUSPENDED_NOT_TRIGGERED) {
+                Log.d(TAG,"updateBapBroadcastState: stream suspended");
+                mHeadsetService.sendA2dpStateChangeUpdate(BluetoothA2dp.STATE_NOT_PLAYING);
+            }
+            break;
+        case BluetoothBapBroadcast.STATE_STREAMING:
+            // if call/ ring is ongoing and we received playing,
+            // we need to suspend
+            if (mHeadsetService.isInCall() || mHeadsetService.isRinging()) {
+                Log.d(TAG," CALL/Ring is active ");
+                suspendA2DP(A2DP_SUSPENDED_BY_CS_CALL, mDummyDevice);
+            }
+            break;
+        }
     }
 }

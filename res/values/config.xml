@@ -28,12 +28,15 @@
     <bool name="profile_supported_map">true</bool>
     <bool name="profile_supported_avrcp_target">true</bool>
     <bool name="profile_supported_avrcp_controller">true</bool>
+    <bool name="profile_supported_bac">true</bool>
     <bool name="profile_supported_sap">true</bool>
     <bool name="profile_supported_pbapclient">false</bool>
     <bool name="profile_supported_mapmce">false</bool>
+    <bool name="profile_supported_bap_broadcast">true</bool>
     <bool name="profile_supported_hid_device">true</bool>
     <bool name="profile_supported_le_audio">true</bool>
     <bool name="profile_supported_ba">false</bool>
+    <bool name="profile_supported_csip">true</bool>
 
     <!-- If true, we will require location to be enabled on the device to
          fire Bluetooth LE scan result callbacks in addition to having one

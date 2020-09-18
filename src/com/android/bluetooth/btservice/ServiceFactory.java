@@ -19,11 +19,13 @@ package com.android.bluetooth.btservice;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.avrcp.AvrcpTargetService;
+import com.android.bluetooth.csipclient.CsipService;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hid.HidDeviceService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.pan.PanService;
+import com.android.bluetooth.bms.BapBroadcastService;
 
 // Factory class to create instances of static services. Useful in mocking the service objects.
 public class ServiceFactory {
@@ -47,6 +49,10 @@ public class ServiceFactory {
         return PanService.getPanService();
     }
 
+    public BapBroadcastService getBapBroadcastService() {
+        return BapBroadcastService.getBapBroadcastService();
+    }
+
     public HearingAidService getHearingAidService() {
         return HearingAidService.getHearingAidService();
     }
@@ -58,4 +64,9 @@ public class ServiceFactory {
     public AvrcpTargetService getAvrcpTargetService() {
         return AvrcpTargetService.get();
     }
+
+    public CsipService getCsipService() {
+        return CsipService.getCsipService();
+    }
+
 }

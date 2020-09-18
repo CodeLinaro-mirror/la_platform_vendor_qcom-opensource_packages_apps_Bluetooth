@@ -68,10 +68,13 @@ import android.os.ParcelUuid;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothStatsLog;
+import com.android.bluetooth.csipclient.CsipService;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.hfp.HeadsetHalConstants;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.ArrayUtils;
+
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -81,7 +84,7 @@ import java.util.Queue;
 import java.util.Set;
 
 final class RemoteDevices {
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
     private static final String TAG = "BluetoothRemoteDevices";
 
     // Maximum number of device properties to remember
@@ -261,15 +264,31 @@ final class RemoteDevices {
         private short mTwsPlusDevType;
         private byte[] peerEbAddress;
         private boolean autoConnect;
+        private boolean mSdpProgress;
+        public final ParcelUuid BR_TRANSPORT_UUID =
+            ParcelUuid.fromString("87564312-0000-1000-8000-00805F9B34FB");
+        public final ParcelUuid LE_TRANSPORT_UUID =
+            ParcelUuid.fromString("87564313-0000-1000-8000-00805F9B34FB");
         @VisibleForTesting int mBondState;
         @VisibleForTesting int mDeviceType;
         @VisibleForTesting ParcelUuid[] mUuids;
+        @VisibleForTesting int mUuidTransport;
+        @VisibleForTesting int mLeaAddrValid;
+        @VisibleForTesting ArrayList<ParcelUuid> mLeaUuids;
+        @VisibleForTesting boolean mLeaUpdateProp;
+        @VisibleForTesting byte[] mMapBdAddress;
+		@VisibleForTesting HashMap<ParcelUuid, Integer> uuidsByTransport;
 
         DeviceProperties() {
             mBondState = BluetoothDevice.BOND_NONE;
             mTwsPlusDevType = AbstractionLayer.TWS_PLUS_DEV_TYPE_NONE;
             autoConnect = true;
+            mSdpProgress = true; // Only for LE Audio
             peerEbAddress = null;
+            mLeaAddrValid = 1;
+            mLeaUuids = new ArrayList<ParcelUuid>();
+            mLeaUpdateProp = true;
+			uuidsByTransport = new HashMap<ParcelUuid, Integer>();
         }
 
         /**
@@ -476,12 +495,58 @@ final class RemoteDevices {
             }
         }
 
+        int getLeaValidAddr() {
+            synchronized (mObject) {
+                return mLeaAddrValid;
+            }
+        }
+
+        byte[] getMappingAddr() {
+            synchronized (mObject) {
+                debugLog(" getMappingAddr " + mMapBdAddress);
+                return mMapBdAddress;
+            }
+        }
+
+        int getUuidTransport (ParcelUuid uuid) {
+            synchronized (mObject) {
+                debugLog(" getUuidTransport ");
+                return (uuidsByTransport.get(uuid).intValue());
+            }
+        }
+
         /**
          * @param batteryLevel the mBatteryLevel to set
          */
         void setBatteryLevel(int batteryLevel) {
             synchronized (mObject) {
                 this.mBatteryLevel = batteryLevel;
+            }
+        }
+
+        void setDefaultLeaAddr() {
+            synchronized (mObject) {
+              this.mLeaAddrValid = 1;
+            }
+        }
+
+        void setBluetoothClass(int mBluetoothClass) {
+            synchronized (mObject) {
+                this.mBluetoothClass = mBluetoothClass;
+            }
+        }
+
+        void setSdpProgress(boolean sdpProgress) {
+            synchronized (mObject) {
+              if (mSdpProgress != sdpProgress) {
+                  mSdpProgress = sdpProgress;
+              }
+            }
+        }
+
+        boolean isSdpCompleted() {
+            synchronized (mObject) {
+                return mSdpProgress;
             }
         }
     }
@@ -653,42 +718,169 @@ final class RemoteDevices {
                         case AbstractionLayer.BT_PROPERTY_CLASS_OF_DEVICE:
                             final int newClass = Utils.byteArrayToInt(val);
                             if (newClass == device.mBluetoothClass) {
-                                debugLog("Skip class update for " + bdDevice);
-                                break;
+                              debugLog("Skip class update for " + bdDevice);
+                              break;
                             }
+                            int tmpBluetoothClass = device.getBluetoothClass();
+                            debugLog("Remote after le audio class is:"
+                                + tmpBluetoothClass + " " + bdDevice);
                             device.mBluetoothClass = Utils.byteArrayToInt(val);
+                            if (tmpBluetoothClass
+                                != BluetoothClass.Device.Major.UNCATEGORIZED) {
+                              if ((tmpBluetoothClass & (BluetoothClass.Service.GROUP))
+                                  == BluetoothClass.Service.GROUP) {
+                                debugLog("Remote after le audio class is:"
+                                    + device.mBluetoothClass + device);
+                                device.mBluetoothClass |= BluetoothClass.Service.GROUP;
+                                  }
+                            }
                             intent = new Intent(BluetoothDevice.ACTION_CLASS_CHANGED);
                             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, bdDevice);
                             intent.putExtra(BluetoothDevice.EXTRA_CLASS,
-                                    new BluetoothClass(device.mBluetoothClass));
+                                new BluetoothClass(device.mBluetoothClass));
                             intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
                             sAdapterService.sendBroadcast(intent, sAdapterService.BLUETOOTH_PERM);
                             debugLog("Remote class is:" + device.mBluetoothClass);
                             break;
                         case AbstractionLayer.BT_PROPERTY_UUIDS:
-                            int numUuids = val.length / AbstractionLayer.BT_UUID_SIZE;
-                            final ParcelUuid[] newUuids = Utils.byteArrayToUuid(val);
-                            if (areUuidsEqual(newUuids, device.mUuids)) {
+                            if (device.mLeaUpdateProp) {
+                                int numUuids = val.length / AbstractionLayer.BT_UUID_SIZE;
+                                final ParcelUuid[] newUuids = Utils.byteArrayToUuid(val);
+                                if (areUuidsEqual(newUuids, device.mUuids)) {
+                                    debugLog( "Skip uuids update for " + bdDevice.getAddress());
+                                    break;
+                                }
+                                debugLog(" BT_PROPERTY_UUIDS " + bdDevice.getAddress());
+                                device.mUuids = newUuids;
+                                if ((sAdapterService.getState() == BluetoothAdapter.STATE_ON) &&
+                                                                device.autoConnect) {
+                                    debugLog("sendUuidIntent as Auto connect is set ");
+                                    sAdapterService.deviceUuidUpdated(bdDevice);
+                                    sendUuidIntent(bdDevice, device);
+                                }
+                            } else {
+                                debugLog(" LE_AUDIO DEVICE Skip BT_PROPERTY_UUIDS "
+                                    + bdDevice.getAddress());
+                            }
+                            break;
+                        case AbstractionLayer.BT_PROPERTY_LE_AUDIO_UUIDS:
+                            device.mLeaUpdateProp = false;
+                            int leNumUuids = val.length / AbstractionLayer.BT_UUID_SIZE;
+                            final ParcelUuid[] leNewUuids = Utils.byteArrayToUuid(val);
+                            if (areUuidsEqual(leNewUuids, device.mUuids)) {
                                 debugLog( "Skip uuids update for " + bdDevice.getAddress());
                                 break;
                             }
-                            device.mUuids = newUuids;
+                            for (int inx = 0; inx < leNewUuids.length; inx++) {
+                                if (!(device.mLeaUuids.contains(leNewUuids[inx])))
+                                    device.mLeaUuids.add(leNewUuids[inx]);
+                            }
+                            debugLog( "LE AUDIO UUIDS Update "
+                                + bdDevice.getAddress() + "Num UUIDs " + device.mLeaUuids.size());
+                            break;
+                        case AbstractionLayer.BT_PROPERTY_LE_AUDIO_ACTION_UUID:
+                            ParcelUuid[] tmpUuidArr =
+                                device.mLeaUuids.toArray(new ParcelUuid[device.mLeaUuids.size()]);
+                            device.mUuids = tmpUuidArr;
+                            debugLog("BT_PROPERTY_LE_AUDIO_ACTION_UUID SiZE"
+                                + tmpUuidArr.length +
+                                " Device uuid size " + device.mUuids.length);
                             if ((sAdapterService.getState() == BluetoothAdapter.STATE_ON) &&
                                                             device.autoConnect ) {
-                                debugLog("sendUuidIntent as Auto connect is set ");
+                                //TODO remove log
+                                debugLog("sendUuidIntent as Auto connect is set for LE AUDIO");
                                 sAdapterService.deviceUuidUpdated(bdDevice);
                                 sendUuidIntent(bdDevice, device);
                             }
+                            device.mLeaUpdateProp = true;
                             break;
                         case AbstractionLayer.BT_PROPERTY_TYPE_OF_DEVICE:
+                            debugLog("BT_PROPERTY_TYPE_OF_DEVICE " + bdDevice.getAddress());
                             // The device type from hal layer, defined in bluetooth.h,
                             // matches the type defined in BluetoothDevice.java
                             device.mDeviceType = Utils.byteArrayToInt(val);
                             break;
+                        case AbstractionLayer.BT_PROPERTY_LEA_UUID_TRANSPORT:
+                            debugLog("BT_PROPERTY_LEA_UUID_TRANSPORT "
+                                + bdDevice.getAddress());
+                            device.mUuidTransport = Utils.byteArrayToInt(val);
+                            break;
+                        case AbstractionLayer.BT_PROPERTY_LEA_VALID_ADDR:
+                            device.mLeaAddrValid = Utils.byteArrayToInt(val);
+                            debugLog("BT_PROPERTY_LEA_VALID_ADDR "
+                                + bdDevice.getAddress() + " addrValid "
+                                + device.mLeaAddrValid);
+                            break;
+                        case AbstractionLayer.BT_PROPERTY_LEA_ID_BD_ADDR:
+                            device.mMapBdAddress = val;
+                            debugLog("BT_PROPERTY_LEA_ID_BD_ADDR Remote Address MAP is:"
+                                + Utils.getAddressStringFromByte(val));
                         case AbstractionLayer.BT_PROPERTY_REMOTE_RSSI:
                             // RSSI from hal is in one byte
                             device.mRssi = val[0];
                             break;
+                        case AbstractionLayer.BT_PROPERTY_REMOTE_COORDINATED_SET:
+                            CsipService.loadCoordinatedSetFromBondedDevice(
+                                    bdDevice, new String(val));
+                            break;
+                        case AbstractionLayer.BT_PROPERTY_LEA_UUID_BY_TRANSPORT:
+                        {
+                            int numTransUuids = val.length / AbstractionLayer.BT_UUID_SIZE;
+                            final ParcelUuid[] transUuids = Utils.byteArrayToUuid(val);
+                            int bredrTransIndex = ArrayUtils.indexOf(transUuids,
+                                                    device.BR_TRANSPORT_UUID);
+                            int leTransIndex = ArrayUtils.indexOf(transUuids,
+                                                    device.LE_TRANSPORT_UUID);
+                            debugLog("BT_PROPERTY_LEA_UUID_BY_TRANSPORT Num UUIDS :"
+                                + numTransUuids + " bredrTransIndex "+ bredrTransIndex +
+                                "leTransIndex " + leTransIndex);
+                            int i, leInx = 0;
+                            if (bredrTransIndex != -1) {
+                                if (leTransIndex == -1)
+                                    leInx = numTransUuids;
+                                else
+                                    leInx = leTransIndex;
+                                //TODO Move this common functionality to separate API
+                                for (i = 1; i < leInx; i++) {
+                                    if (device.uuidsByTransport.containsKey(transUuids[i])) {
+                                        int getTransport =
+                                                device.uuidsByTransport.get(transUuids[i]).intValue();
+                                        getTransport = (getTransport |0x1) & 3;
+                                        device.uuidsByTransport.replace(transUuids[i], new Integer(getTransport));
+                                    } else {
+                                        device.uuidsByTransport.put(transUuids[i], new Integer(1));
+                                    }
+                                }
+
+                                if (leTransIndex != -1) {
+                                    for (leInx = leTransIndex + 1; leInx < numTransUuids; leInx++) {
+                                        if (device.uuidsByTransport.containsKey(transUuids[leInx])) {
+                                            int getTransport =
+                                                device.uuidsByTransport.get(transUuids[leInx]).intValue();
+                                            getTransport = (getTransport |0x2) & 3;
+                                            device.uuidsByTransport.replace(transUuids[leInx], new Integer(getTransport));
+                                        } else {
+                                            device.uuidsByTransport.put(transUuids[leInx], new Integer(2));
+                                        }
+                                    }
+                                }
+                            } else {
+                                // only LE Transport UUID's
+                                if (leTransIndex != -1) {
+                                    for (leInx = 1; leInx < numTransUuids; leInx++) {
+                                        if (device.uuidsByTransport.containsKey(transUuids[leInx])) {
+                                            int getTransport =
+                                                device.uuidsByTransport.get(transUuids[leInx]).intValue();
+                                            getTransport = (getTransport |0x2) & 3;
+                                            device.uuidsByTransport.replace(transUuids[leInx], new Integer(getTransport));
+                                        } else {
+                                            device.uuidsByTransport.put(transUuids[leInx], new Integer(2));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        break;
                     }
                 }
             }
