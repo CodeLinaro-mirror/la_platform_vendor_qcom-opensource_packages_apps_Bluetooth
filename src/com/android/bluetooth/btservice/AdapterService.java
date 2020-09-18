@@ -800,6 +800,12 @@ public class AdapterService extends Service {
         }
     }
 
+    void informTimeoutToHidl() {
+        if (isVendorIntfEnabled()) {
+            mVendor.informTimeoutToHidl();
+        }
+    }
+
     void startBrEdrCleanup(){
         mAdapterProperties.onBluetoothDisable();
         if (isVendorIntfEnabled()) {
@@ -4223,7 +4229,7 @@ public class AdapterService extends Service {
             final SoftApConfiguration config = mWifiManager.getSoftApConfiguration();
             if ((mWifiManager != null) && ((mWifiManager.isWifiEnabled() ||
                 ((mWifiManager.getWifiApState() == WifiManager.WIFI_AP_STATE_ENABLED) &&
-                (config.getBand() == SoftApConfiguration.BAND_5GHZ))))) {
+                ((config.getBand() & SoftApConfiguration.BAND_5GHZ) != 0))))) {
                 return true;
             }
             return false;
