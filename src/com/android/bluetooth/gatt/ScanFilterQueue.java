@@ -256,8 +256,8 @@ import java.util.UUID;
             addTransportDiscoveryData(filter.getOrgId(), filter.getTDSFlags(),
                 filter.getTDSFlagsMask(), filter.getWifiNANHash());
         }
-        if (filter.getPSRIFilteringValue()) {
-            addPSRIFilterEntry(filter.getPSRIFilteringValue());
+        if (filter.getGroupFilteringValue()) {
+            addPSRIFilterEntry(filter.getGroupFilteringValue());
         }
     }
 

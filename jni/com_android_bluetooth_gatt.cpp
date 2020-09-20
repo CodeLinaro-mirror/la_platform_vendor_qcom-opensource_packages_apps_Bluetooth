@@ -1554,7 +1554,7 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
     curr.org_id = env->GetIntField(current.get(), orgFid);
     curr.tds_flags = env->GetIntField(current.get(), TDSFlagsFid);
     curr.tds_flags_mask = env->GetIntField(current.get(), TDSFlagsMaskFid);
-    curr.psri_filter_enabled = env->GetBooleanField(current.get(), PSRISuppportid);
+    curr.group_filter_enabled = env->GetBooleanField(current.get(), PSRISuppportid);
 
     native_filters.push_back(curr);
   }
