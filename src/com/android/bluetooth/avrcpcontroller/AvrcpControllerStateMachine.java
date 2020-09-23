@@ -1234,6 +1234,13 @@ class AvrcpControllerStateMachine extends StateMachine {
                     processUIDSChange(msg);
                     break;
 
+                case MESSAGE_PROCESS_TRACK_CHANGED:
+                case MESSAGE_PROCESS_ATTR_CHANGED:
+                case MESSAGE_PROCESS_PLAY_POS_CHANGED:
+                case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
+                    // All of these messages should be handled by parent state immediately.
+                    return false;
+
                 default:
                     Log.d(STATE_TAG, "deferring message " + msg + " to connected!");
                     deferMessage(msg);
