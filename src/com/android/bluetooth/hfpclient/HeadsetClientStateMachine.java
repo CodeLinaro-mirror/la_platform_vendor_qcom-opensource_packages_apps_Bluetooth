@@ -207,7 +207,15 @@ public class HeadsetClientStateMachine extends StateMachine {
                 logD("zoneId:" + zoneId + ", groupId:" + groupId);
 
                 if (zoneId == CarAudioManager.PRIMARY_AUDIO_ZONE && groupId == mVolumeGroupId){
-                    int streamValue = mCarAudioManager.getGroupVolume(zoneId, groupId);
+                    int streamValue = 0;
+                    try {
+                        streamValue = mCarAudioManager.getGroupVolume(zoneId, groupId);
+                    } catch (CarNotConnectedException e) {
+                        Log.e(TAG, "Car is not connected", e);
+                    } catch (NullPointerException e) {
+                        Log.e(TAG, "mCarAudioManager is NULL!", e);
+                    }
+
                     int hfVol = amToHfVol(streamValue);
                     logD("Setting volume to audio manager: " + streamValue
                             + " hands free: " + hfVol);
@@ -882,7 +890,14 @@ public class HeadsetClientStateMachine extends StateMachine {
         routeHfpAudio(false);
         returnAudioFocusIfNecessary();
         if (mService.isAutomotive()) {
-            mCarAudioManager.unregisterCarVolumeCallback(mVolumeChangeCallback);
+            try {
+                mCarAudioManager.unregisterCarVolumeCallback(mVolumeChangeCallback);
+            } catch (CarNotConnectedException e) {
+                Log.e(TAG, "Car is not connected", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
+            }
+
             if (mCar != null && mCar.isConnected()) {
                 mCar.disconnect();
                 mCar = null;
@@ -1161,6 +1176,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                             amVol = mCarAudioManager.getGroupVolume(mVolumeGroupId);
                         } catch(CarNotConnectedException e) {
                             Log.e(TAG, "Car is not connected", e);
+                        } catch (NullPointerException e) {
+                            Log.e(TAG, "mCarAudioManager is NULL!", e);
                         }
                     } else {
                         amVol = mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
@@ -1517,6 +1534,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                                                 +mCommandedSpeakerVolume, AudioManager.FLAG_SHOW_UI);
                                     } catch (CarNotConnectedException e) {
                                         Log.e(TAG, "Car is not connected!", e);
+                                    } catch (NullPointerException e) {
+                                        Log.e(TAG, "mCarAudioManager is NULL!", e);
                                     }
                                 } else {
                                     mAudioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL,
@@ -1693,6 +1712,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                             amVol = mCarAudioManager.getGroupVolume(mVolumeGroupId);
                         } catch(CarNotConnectedException e) {
                             Log.e(TAG, "Car is not connected", e);
+                        } catch (NullPointerException e) {
+                            Log.e(TAG, "mCarAudioManager is NULL!", e);
                         }
                     }
                     final int hfVol = amToHfVol(amVol);
@@ -1878,6 +1899,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                 mCarAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected!", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
             }
         }
 

@@ -1150,6 +1150,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                 mMaxVolume = mCarAudioManager.getGroupMaxVolume(mVolumeGroupId);
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected!", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
             }
         }
 
@@ -1194,6 +1196,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                 currIndex = mCarAudioManager.getGroupVolume(mVolumeGroupId);
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
             }
 
             int newIndex = (mMaxVolume * absVol) / ABS_VOL_BASE;
@@ -1211,6 +1215,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                             AudioManager.FLAG_SHOW_UI);
                 } catch (CarNotConnectedException e) {
                     Log.e(TAG, "Car is not connected", e);
+                } catch (NullPointerException e) {
+                    Log.e(TAG, "mCarAudioManager is NULL!", e);
                 }
             }
         } else {
