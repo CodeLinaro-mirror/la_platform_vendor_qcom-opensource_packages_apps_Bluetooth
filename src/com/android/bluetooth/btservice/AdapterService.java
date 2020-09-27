@@ -782,6 +782,7 @@ public class AdapterService extends Service {
 
     void startProfileServices() {
         debugLog("startCoreServices()");
+        Config.initAdvAudioSupport(getApplicationContext());
         Class[] supportedProfileServices = Config.getSupportedProfiles();
         if (supportedProfileServices.length == 1 && GattService.class.getSimpleName()
                 .equals(supportedProfileServices[0].getSimpleName())) {
@@ -3788,6 +3789,14 @@ public class AdapterService extends Service {
     public boolean isAddonFeaturesCmdSupported() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return mAdapterProperties.isAddonFeaturesCmdSupported();
+    }
+
+    public boolean isAdvUnicastAudioFeatEnabled() {
+        return (Config.adv_audio_feature_mask & Config.ADV_AUDIO_UNICAST_FEAT_MASK) != 0;
+    }
+
+    public boolean isAdvBroadcastAudioFeatEnabled() {
+        return (Config.adv_audio_feature_mask & Config.ADV_AUDIO_BROADCAST_FEAT_MASK) != 0;
     }
 
     private BluetoothActivityEnergyInfo reportActivityInfo() {

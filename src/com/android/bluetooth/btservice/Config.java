@@ -17,9 +17,11 @@
 package com.android.bluetooth.btservice;
 
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothCodecConfig;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
+import android.media.AudioManager;
 import android.provider.Settings;
 import android.util.FeatureFlagUtils;
 import android.util.Log;
@@ -46,9 +48,15 @@ import com.android.bluetooth.sap.SapService;
 import com.android.bluetooth.ba.BATService;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class Config {
     private static final String TAG = "AdapterServiceConfig";
+
+    protected static int adv_audio_feature_mask;
+    protected static final int ADV_AUDIO_UNICAST_FEAT_MASK = 0x01;
+    protected static final int ADV_AUDIO_BROADCAST_FEAT_MASK = 0x02;
 
     private static class ProfileConfig {
         Class mClass;
@@ -106,6 +114,20 @@ public class Config {
                     (1 << BATService.BA_TRANSMITTER))
     };
 
+    /* List of Unicast LE Audio Profiles */
+    private static ArrayList<ProfileConfig> unicastAdvAudioProfiles =
+            new ArrayList<ProfileConfig>(
+                Arrays.asList(
+
+            ));
+
+    /* List of Broadcast LE Audio Profiles */
+    private static ArrayList<ProfileConfig> broadcastAdvAudioProfiles =
+            new ArrayList<ProfileConfig>(
+                Arrays.asList(
+
+            ));
+
     private static Class[] sSupportedProfiles = new Class[0];
 
     static void init(Context ctx) {
@@ -116,6 +138,10 @@ public class Config {
         if (resources == null) {
             return;
         }
+
+        // TODO: Property is set for both unicast and broadcast bits. To be removed later.
+        SystemProperties.set("persist.vendor.service.bt.adv_audio_mask", "3");
+        initAdvAudioConfig(ctx);
 
         ArrayList<Class> profiles = new ArrayList<>(PROFILE_SERVICES_AND_FLAGS.length);
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
@@ -137,6 +163,78 @@ public class Config {
             }
         }
         sSupportedProfiles = profiles.toArray(new Class[profiles.size()]);
+    }
+
+    static void initAdvAudioSupport(Context ctx) {
+        if (ctx == null) {
+            return;
+        }
+
+        Resources resources = ctx.getResources();
+        if (resources == null) {
+            return;
+        }
+
+        adv_audio_feature_mask = SystemProperties.getInt(
+                                    "persist.vendor.service.bt.adv_audio_mask", 0);
+        ArrayList<Class> profiles = new ArrayList<>();
+
+        /* Add unicast LEA profiles */
+        if ((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) {
+            for (ProfileConfig config : unicastAdvAudioProfiles) {
+                boolean supported = resources.getBoolean(config.mSupported);
+                if (supported) {
+                    Log.d(TAG, "Adding " + config.mClass.getSimpleName());
+                    profiles.add(config.mClass);
+                }
+            }
+        }
+
+        /* Add broadcast LEA profiles */
+        if ((adv_audio_feature_mask & ADV_AUDIO_BROADCAST_FEAT_MASK) != 0) {
+            for (ProfileConfig config : broadcastAdvAudioProfiles) {
+                boolean supported = resources.getBoolean(config.mSupported);
+                if (supported) {
+                    Log.d(TAG, "Adding " + config.mClass.getSimpleName());
+                    profiles.add(config.mClass);
+                }
+            }
+        }
+
+        // Copy LEA profiles to sSupportedProfiles
+        System.arraycopy(profiles.toArray(), 0, sSupportedProfiles,
+                         sSupportedProfiles.length, profiles.size());
+    }
+
+    protected static void initAdvAudioConfig (Context ctx) {
+        if (!isLC3CodecSupported(ctx)) {
+            Log.w(TAG, "LC3 Codec is not supported.");
+            adv_audio_feature_mask = SystemProperties.getInt(
+                                    "persist.vendor.service.bt.adv_audio_mask", 0);
+            adv_audio_feature_mask &= ~ADV_AUDIO_UNICAST_FEAT_MASK;
+            SystemProperties.set("persist.vendor.service.bt.adv_audio_mask",
+                String.valueOf(adv_audio_feature_mask));
+        }
+    }
+
+    protected static boolean isLC3CodecSupported(Context ctx) {
+      boolean isLC3Supported = true;
+
+      /* TODO: To be uncommented once KS:428243 change is available in AU
+      boolean isLC3Supported = false;
+      AudioManager mAudioManager = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+      List<BluetoothCodecConfig> mmSupportedCodecs =
+              mAudioManager.getHwOffloadEncodingFormatsSupportedForA2DP();
+
+      for (BluetoothCodecConfig codecConfig: mmSupportedCodecs) {
+          if (codecConfig.getCodecType() == BluetoothCodecConfig.SOURCE_CODEC_TYPE_LC3) {
+              isLC3Supported = true;
+              Log.d(TAG, " LC3 codec supported : " + codecConfig);
+              break;
+          }
+      }*/
+
+      return isLC3Supported;
     }
 
     static Class[] getSupportedProfiles() {
