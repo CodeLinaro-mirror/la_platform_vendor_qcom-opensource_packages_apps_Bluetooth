@@ -194,6 +194,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     private final AddToNowPlaying mAddToNowPlaying;
     private final GetTotalNumOfItems mGetTotalNumOfItems;
     private final Object mLock = new Object();
+    private final Object mBrowseLock = new Object();
     private static final ArrayList<MediaItem> mEmptyMediaItemList = new ArrayList<>();
     private static List<AvrcpPlayer> playerList = new ArrayList<AvrcpPlayer>();
     private static final MediaMetadata mEmptyMMD = new MediaMetadata.Builder().build();
@@ -891,9 +892,11 @@ class AvrcpControllerStateMachine extends StateMachine {
                     }
                     mCurrInd += folderList.size();
 
-                    // Always update the node so that the user does not wait forever
-                    // for the list to populate.
-                    sendFolderBroadcastAndUpdateNode();
+                    synchronized (mBrowseLock) {
+                        // Always update the node so that the user does not wait forever
+                        // for the list to populate.
+                        sendFolderBroadcastAndUpdateNode();
+                    }
 
                     if (mCurrInd > mEndInd || folderList.size() == 0) {
                         // If we have fetched all the elements or if the remotes sends us 0 elements
@@ -916,7 +919,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case MESSAGE_INTERNAL_CMD_TIMEOUT:
                     // We have timed out to execute the request, we should simply send
                     // whatever listing we have gotten until now.
-                    sendFolderBroadcastAndUpdateNode();
+                    synchronized (mBrowseLock) {
+                        sendFolderBroadcastAndUpdateNode();
+                    }
+
                     transitionTo(mConnected);
                     break;
 
@@ -1696,24 +1702,27 @@ class AvrcpControllerStateMachine extends StateMachine {
             Log.d(TAG, "To Browse folder " + bn + " is cached " + bn.isCached() +
                 " current folder " + currFolder);
         }
-        if (bn.equals(currFolder) && bn.isCached()) {
-            /* It is an ugly design to return existing children each time, the
-               new onLocadChildren request can be satisfied by the subsequent
-               broadcastFolderList */
-            if (!bn.isFetching() || currFolder.isNowPlaying()) {
-                if (DBG) {
-                    Log.d(TAG, "Same cached folder -- returning existing children.");
-                }
 
-                BrowseTree.BrowseNode n = mBrowseTree.findBrowseNodeByID(parentMediaId);
-                if (n == null) return;
-                ArrayList<MediaItem> childrenList = new ArrayList<MediaItem>();
-                for (BrowseTree.BrowseNode cn : n.getChildren()) {
-                    childrenList.add(cn.getMediaItem());
+        synchronized (mBrowseLock) {
+            if (bn.equals(currFolder) && bn.isCached()) {
+                /* It is an ugly design to return existing children each time, the
+                   new onLocadChildren request can be satisfied by the subsequent
+                   broadcastFolderList */
+                if (!bn.isFetching() || currFolder.isNowPlaying()) {
+                    if (DBG) {
+                        Log.d(TAG, "Same cached folder -- returning existing children.");
+                    }
+
+                    BrowseTree.BrowseNode n = mBrowseTree.findBrowseNodeByID(parentMediaId);
+                    if (n == null) return;
+                    ArrayList<MediaItem> childrenList = new ArrayList<MediaItem>();
+                    for (BrowseTree.BrowseNode cn : n.getChildren()) {
+                        childrenList.add(cn.getMediaItem());
+                    }
+                    broadcastFolderList(parentMediaId, childrenList);
                 }
-                broadcastFolderList(parentMediaId, childrenList);
+                return;
             }
-            return;
         }
 
         Message msg = null;
