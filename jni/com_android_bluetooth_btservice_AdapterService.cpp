@@ -453,7 +453,7 @@ static jstring create_link_key_string(JNIEnv* env, Link_Key link_key) {
 
   snprintf(c_linkkey, sizeof(c_linkkey),
            "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
-           link_key.at(0), link_key.at(1), link_key.at(3), link_key.at(4),
+           link_key.at(0), link_key.at(1), link_key.at(2), link_key.at(3),
            link_key.at(4), link_key.at(5), link_key.at(6), link_key.at(7),
            link_key.at(8), link_key.at(9), link_key.at(10), link_key.at(11),
            link_key.at(12), link_key.at(13), link_key.at(14), link_key.at(15));
