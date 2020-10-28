@@ -38,6 +38,7 @@ cc_library_shared {
         "libbluetooth-types",
         "libcutils",
         "libbluetoothqti_jni",
+        "libbluetoothqti_jni_lea",
     ],
     cflags: [
         "-Wall",
