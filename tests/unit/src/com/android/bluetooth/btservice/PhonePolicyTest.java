@@ -76,6 +76,7 @@ public class PhonePolicyTest {
         TestUtils.setAdapterService(mAdapterService);
         // Configure the maximum connected audio devices
         doReturn(MAX_CONNECTED_AUDIO_DEVICES).when(mAdapterService).getMaxConnectedAudioDevices();
+        doReturn(mDatabaseManager).when(mAdapterService).getDatabase();
         // Setup the mocked factory to return mocked services
         doReturn(mHeadsetService).when(mServiceFactory).getHeadsetService();
         doReturn(mA2dpService).when(mServiceFactory).getA2dpService();
@@ -114,6 +115,8 @@ public class PhonePolicyTest {
         when(mA2dpService.getConnectionPolicy(device))
                 .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
 
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+
         // Inject an event for UUIDs updated for a remote device with only HFP enabled
         Intent intent = new Intent(BluetoothDevice.ACTION_UUID);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
@@ -124,10 +127,12 @@ public class PhonePolicyTest {
         mPhonePolicy.getBroadcastReceiver().onReceive(null /* context */, intent);
 
         // Check that the priorities of the devices for preferred profiles are set to ON
-        verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).setConnectionPolicy(eq(device),
-                eq(BluetoothProfile.CONNECTION_POLICY_ALLOWED));
-        verify(mA2dpService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).setConnectionPolicy(eq(device),
-                eq(BluetoothProfile.CONNECTION_POLICY_ALLOWED));
+        verify(mDatabaseManager, timeout(ASYNC_CALL_TIMEOUT_MILLIS))
+                .setProfileConnectionPolicy(device, BluetoothProfile.HEADSET,
+                        BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+        verify(mDatabaseManager, timeout(ASYNC_CALL_TIMEOUT_MILLIS))
+                .setProfileConnectionPolicy(device, BluetoothProfile.A2DP,
+                        BluetoothProfile.CONNECTION_POLICY_ALLOWED);
     }
 
     /**
@@ -144,7 +149,6 @@ public class PhonePolicyTest {
 
         // Return a list of connection order
         BluetoothDevice bondedDevice = TestUtils.getTestDevice(mAdapter, 0);
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager.getMostRecentlyConnectedA2dpDevice()).thenReturn(bondedDevice);
         when(mAdapterService.getBondState(bondedDevice)).thenReturn(BluetoothDevice.BOND_BONDED);
 
@@ -180,7 +184,6 @@ public class PhonePolicyTest {
         connectionOrder.add(TestUtils.getTestDevice(mAdapter, 2));
         connectionOrder.add(TestUtils.getTestDevice(mAdapter, 3));
 
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager.getMostRecentlyConnectedA2dpDevice()).thenReturn(
                 connectionOrder.get(0));
 
@@ -303,7 +306,6 @@ public class PhonePolicyTest {
     public void testReconnectOnPartialConnect_PreviousPartialFail() {
         List<BluetoothDevice> connectionOrder = new ArrayList<>();
         connectionOrder.add(TestUtils.getTestDevice(mAdapter, 0));
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager.getMostRecentlyConnectedA2dpDevice()).thenReturn(
                 connectionOrder.get(0));
 
