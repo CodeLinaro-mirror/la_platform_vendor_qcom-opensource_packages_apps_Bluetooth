@@ -144,8 +144,9 @@ public abstract class ProfileService extends Service {
                     if ((currentState == BluetoothAdapter.STATE_TURNING_OFF &&
                         !mName.equals("BtGatt.GattService")) ||
                         (currentState == BluetoothAdapter.STATE_BLE_TURNING_OFF &&
-                        mName.equals("BtGatt.GattService")) ) {
-                            Log.d(mName, ": Received stop request...Stopping profile...");
+                        mName.equals("BtGatt.GattService"))  ||
+                        (currentState == BluetoothAdapter.STATE_OFF) ) {
+                            Log.d(mName, ": Received stop request...Stopping profile... currentState=" + currentState);
                             doStop(intent);
                     } else {
                         Log.e(mName, ":intent received late, not Stopping profile");
