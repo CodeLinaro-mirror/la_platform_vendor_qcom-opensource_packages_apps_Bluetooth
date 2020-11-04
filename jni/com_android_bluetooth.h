@@ -138,6 +138,8 @@ int register_com_android_bluetooth_a2dp(JNIEnv* env);
 
 int register_com_android_bluetooth_a2dp_sink(JNIEnv* env);
 
+int register_com_android_bluetooth_cap(JNIEnv* env);
+
 int register_com_android_bluetooth_avrcp(JNIEnv* env);
 
 int register_com_android_bluetooth_avrcp_target(JNIEnv* env);

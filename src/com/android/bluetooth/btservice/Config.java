@@ -29,6 +29,7 @@ import android.os.SystemProperties;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.a2dp.A2dpService;
+import com.android.bluetooth.cap.CapService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
@@ -78,6 +79,8 @@ public class Config {
                     (1 << BluetoothProfile.HEADSET)),
             new ProfileConfig(A2dpService.class, R.bool.profile_supported_a2dp,
                     (1 << BluetoothProfile.A2DP)),
+            new ProfileConfig(CapService.class, R.bool.profile_supported_cap,
+                    (1 << CapService.CAP_AUDIO_UNICAST)),
             new ProfileConfig(A2dpSinkService.class, R.bool.profile_supported_a2dp_sink,
                     (1 << BluetoothProfile.A2DP_SINK)),
             new ProfileConfig(HidHostService.class, R.bool.profile_supported_hid_host,
