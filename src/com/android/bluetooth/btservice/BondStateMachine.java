@@ -67,6 +67,7 @@ final class BondStateMachine extends StateMachine {
     static final int BOND_STATE_NONE = 0;
     static final int BOND_STATE_BONDING = 1;
     static final int BOND_STATE_BONDED = 2;
+    static final int ADD_OOB_BOND_DEVICE = 0xF0;
 
     private AdapterService mAdapterService;
     private AdapterProperties mAdapterProperties;
@@ -136,6 +137,9 @@ final class BondStateMachine extends StateMachine {
 
                     createBond(dev, msg.arg1, oobData, true);
                     break;
+                case ADD_OOB_BOND_DEVICE:
+                    addOutOfBandBondDevice(dev, msg);
+                    break;
                 case REMOVE_BOND:
                     removeBond(dev, true);
                     break;
@@ -197,6 +201,9 @@ final class BondStateMachine extends StateMachine {
                     }
 
                     result = createBond(dev, msg.arg1, oobData, false);
+                    break;
+                case ADD_OOB_BOND_DEVICE:
+                    addOutOfBandBondDevice(dev, msg);
                     break;
                 case REMOVE_BOND:
                     result = removeBond(dev, false);
@@ -345,6 +352,31 @@ final class BondStateMachine extends StateMachine {
         return false;
     }
 
+    private boolean addOutOfBandBondDevice(BluetoothDevice dev, Message msg) {
+        String linkKey = msg.getData().getString("linkKey");
+        return addOutOfBandBondDevice(dev, linkKey, msg.arg1, msg.arg2, true);
+    }
+
+    private boolean addOutOfBandBondDevice(BluetoothDevice dev, String linkKey, int linkKeyType, int pinLen,
+            boolean transition) {
+        if (mAdapterService == null) return false;
+        infoLog("addOutOfBandBondDevice");
+        if (dev.getBondState() == BluetoothDevice.BOND_NONE) {
+            byte[] addr = Utils.getBytesFromAddress(dev.getAddress());
+            byte[] key = getByteFromLinkkey(linkKey);
+            boolean result = mAdapterService.addOutOfBandBondDeviceNative(addr, key, linkKeyType, pinLen);
+            if (!result) {
+                sendIntent(dev, BluetoothDevice.BOND_NONE,
+                           BluetoothDevice.UNBOND_REASON_REMOVED);
+                return false;
+            } else if (transition) {
+                transitionTo(mPendingCommandState);
+            }
+            return true;
+        }
+        return false;
+    }
+
     private void sendDisplayPinIntent(byte[] address, int pin, int variant) {
         Intent intent = new Intent(BluetoothDevice.ACTION_PAIRING_REQUEST);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mRemoteDevices.getDevice(address));
@@ -356,6 +388,18 @@ final class BondStateMachine extends StateMachine {
         // Workaround for Android Auto until pre-accepting pairing requests is added.
         intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
         mAdapterService.sendOrderedBroadcast(intent, AdapterService.BLUETOOTH_ADMIN_PERM);
+    }
+
+    private byte[] getByteFromLinkkey(String linkKey) {
+        int i, j = 0;
+        int linkKeyLen = Math.min(linkKey.length(), 16);
+        byte[] output = new byte[16];
+        for (i = 0; i < linkKey.length(); i++) {
+            output[j] = (byte) Integer.parseInt(linkKey.substring(i, i + 2), 16);
+            j++;
+            i++;
+        }
+        return output;
     }
 
     @VisibleForTesting

@@ -15,6 +15,7 @@
  */
 package com.android.bluetooth.a2dpsink;
 
+import android.bluetooth.BluetoothCodecConfig;
 import android.bluetooth.BluetoothDevice;
 
 final class StackEvent {
@@ -40,6 +41,7 @@ final class StackEvent {
     int mState = 0;
     int mSampleRate = 0;
     int mChannelCount = 0;
+    int mCodecIndex = BluetoothCodecConfig.SOURCE_CODEC_TYPE_SBC;
 
     private StackEvent(int type) {
         this.mType = type;
@@ -74,11 +76,16 @@ final class StackEvent {
     }
 
     static StackEvent audioConfigChanged(BluetoothDevice device, int sampleRate,
-            int channelCount) {
+            int channelCount, int codecIndex) {
         StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_AUDIO_CONFIG_CHANGED);
         event.mDevice = device;
         event.mSampleRate = sampleRate;
         event.mChannelCount = channelCount;
+        if (codecIndex == BluetoothCodecConfig.SOURCE_CODEC_TYPE_MAX) {
+            event.mCodecIndex = BluetoothCodecConfig.SOURCE_CODEC_TYPE_INVALID;
+        } else {
+            event.mCodecIndex = codecIndex;
+        }
         return event;
     }
 }

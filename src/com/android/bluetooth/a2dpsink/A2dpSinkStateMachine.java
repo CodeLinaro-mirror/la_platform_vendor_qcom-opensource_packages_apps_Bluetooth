@@ -186,6 +186,11 @@ public class A2dpSinkStateMachine extends StateMachine {
                             sendMessage(CLEANUP);
                             break;
                     }
+                    break;
+                case StackEvent.EVENT_TYPE_AUDIO_CONFIG_CHANGED:
+                    mAudioConfig = new BluetoothAudioConfig(event.mSampleRate, event.mChannelCount,
+                            AudioFormat.ENCODING_PCM_16BIT, event.mCodecIndex);
+                    break;
             }
         }
     }
@@ -230,6 +235,11 @@ public class A2dpSinkStateMachine extends StateMachine {
                             transitionTo(mDisconnected);
                             break;
                     }
+                    break;
+                case StackEvent.EVENT_TYPE_AUDIO_CONFIG_CHANGED:
+                    mAudioConfig = new BluetoothAudioConfig(event.mSampleRate, event.mChannelCount,
+                            AudioFormat.ENCODING_PCM_16BIT, event.mCodecIndex);
+                    break;
             }
         }
         @Override
@@ -275,7 +285,7 @@ public class A2dpSinkStateMachine extends StateMachine {
                     break;
                 case StackEvent.EVENT_TYPE_AUDIO_CONFIG_CHANGED:
                     mAudioConfig = new BluetoothAudioConfig(event.mSampleRate, event.mChannelCount,
-                            AudioFormat.ENCODING_PCM_16BIT);
+                            AudioFormat.ENCODING_PCM_16BIT, event.mCodecIndex);
                     break;
             }
         }

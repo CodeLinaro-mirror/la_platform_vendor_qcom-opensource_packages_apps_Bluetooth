@@ -21,10 +21,8 @@ import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHeadsetClientCall;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothHeadsetClient;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.HandlerThread;
@@ -94,9 +92,6 @@ public class HeadsetClientService extends ProfileService {
         mSmFactory = new HeadsetClientStateMachineFactory();
         mStateMachineMap.clear();
 
-        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
-        registerReceiver(mBroadcastReceiver, filter);
-
         // Start the HfpClientConnectionService to create connection with telecom when HFP
         // connection is available.
         Intent startIntent = new Intent(this, HfpClientConnectionService.class);
@@ -123,8 +118,6 @@ public class HeadsetClientService extends ProfileService {
 
         setHeadsetClientService(null);
 
-        unregisterReceiver(mBroadcastReceiver);
-
         for (Iterator<Map.Entry<BluetoothDevice, HeadsetClientStateMachine>> it =
                 mStateMachineMap.entrySet().iterator(); it.hasNext(); ) {
             HeadsetClientStateMachine sm =
@@ -142,44 +135,6 @@ public class HeadsetClientService extends ProfileService {
 
         return true;
     }
-
-    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-
-            // We handle the volume changes for Voice calls here since HFP audio volume control does
-            // not go through audio manager (audio mixer). see
-            // ({@link HeadsetClientStateMachine#SET_SPEAKER_VOLUME} in
-            // {@link HeadsetClientStateMachine} for details.
-            if (action.equals(AudioManager.VOLUME_CHANGED_ACTION)) {
-                if (DBG) {
-                    Log.d(TAG, "Volume changed for stream: " + intent.getExtra(
-                            AudioManager.EXTRA_VOLUME_STREAM_TYPE));
-                }
-                int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
-                if (streamType == AudioManager.STREAM_VOICE_CALL) {
-                    int streamValue =
-                            intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, -1);
-                    int hfVol = HeadsetClientStateMachine.amToHfVol(streamValue);
-                    if (DBG) {
-                        Log.d(TAG,
-                                "Setting volume to audio manager: " + streamValue + " hands free: "
-                                        + hfVol);
-                    }
-                    mAudioManager.setParameters("hfp_volume=" + hfVol);
-                    synchronized (this) {
-                        for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
-                            if (sm != null) {
-                                sm.sendMessage(HeadsetClientStateMachine.SET_SPEAKER_VOLUME,
-                                        streamValue);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    };
 
     /**
      * Handlers for incoming service calls

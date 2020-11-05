@@ -72,7 +72,8 @@ static void bta2dp_audio_state_callback(const RawAddress& bd_addr,
 
 static void bta2dp_audio_config_callback(const RawAddress& bd_addr,
                                          uint32_t sample_rate,
-                                         uint8_t channel_count) {
+                                         uint8_t channel_count,
+                                         btav_a2dp_codec_index_t codec_index) {
   ALOGI("%s", __func__);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
@@ -88,7 +89,7 @@ static void bta2dp_audio_config_callback(const RawAddress& bd_addr,
                                    (const jbyte*)bd_addr.address);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAudioConfigChanged,
                                addr.get(), (jint)sample_rate,
-                               (jint)channel_count);
+                               (jint)channel_count, (jint)codec_index);
 }
 
 static btav_sink_callbacks_t sBluetoothA2dpCallbacks = {
@@ -104,7 +105,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "onAudioStateChanged", "([BI)V");
 
   method_onAudioConfigChanged =
-      env->GetMethodID(clazz, "onAudioConfigChanged", "([BII)V");
+      env->GetMethodID(clazz, "onAudioConfigChanged", "([BIII)V");
 
   ALOGI("%s: succeeds", __func__);
 }

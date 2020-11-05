@@ -494,9 +494,10 @@ public class A2dpSinkService extends ProfileService {
         }
     }
 
-    private void onAudioConfigChanged(byte[] address, int sampleRate, int channelCount) {
+    private void onAudioConfigChanged(byte[] address, int sampleRate, int channelCount,
+                                      int codecIndex) {
         StackEvent event = StackEvent.audioConfigChanged(getDevice(address), sampleRate,
-                channelCount);
+                channelCount, codecIndex);
         A2dpSinkStateMachine stateMachine = getOrCreateStateMachine(event.mDevice);
         stateMachine.sendMessage(A2dpSinkStateMachine.STACK_EVENT, event);
     }

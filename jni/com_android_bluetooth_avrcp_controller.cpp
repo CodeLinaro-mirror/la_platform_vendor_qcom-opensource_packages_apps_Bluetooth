@@ -50,6 +50,7 @@ static jmethodID method_handleAddressedPlayerChanged;
 static jmethodID method_handleNowPlayingContentChanged;
 static jmethodID method_onAvailablePlayerChanged;
 static jmethodID method_getRcPsm;
+static jmethodID method_handleSearchRsp;
 
 static jclass class_AvrcpItem;
 static jclass class_AvrcpPlayer;
@@ -769,6 +770,27 @@ static void btavrcp_get_rcpsm_callback(const RawAddress& bd_addr,
                                (jint)psm);
 }
 
+static void btavrcp_search_response_callback(const RawAddress& bd_addr, uint8_t status,
+                                               uint16_t uid_counter, uint32_t num_items) {
+  ALOGI("%s: status: %d, uid_counter: %d, num_items: %d", __func__, status, uid_counter, num_items);
+
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jbyteArray> addr(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
+  if (!addr.get()) {
+    ALOGE("%s: Failed to allocate a new byte array", __func__);
+    return;
+  }
+
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
+                                   (jbyte*)&bd_addr.address);
+
+  sCallbackEnv->CallVoidMethod(sCallbacksObj, method_handleSearchRsp, addr.get(),
+                               (jint)status, (jint)uid_counter, (jint)num_items);
+}
+
 static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     sizeof(sBluetoothAvrcpCallbacks),
     btavrcp_passthrough_response_callback,
@@ -790,7 +812,8 @@ static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     btavrcp_addressed_player_changed_callback,
     btavrcp_now_playing_content_changed_callback,
     btavrcp_available_player_changed_callback,
-    btavrcp_get_rcpsm_callback};
+    btavrcp_get_rcpsm_callback,
+    btavrcp_search_response_callback};
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
   method_handlePassthroughRsp =
@@ -862,7 +885,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "handleNowPlayingContentChanged", "([B)V");
   method_onAvailablePlayerChanged =
       env->GetMethodID(clazz, "onAvailablePlayerChanged", "([B)V");
-
+  method_handleSearchRsp =
+      env->GetMethodID(clazz, "handleSearchRsp", "([BIII)V");
   ALOGI("%s: succeeds", __func__);
 }
 
@@ -1284,6 +1308,59 @@ static void playItemNative(JNIEnv* env, jobject object, jbyteArray address,
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 
+static void searchNative(JNIEnv *env, jobject object, jbyteArray address, jint charset,
+                           jint strLen, jstring pattern) {
+  bt_status_t status;
+  jbyte *addr;
+  const char* search_pattern = NULL;
+
+  if (!sBluetoothAvrcpInterface) return;
+
+  ALOGI("%s: sBluetoothAvrcpInterface: %p", __FUNCTION__, sBluetoothAvrcpInterface);
+
+  addr = env->GetByteArrayElements(address, NULL);
+  if (!addr) {
+    jniThrowIOException(env, EINVAL);
+    return;
+  }
+
+  RawAddress rawAddress;
+  rawAddress.FromOctets((uint8_t*)addr);
+
+  search_pattern = env->GetStringUTFChars(pattern, NULL);
+
+  status = sBluetoothAvrcpInterface->search_cmd(rawAddress, (uint16_t)charset,
+      (uint16_t)strLen, (uint8_t*)search_pattern);
+
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed sending searchNative command, status: %d", status);
+  }
+
+  env->ReleaseByteArrayElements(address, addr, 0);
+  env->ReleaseStringUTFChars(pattern, search_pattern);
+}
+
+static void getSearchListNative(JNIEnv* env, jobject object, jbyteArray address,
+                                jint start, jint items) {
+  if (!sBluetoothAvrcpInterface) return;
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (!addr) {
+    jniThrowIOException(env, EINVAL);
+    return;
+  }
+
+  RawAddress rawAddress;
+  rawAddress.FromOctets((uint8_t*)addr);
+
+  bt_status_t status = sBluetoothAvrcpInterface->get_search_list_cmd(rawAddress, start, items);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed sending getSearchListNative command, status: %d", status);
+  }
+
+  env->ReleaseByteArrayElements(address, addr, 0);
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void*)classInitNative},
     {"initNative", "()V", (void*)initNative},
@@ -1306,6 +1383,8 @@ static JNINativeMethod sMethods[] = {
     {"playItemNative", "([BBJI)V", (void*)playItemNative},
     {"setBrowsedPlayerNative", "([BI)V", (void*)setBrowsedPlayerNative},
     {"setAddressedPlayerNative", "([BI)V", (void*)setAddressedPlayerNative},
+    {"searchNative", "([BIILjava/lang/String;)V", (void*)searchNative},
+    {"getSearchListNative", "([BII)V", (void*)getSearchListNative},
 };
 
 int register_com_android_bluetooth_avrcp_controller(JNIEnv* env) {

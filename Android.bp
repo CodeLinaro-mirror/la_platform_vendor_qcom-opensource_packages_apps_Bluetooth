@@ -52,6 +52,7 @@ android_app {
     libs: [
         "javax.obex",
         "services.net",
+        "android.car",
     ],
     static_libs: [
         "com.android.vcard",
