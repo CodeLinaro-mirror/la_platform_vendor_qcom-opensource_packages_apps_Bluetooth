@@ -368,7 +368,7 @@
             android:name = ".apm.StreamAudioService"
             android:enabled="@bool/profile_supported_le_audio">
             <intent-filter>
-                <action android:name="android.bluetooth.IBluetoothLeAudio" />
+                <action android:name="android.bluetooth.IBluetoothVcp" />
             </intent-filter>
         </service>
         <service
