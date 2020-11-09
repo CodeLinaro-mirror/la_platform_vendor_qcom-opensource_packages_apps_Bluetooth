@@ -71,6 +71,7 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.MANAGE_COMPANION_DEVICES"/>
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME" />
+    <uses-permission android:name="android.car.permission.CAR_POWER"/>
 
     <uses-sdk android:minSdkVersion="14"/>
 
