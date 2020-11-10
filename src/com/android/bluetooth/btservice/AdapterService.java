@@ -136,7 +136,7 @@ import com.android.internal.util.ArrayUtils;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.NetworkInfo;
-import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.WifiConfiguration;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -4226,10 +4226,13 @@ public class AdapterService extends Service {
         try {
 
             WifiManager mWifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
-            final SoftApConfiguration config = mWifiManager.getSoftApConfiguration();
-            if ((mWifiManager != null) && ((mWifiManager.isWifiEnabled() ||
+            final WifiConfiguration config = mWifiManager.getWifiApConfiguration();
+            if ((mWifiManager != null) && (mWifiManager.isWifiEnabled() ||
                 ((mWifiManager.getWifiApState() == WifiManager.WIFI_AP_STATE_ENABLED) &&
-                ((config.getBand() & SoftApConfiguration.BAND_5GHZ) != 0))))) {
+                ((config != null) && ((config.apBand == WifiConfiguration.AP_BAND_5GHZ) ||
+                (config.apBand == WifiConfiguration.AP_BAND_ANY) ||
+                (config.apBand == WifiConfiguration.AP_BAND_DUAL)))))) {
+
                 return true;
             }
             return false;
