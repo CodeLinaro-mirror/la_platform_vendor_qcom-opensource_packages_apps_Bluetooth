@@ -33,6 +33,7 @@
 
 package com.android.bluetooth.hfpclient;
 
+import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
@@ -52,6 +53,7 @@ import android.util.Pair;
 import android.telecom.TelecomManager;
 
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.internal.util.IState;
@@ -114,6 +116,9 @@ public class HeadsetClientStateMachine extends StateMachine {
     private long OUTGOING_TIMEOUT_MILLI = 10 * 1000; // 10 seconds
     private long QUERY_CURRENT_CALLS_WAIT_MILLIS = 2 * 1000; // 2 seconds
 
+    //Keep track of A2dp play status
+    private boolean mA2dpSuspend = false;
+
     // Keep track of audio routing across all devices.
     private static boolean sAudioIsRouted = true;
 
@@ -150,11 +155,21 @@ public class HeadsetClientStateMachine extends StateMachine {
     // indicator
     private Pair<Integer, Object> mPendingAction;
 
+    private A2dpService mA2dpService;
+
     private static AudioManager sAudioManager;
     private int mAudioState;
     private boolean mAudioWbs;
     private final BluetoothAdapter mAdapter;
     private TelecomManager mTelecomManager;
+
+    /*This variable is needed to track call status.
+      Here, call state is updated only when +CLCC response
+      is received, but there are scenarios where call is
+      in setup but still call status is not updated to
+      incoming/outgoing call. To handle such scenarios,
+      we need this variable.*/
+    private boolean mCallIsInSetupOrActive = false;
 
     // currently connected device
     private BluetoothDevice mCurrentDevice = null;
@@ -230,6 +245,23 @@ public class HeadsetClientStateMachine extends StateMachine {
         Log.d(TAG, "Exit getCall()");
 
         return null;
+    }
+
+    private boolean IsInCall() {
+        Log.d(TAG, "Enter IsInCall()");
+        BluetoothHeadsetClientCall c = getCall(
+                       BluetoothHeadsetClientCall.CALL_STATE_ACTIVE,
+                       BluetoothHeadsetClientCall.CALL_STATE_HELD,
+                       BluetoothHeadsetClientCall.CALL_STATE_DIALING,
+                       BluetoothHeadsetClientCall.CALL_STATE_ALERTING,
+                       BluetoothHeadsetClientCall.CALL_STATE_INCOMING,
+                       BluetoothHeadsetClientCall.CALL_STATE_WAITING,
+                       BluetoothHeadsetClientCall.CALL_STATE_HELD_BY_RESPONSE_AND_HOLD);
+        if((c != null) || mCallIsInSetupOrActive) {
+            Log.d(TAG, "IsInCall() true");
+            return true;
+        }
+        return false;
     }
 
     private int callsInState(int state) {
@@ -691,6 +723,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         mService = context;
 
         mAdapter = BluetoothAdapter.getDefaultAdapter();
+        mA2dpService = A2dpService.getA2dpService();
         if (sAudioManager == null) {
             sAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
             // Initialize hfp_enable into a known state.
@@ -698,6 +731,8 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
         mAudioState = BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
         mAudioWbs = false;
+
+        mA2dpSuspend = false;
 
         mTelecomManager = (TelecomManager) context.getSystemService(context.TELECOM_SERVICE);
 
@@ -745,6 +780,8 @@ public class HeadsetClientStateMachine extends StateMachine {
             Log.d(TAG, "hfp_enable=" + enable);
         }
         if (enable && !sAudioIsRouted) {
+            //this ensures that hfp audio is routed to speaker
+            sAudioManager.setParameters("hfp_route_spkr=2");
             sAudioManager.setParameters("hfp_enable=true");
         } else if (!enable) {
             sAudioManager.setParameters("hfp_enable=false");
@@ -793,6 +830,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             Log.d(TAG, "Enter Disconnected: " + getCurrentMessage().what);
 
             // cleanup
+            mA2dpSuspend = false;
             mIndicatorNetworkState = HeadsetClientHalConstants.NETWORK_STATE_NOT_AVAILABLE;
             mIndicatorNetworkType = HeadsetClientHalConstants.SERVICE_TYPE_HOME;
             mIndicatorNetworkSignal = 0;
@@ -955,13 +993,20 @@ public class HeadsetClientStateMachine extends StateMachine {
                             processConnectionEvent(event.valueInt, event.valueInt2,
                                     event.valueInt3, event.device);
                             break;
+                        case StackEvent.EVENT_TYPE_CALL:
+                            processOnCallEvent(event.valueInt,event.device);
+                            deferMessage(message);
+                            break;
+                        case StackEvent.EVENT_TYPE_CALLSETUP:
+                            mCallIsInSetupOrActive = true;
+                            processOnCallSetupEvent(event.valueInt,event.device);
+                            deferMessage(message);
+                            break;
                         case StackEvent.EVENT_TYPE_AUDIO_STATE_CHANGED:
                         case StackEvent.EVENT_TYPE_NETWORK_STATE:
                         case StackEvent.EVENT_TYPE_ROAMING_STATE:
                         case StackEvent.EVENT_TYPE_NETWORK_SIGNAL:
                         case StackEvent.EVENT_TYPE_BATTERY_LEVEL:
-                        case StackEvent.EVENT_TYPE_CALL:
-                        case StackEvent.EVENT_TYPE_CALLSETUP:
                         case StackEvent.EVENT_TYPE_CALLHELD:
                         case StackEvent.EVENT_TYPE_RESP_AND_HOLD:
                         case StackEvent.EVENT_TYPE_CLIP:
@@ -1004,6 +1049,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     broadcastConnectionState(mCurrentDevice, BluetoothProfile.STATE_DISCONNECTED,
                             BluetoothProfile.STATE_CONNECTING);
                     transitionTo(mDisconnected);
+                    mCallIsInSetupOrActive = false;
                     break;
 
                 case HeadsetClientHalConstants.CONNECTION_STATE_SLC_CONNECTED:
@@ -1072,6 +1118,32 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
             }
             Log.d(TAG, "Exit Connecting processConnectionEvent()");
+        }
+
+        private void processOnCallEvent(int call, BluetoothDevice device) {
+            Log.d(TAG, "Enter Connecting processOnCallEvent() Device: "+ device);
+            if(call == 0) {
+                mCallIsInSetupOrActive = false;
+            } else if((mA2dpService.getA2dpPlayingDevice().size() > 0)
+                       && sAudioManager.isMusicActive() && (!mA2dpSuspend)) {
+                //since call is active and A2dp is streaming, suspend streaming
+                Log.d(TAG, "Since call is active, suspend a2dp streaming");
+                sAudioManager.setParameters("A2dpSuspended=true");
+                mA2dpSuspend = true;
+            }
+        }
+
+        private void processOnCallSetupEvent(int callsetup, BluetoothDevice device) {
+            Log.d(TAG, "Enter Connecting processOnCallSetupEvent() device:" + device);
+            if(callsetup == 0) {
+                mCallIsInSetupOrActive = false;
+            } else if((mA2dpService.getA2dpPlayingDevice().size() > 0)
+                       && sAudioManager.isMusicActive() && (!mA2dpSuspend)) {
+                //since call is in setup and A2dp is streaming, suspend streaming
+                Log.d(TAG, "callsetup received, suspend a2dp streaming");
+                sAudioManager.setParameters("A2dpSuspended=true");
+                mA2dpSuspend = true;
+            }
         }
 
         @Override
@@ -1326,7 +1398,14 @@ public class HeadsetClientStateMachine extends StateMachine {
                             mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
                             break;
                         case StackEvent.EVENT_TYPE_CALL:
+                            processOnCallEvent(event.valueInt,event.device);
+                            sendMessage(QUERY_CURRENT_CALLS);
+                            break;
                         case StackEvent.EVENT_TYPE_CALLSETUP:
+                            mCallIsInSetupOrActive = true;
+                            processOnCallSetupEvent(event.valueInt,event.device);
+                            sendMessage(QUERY_CURRENT_CALLS);
+                            break;
                         case StackEvent.EVENT_TYPE_CALLHELD:
                         case StackEvent.EVENT_TYPE_RESP_AND_HOLD:
                         case StackEvent.EVENT_TYPE_CLIP:
@@ -1422,12 +1501,40 @@ public class HeadsetClientStateMachine extends StateMachine {
                     } else {
                         Log.e(TAG, "Disconnected from unknown device: " + device);
                     }
+                    mCallIsInSetupOrActive = false;
                     break;
                 default:
                     Log.e(TAG, "Connection State Device: " + device + " bad state: " + state);
                     break;
             }
             Log.d(TAG, "Exit Connected processConnectionEvent()");
+        }
+
+        // In Connected state
+        private void processOnCallEvent(int call, BluetoothDevice device) {
+            Log.d(TAG, "Enter Connected processOnCallEvent() device:" + device);
+            if(call == 0) {
+                mCallIsInSetupOrActive = false;
+            } else if((mA2dpService.getA2dpPlayingDevice().size() > 0)
+                       && sAudioManager.isMusicActive() && (!mA2dpSuspend)) {
+                //since call is active and A2dp is streaming, suspend streaming
+                Log.d(TAG, "Since call is active, suspend a2dp streaming");
+                sAudioManager.setParameters("A2dpSuspended=true");
+                mA2dpSuspend = true;
+            }
+        }
+
+        private void processOnCallSetupEvent(int callsetup, BluetoothDevice device) {
+            Log.d(TAG, "Enter Connected processOnCallSetupEvent() device:" + device);
+            if(callsetup == 0) {
+                mCallIsInSetupOrActive = false;
+            } else if((mA2dpService.getA2dpPlayingDevice().size() > 0)
+                       && sAudioManager.isMusicActive() && (!mA2dpSuspend)) {
+                //since call is in setup and A2dp is streaming, suspend streaming
+                Log.d(TAG, "callsetup received, suspend a2dp streaming");
+                sAudioManager.setParameters("A2dpSuspended=true");
+                mA2dpSuspend = true;
+            }
         }
 
         // in Connected state
@@ -1501,6 +1608,13 @@ public class HeadsetClientStateMachine extends StateMachine {
                     broadcastAudioState(
                             device, BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED, mAudioState);
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
+                    if(mA2dpSuspend) {
+                        if(!mCallIsInSetupOrActive) {
+                            log("Audio is closed,Set A2dpSuspended=false");
+                            sAudioManager.setParameters("A2dpSuspended=false");
+                            mA2dpSuspend = false;
+                        }
+                    }
                     break;
 
                 default:
@@ -1561,7 +1675,6 @@ public class HeadsetClientStateMachine extends StateMachine {
                         routeHfpAudio(false);
                     }
                     break;
-
                 case HOLD_CALL:
                     holdCall();
                     break;
@@ -1611,6 +1724,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     } else {
                         Log.e(TAG, "Disconnected from unknown device: " + device);
                     }
+                    mCallIsInSetupOrActive = false;
                     break;
                 default:
                     Log.e(TAG, "Connection State Device: " + device + " bad state: " + state);
@@ -1639,6 +1753,13 @@ public class HeadsetClientStateMachine extends StateMachine {
                     broadcastAudioState(device, BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED,
                             BluetoothHeadsetClient.STATE_AUDIO_CONNECTED);
                     transitionTo(mConnected);
+                    if(mA2dpSuspend) {
+                        if(!mCallIsInSetupOrActive) {
+                            log("Audio is closed,Set A2dpSuspended=false");
+                            sAudioManager.setParameters("A2dpSuspended=false");
+                            mA2dpSuspend = false;
+                        }
+                    }
                     break;
 
                 default:
