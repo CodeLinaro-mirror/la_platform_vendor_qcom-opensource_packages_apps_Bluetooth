@@ -1186,14 +1186,22 @@ class AvrcpControllerStateMachine extends StateMachine {
     private int getAbsVolume() {
         if (mService.isAutomotive()) {
             int currIndex = 0;
+            int newIndex = 0;
 
             try {
                 currIndex = mCarAudioManager.getGroupVolume(mVolumeGroupId);
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
             }
 
-            int newIndex = (currIndex * ABS_VOL_BASE) / mMaxVolume;
+            if (mMaxVolume > 0) {
+                newIndex = (currIndex * ABS_VOL_BASE) / mMaxVolume;
+            } else {
+                Log.w(TAG, "Invalid mMaxVolume " + mMaxVolume);
+            }
+            logD("getAbsVolume newIndex is " + newIndex);
             return newIndex;
         } else {
             if (mIsVolumeFixed) {
