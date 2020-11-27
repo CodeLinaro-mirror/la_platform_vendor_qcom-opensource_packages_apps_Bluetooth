@@ -54,9 +54,13 @@ import android.content.Intent;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+import com.android.bluetooth.apm.ApmConst;
+import com.android.bluetooth.apm.DeviceProfileMap;
 
 import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.apm.ApmConst;
+import com.android.bluetooth.apm.DeviceProfileMap;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
@@ -482,7 +486,9 @@ final class A2dpStateMachine extends StateMachine {
                 mConnectionState = BluetoothProfile.STATE_CONNECTED;
             }
             removeDeferredMessages(CONNECT);
-
+            DeviceProfileMap dpm = DeviceProfileMap.getDeviceProfileMapInstance();
+            dpm.profileConnectionUpdate(mDevice, ApmConst.AudioFeatures.MEDIA_AUDIO,
+                    ApmConst.AudioProfiles.A2DP, true);
             // Each time a device connects, we want to re-check if it supports optional
             // codecs (perhaps it's had a firmware update, etc.) and save that state if
             // it differs from what we had saved before.
@@ -745,6 +751,11 @@ final class A2dpStateMachine extends StateMachine {
         log("Connection state " + mDevice + ": " + profileStateToString(prevState)
                     + "->" + profileStateToString(newState));
 
+        if(mA2dpService.isLeAudioEnabled()) {
+            mA2dpService.updateConnState(mDevice, newState);
+            return;
+        }
+
         Intent intent = new Intent(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
         intent.putExtra(BluetoothProfile.EXTRA_STATE, newState);
@@ -757,6 +768,12 @@ final class A2dpStateMachine extends StateMachine {
     private void broadcastAudioState(int newState, int prevState) {
         log("A2DP Playing state : device: " + mDevice + " State:" + audioStateToString(prevState)
                 + "->" + audioStateToString(newState));
+
+        if(mA2dpService.isLeAudioEnabled()) {
+            mA2dpService.updateStreamState(mDevice, newState);
+            return;
+        }
+
         BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_A2DP_PLAYBACK_STATE_CHANGED, newState);
         Intent intent = new Intent(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mDevice);

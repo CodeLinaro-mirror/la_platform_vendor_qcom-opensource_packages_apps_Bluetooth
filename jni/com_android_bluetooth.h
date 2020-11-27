@@ -166,6 +166,8 @@ int register_com_android_bluetooth_avrcp_ext(JNIEnv* env);
 
 int register_com_android_bluetooth_ba(JNIEnv* env);
 
+int register_com_android_bluetooth_apm(JNIEnv* env);
+
 int register_com_android_bluetooth_hfp_vendorhfservice(JNIEnv* env);
 }
 

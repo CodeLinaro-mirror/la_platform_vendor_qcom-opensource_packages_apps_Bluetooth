@@ -358,6 +358,14 @@
         </service>
         <service
             android:process="@string/process"
+            android:name = ".apm.StreamAudioService"
+            android:enabled="@bool/profile_supported_le_audio">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothLeAudio" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
             android:name = ".ba.BATService"
             android:enabled="@bool/profile_supported_ba">
             <intent-filter>

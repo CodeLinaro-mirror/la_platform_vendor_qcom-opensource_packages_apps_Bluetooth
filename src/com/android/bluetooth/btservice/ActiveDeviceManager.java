@@ -36,6 +36,7 @@ import android.os.Message;
 import android.util.Log;
 
 import com.android.bluetooth.a2dp.A2dpService;
+import com.android.bluetooth.apm.ApmConst;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.ba.BATService;
@@ -100,7 +101,7 @@ import java.util.Objects;
  *      will have no impact. E.g., music will continue streaming over the
  *      active Bluetooth device.
  */
-class ActiveDeviceManager {
+public class ActiveDeviceManager {
     private static final boolean DBG = true;
     private static final String TAG = "BluetoothActiveDeviceManager";
 
@@ -366,7 +367,7 @@ class ActiveDeviceManager {
                     }
                     // Just assign locally the new value
                     mHearingAidActiveDevice = device;
-                    if (device != null) {
+                    if (device != null && (!ApmConst.getLeAudioEnabled())) {
                         setA2dpActiveDevice(null);
                         setHfpActiveDevice(null);
                     }
@@ -435,9 +436,12 @@ class ActiveDeviceManager {
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
         filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
+        if(!ApmConst.getLeAudioEnabled()) {
+            /*APM will send callback with Active Device update*/;
+            filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
+            filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
+        }
         filter.addAction(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
         mAdapterService.registerReceiver(mReceiver, filter);
 
@@ -563,5 +567,35 @@ class ActiveDeviceManager {
         setA2dpActiveDevice(null);
         setHfpActiveDevice(null);
         setHearingAidActiveDevice(null);
+    }
+    public void onActiveDeviceChange(BluetoothDevice device, int audioType) {
+        if(audioType == ApmConst.AudioFeatures.CALL_AUDIO) {
+            Intent intent = new Intent(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
+            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+            mHandler.obtainMessage(MESSAGE_HFP_ACTION_ACTIVE_DEVICE_CHANGED,
+                        intent).sendToTarget();
+        } else if(audioType == ApmConst.AudioFeatures.MEDIA_AUDIO) {
+            Intent intent = new Intent(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
+            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+            mHandler.obtainMessage(MESSAGE_A2DP_ACTION_ACTIVE_DEVICE_CHANGED,
+                        intent).sendToTarget();
+        }
+    }
+    public void onDeviceConnStateChange(BluetoothDevice device, int state, int prevState, int audioType) {
+        if(audioType == ApmConst.AudioFeatures.CALL_AUDIO && state == BluetoothProfile.STATE_DISCONNECTED) {
+            Intent intent = new Intent(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
+            intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
+            intent.putExtra(BluetoothProfile.EXTRA_STATE, state);
+            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+            mHandler.obtainMessage(MESSAGE_HFP_ACTION_CONNECTION_STATE_CHANGED,
+                        intent).sendToTarget();
+        } else if(audioType == ApmConst.AudioFeatures.MEDIA_AUDIO && prevState == BluetoothProfile.STATE_CONNECTED) {
+            Intent intent = new Intent(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+            intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
+            intent.putExtra(BluetoothProfile.EXTRA_STATE, state);
+            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+            mHandler.obtainMessage(MESSAGE_A2DP_ACTION_CONNECTION_STATE_CHANGED,
+                        intent).sendToTarget();
+        }
     }
 }
