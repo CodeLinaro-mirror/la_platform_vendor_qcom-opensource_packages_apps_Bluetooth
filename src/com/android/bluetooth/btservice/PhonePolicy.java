@@ -38,6 +38,8 @@ import android.util.Log;
 
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
+import com.android.bluetooth.apm.ApmConst;
+import com.android.bluetooth.apm.MediaAudio;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
@@ -562,7 +564,12 @@ class PhonePolicy {
         int a2dpConnectionPolicy = a2dpService.getConnectionPolicy(device);
         if (a2dpConnectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
             debugLog("autoConnectA2dp: connecting A2DP with " + device);
-            a2dpService.connect(device);
+            if(ApmConst.getLeAudioEnabled()) {
+                MediaAudio mMediaAudio = MediaAudio.get();
+                mMediaAudio.autoConnect(device);
+            } else {
+                a2dpService.connect(device);
+            }
         } else {
             debugLog("autoConnectA2dp: skipped auto-connect A2DP with device " + device
                     + " a2dpConnectionPolicy " + a2dpConnectionPolicy);
