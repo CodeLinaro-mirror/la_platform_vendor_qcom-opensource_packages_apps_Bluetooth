@@ -508,7 +508,11 @@ public class AdapterService extends Service {
         mVendor = new Vendor(this);
         mAdapterStateMachine =  AdapterState.make(this, mAdapterProperties, mVendor);
         mJniCallbacks =  new JniCallbacks(mAdapterStateMachine, mAdapterProperties);
-        initNative();
+
+        // Android TV doesn't show consent dialogs for just works and encryption only le pairing
+        boolean isAtvDevice = getApplicationContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_LEANBACK_ONLY);
+        initNative(isAtvDevice);
         mNativeAvailable=true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
         //Load the name and address
@@ -1860,6 +1864,18 @@ public class AdapterService extends Service {
        }
     }
 
+    /**
+     * Update device UUID changed to {@link BondStateMachine}
+     *
+     * @param device remote device of interest
+     */
+    public void deviceUuidUpdated(BluetoothDevice device) {
+        // Notify BondStateMachine for SDP complete / UUID changed.
+        Message msg = mBondStateMachine.obtainMessage(BondStateMachine.UUID_UPDATE);
+        msg.obj = device;
+        mBondStateMachine.sendMessage(msg);
+    }
+
     boolean cancelBondProcess(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
         byte[] addr = Utils.getBytesFromAddress(device.getAddress());
@@ -2625,7 +2641,7 @@ public class AdapterService extends Service {
 
 
     private native static void classInitNative();
-    private native boolean initNative();
+    private native boolean initNative(boolean isAtvDevice);
     private native void cleanupNative();
     /*package*/ native boolean enableNative(boolean startRestricted);
     /*package*/ native boolean disableNative();
