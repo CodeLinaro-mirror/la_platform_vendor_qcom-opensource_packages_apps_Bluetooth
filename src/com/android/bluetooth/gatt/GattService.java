@@ -452,12 +452,13 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void registerClient(ParcelUuid uuid, IBluetoothGattCallback callback) {
+        public void registerClient(ParcelUuid uuid, IBluetoothGattCallback callback,
+                boolean eattSupport) {
             GattService service = getService();
             if (service == null) {
                 return;
             }
-            service.registerClient(uuid.getUuid(), callback);
+            service.registerClient(uuid.getUuid(), callback, eattSupport);
         }
 
         @Override
@@ -725,12 +726,13 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void registerServer(ParcelUuid uuid, IBluetoothGattServerCallback callback) {
+        public void registerServer(ParcelUuid uuid, IBluetoothGattServerCallback callback,
+                boolean eattSupport) {
             GattService service = getService();
             if (service == null) {
                 return;
             }
-            service.registerServer(uuid.getUuid(), callback);
+            service.registerServer(uuid.getUuid(), callback, eattSupport);
         }
 
         @Override
@@ -935,6 +937,25 @@ public class GattService extends ProfileService {
         }
 
         @Override
+        public void transferSync(BluetoothDevice bda, int service_data , int sync_handle) {
+            GattService service = getService();
+            if (service == null) {
+                return;
+            }
+            service.transferSync(bda, service_data , sync_handle);
+        }
+
+        @Override
+        public void transferSetInfo(BluetoothDevice bda, int service_data , int adv_handle,
+                IPeriodicAdvertisingCallback callback) {
+            GattService service = getService();
+            if (service == null) {
+                return;
+            }
+            service.transferSetInfo(bda, service_data , adv_handle, callback);
+        }
+
+        @Override
         public void unregisterSync(IPeriodicAdvertisingCallback callback) {
             GattService service = getService();
             if (service == null) {
@@ -1080,11 +1101,29 @@ public class GattService extends ProfileService {
                 scanRecordData = advData;
             }
 
-            ScanResult result =
-                    new ScanResult(device, eventType, primaryPhy, secondaryPhy, advertisingSid,
+            ScanResult result = null;
+            ScanRecord record = ScanRecord.parseFromBytes(scanRecordData);
+            Map<ParcelUuid, byte[]> listOfUuids = record.getServiceData();
+            boolean isBroadcastSource = false;
+            String BROADCAST_SRC_UUID = "00008FDD-0000-1000-8000-00805F9B34FB";
+            if (listOfUuids != null) {
+                 isBroadcastSource = listOfUuids.containsKey(ParcelUuid.fromString(BROADCAST_SRC_UUID));
+            }
+
+            if (client.allowAddressTypeInResults && isBroadcastSource) {
+                Log.d(TAG, "populate AddressType for previleged client");
+                result =
+                    new ScanResult(device, addressType, eventType, primaryPhy, secondaryPhy, advertisingSid,
                             txPower, rssi, periodicAdvInt,
-                            ScanRecord.parseFromBytes(scanRecordData),
+                            record,
                             SystemClock.elapsedRealtimeNanos());
+            } else {
+                result = new ScanResult(device, eventType, primaryPhy, secondaryPhy, advertisingSid,
+                            txPower, rssi, periodicAdvInt,
+                            record,
+                            SystemClock.elapsedRealtimeNanos());
+            }
+
             boolean hasPermission = hasScanResultPermission(client);
             if (!hasPermission) {
                 for (String associatedDevice : client.associatedDevices) {
@@ -2071,6 +2110,13 @@ public class GattService extends ProfileService {
             scanClient.hasLocationPermission = Utils.checkCallerHasCoarseOrFineLocation(this,
                     mAppOps, callingPackage, callingFeatureId, scanClient.userHandle);
         }
+
+        if (callingPackage != null &&
+                callingPackage.equals("com.android.bluetooth")) {
+            Log.d(TAG, "allowAddressTypeInResults only for Bluetooth apk");
+            scanClient.allowAddressTypeInResults  = true;
+        }
+
         scanClient.hasNetworkSettingsPermission =
                 Utils.checkCallerHasNetworkSettingsPermission(this);
         scanClient.hasNetworkSetupWizardPermission =
@@ -2268,6 +2314,16 @@ public class GattService extends ProfileService {
         mPeriodicScanManager.stopSync(callback);
     }
 
+    void transferSync(BluetoothDevice bda, int service_data, int sync_handle) {
+        enforceAdminPermission();
+        mPeriodicScanManager.transferSync(bda, service_data, sync_handle);
+    }
+
+    void transferSetInfo(BluetoothDevice bda, int service_data,
+                  int adv_handle, IPeriodicAdvertisingCallback callback) {
+        enforceAdminPermission();
+        mPeriodicScanManager.transferSetInfo(bda, service_data, adv_handle, callback);
+    }
     /**************************************************************************
      * ADVERTISING SET
      *************************************************************************/
@@ -2330,14 +2386,16 @@ public class GattService extends ProfileService {
      * GATT Service functions - CLIENT
      *************************************************************************/
 
-    void registerClient(UUID uuid, IBluetoothGattCallback callback) {
+    void registerClient(UUID uuid, IBluetoothGattCallback callback,
+            boolean eattSupport) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
 
         if (DBG) {
             Log.d(TAG, "registerClient() - UUID=" + uuid);
         }
         mClientMap.add(uuid, null, callback, null, this);
-        gattClientRegisterAppNative(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
+        gattClientRegisterAppNative(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits(),
+                                    eattSupport);
     }
 
     void unregisterClient(int clientIf) {
@@ -3006,14 +3064,15 @@ public class GattService extends ProfileService {
      * GATT Service functions - SERVER
      *************************************************************************/
 
-    void registerServer(UUID uuid, IBluetoothGattServerCallback callback) {
+    void registerServer(UUID uuid, IBluetoothGattServerCallback callback, boolean eattSupport) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
 
         if (DBG) {
             Log.d(TAG, "registerServer() - UUID=" + uuid);
         }
         mServerMap.add(uuid, null, callback, null, this);
-        gattServerRegisterAppNative(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
+        gattServerRegisterAppNative(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits(),
+                                    eattSupport);
     }
 
     void unregisterServer(int serverIf) {
@@ -3419,7 +3478,8 @@ public class GattService extends ProfileService {
 
     private native int gattClientGetDeviceTypeNative(String address);
 
-    private native void gattClientRegisterAppNative(long appUuidLsb, long appUuidMsb);
+    private native void gattClientRegisterAppNative(long appUuidLsb, long appUuidMsb,
+            boolean eattSupport);
 
     private native void gattClientUnregisterAppNative(int clientIf);
 
@@ -3469,7 +3529,8 @@ public class GattService extends ProfileService {
             int minInterval, int maxInterval, int latency, int timeout, int minConnectionEventLen,
             int maxConnectionEventLen);
 
-    private native void gattServerRegisterAppNative(long appUuidLsb, long appUuidMsb);
+    private native void gattServerRegisterAppNative(long appUuidLsb, long appUuidMsb,
+            boolean eattSupport);
 
     private native void gattServerUnregisterAppNative(int serverIf);
 

@@ -70,6 +70,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import android.telecom.TelecomManager;
+import android.bluetooth.BluetoothBapBroadcast;
 
 
 /**
@@ -231,6 +232,7 @@ public class HeadsetService extends ProfileService {
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothBapBroadcast.ACTION_BAP_BROADCAST_STATE_CHANGED);
         registerReceiver(mHeadsetReceiver, filter);
         // Step 7: Mark service as started
 
@@ -564,6 +566,11 @@ public class HeadsetService extends ProfileService {
                 case BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED: {
                     logD("Received BluetoothA2dp Connection State changed");
                     mHfpA2dpSyncInterface.updateA2DPConnectionState(intent);
+                    break;
+                }
+                case BluetoothBapBroadcast.ACTION_BAP_BROADCAST_STATE_CHANGED: {
+                    logD("Received BapBroadcast State changed");
+                    mHfpA2dpSyncInterface.updateBapBroadcastState(intent);
                     break;
                 }
                 default:

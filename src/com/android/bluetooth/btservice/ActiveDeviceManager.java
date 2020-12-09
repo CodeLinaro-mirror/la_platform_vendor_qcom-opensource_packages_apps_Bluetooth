@@ -34,7 +34,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
-
+import com.android.bluetooth.bms.BapBroadcastService;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.apm.ApmConst;
 import com.android.bluetooth.hearingaid.HearingAidService;
@@ -112,6 +112,7 @@ public class ActiveDeviceManager {
     private static final int MESSAGE_HFP_ACTION_CONNECTION_STATE_CHANGED = 4;
     private static final int MESSAGE_HFP_ACTION_ACTIVE_DEVICE_CHANGED = 5;
     private static final int MESSAGE_HEARING_AID_ACTION_ACTIVE_DEVICE_CHANGED = 6;
+    private static final int MESSAGE_BAP_BROADCAST_ACTIVE_DEVICE_CHANGED = 7;
 
     private final AdapterService mAdapterService;
     private final ServiceFactory mFactory;
@@ -126,6 +127,8 @@ public class ActiveDeviceManager {
     private BluetoothDevice mHfpActiveDevice = null;
     private BluetoothDevice mHearingAidActiveDevice = null;
     private boolean mTwsPlusSwitch = false;
+    private BluetoothDevice mBapBroadcastActiveDevice = null;
+
     // Broadcast receiver for all changes
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -213,7 +216,7 @@ public class ActiveDeviceManager {
                             break;      // The device is already connected
                         }
                         mA2dpConnectedDevices.add(device);
-                        if (mHearingAidActiveDevice == null) {
+                        if (mHearingAidActiveDevice == null || mBapBroadcastActiveDevice == null) {
                             // New connected device: select it as active
                             setA2dpActiveDevice(device);
                             break;
@@ -264,8 +267,16 @@ public class ActiveDeviceManager {
                         Log.d(TAG, "handleMessage(MESSAGE_A2DP_ACTION_ACTIVE_DEVICE_CHANGED): "
                                 + "device= " + device);
                     }
+                    final BapBroadcastService bapBroadcastService = mFactory.getBapBroadcastService();
+                    if (device != null && bapBroadcastService.isBapBroadcastActive()) {
+                        if (device.getAddress().equals(bapBroadcastService.getBapBroadcastAddress())) {
+                            Log.d(TAG," Update from Bap BA, bail out");
+                            break;
+                        }
+                    }
                     if (device != null && !Objects.equals(mA2dpActiveDevice, device)) {
                         setHearingAidActiveDevice(null);
+                        setBapBroadcastActiveDevice(null);
                     }
                     // Just assign locally the new value
                     mA2dpActiveDevice = device;
@@ -370,6 +381,23 @@ public class ActiveDeviceManager {
                     if (device != null && (!ApmConst.getLeAudioEnabled())) {
                         setA2dpActiveDevice(null);
                         setHfpActiveDevice(null);
+                    }
+                }
+                break;
+
+                case MESSAGE_BAP_BROADCAST_ACTIVE_DEVICE_CHANGED: {
+                    Intent intent = (Intent) msg.obj;
+                    BluetoothDevice device =
+                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                    if (DBG) {
+                        Log.d(TAG, "handleMessage(MESSAGE_BAP_BROADCAST_ACTIVE_DEVICE_CHANGED): "
+                                + "device= " + device);
+                    }
+                    // Just assign locally the new value
+                    mBapBroadcastActiveDevice = device;
+                    if (device != null) {
+                        setA2dpActiveDevice(null);
+                        //setHfpActiveDevice(null);
                     }
                 }
                 break;
@@ -481,6 +509,13 @@ public class ActiveDeviceManager {
         return mHandlerThread.getLooper();
     }
 
+    public void notify_bap_broadcast_active_device(BluetoothDevice device) {
+        Intent intent = new Intent("BAP_BROADCAST_ACTIVE_DEVICE_CHANGE");
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+
+        mHandler.obtainMessage(MESSAGE_BAP_BROADCAST_ACTIVE_DEVICE_CHANGED,
+                 intent).sendToTarget();
+    }
     private boolean setA2dpActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setA2dpActiveDevice(" + device + ")");
@@ -525,6 +560,17 @@ public class ActiveDeviceManager {
         mHearingAidActiveDevice = device;
     }
 
+    private void setBapBroadcastActiveDevice(BluetoothDevice device) {
+        if (DBG) {
+            Log.d(TAG, "setBapBroadcastActiveDevice(" + device + ")");
+        }
+        final BapBroadcastService bapBroadcastService = mFactory.getBapBroadcastService();
+        if (bapBroadcastService == null) return;
+        //if (bapBroadcastService.setActiveDevice(device) != 0) return;
+        bapBroadcastService.notifyBroadcastEnabled(false);
+        Log.d(TAG, " setting BapBroadcast active device to " + device);
+        mBapBroadcastActiveDevice = device;
+    }
     private void resetState() {
         mA2dpConnectedDevices.clear();
         mA2dpActiveDevice = null;
@@ -567,6 +613,7 @@ public class ActiveDeviceManager {
         setA2dpActiveDevice(null);
         setHfpActiveDevice(null);
         setHearingAidActiveDevice(null);
+        setBapBroadcastActiveDevice(null);
     }
     public void onActiveDeviceChange(BluetoothDevice device, int audioType) {
         if(audioType == ApmConst.AudioFeatures.CALL_AUDIO) {

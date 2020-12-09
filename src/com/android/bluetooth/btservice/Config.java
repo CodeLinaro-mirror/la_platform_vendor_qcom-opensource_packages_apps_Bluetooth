@@ -33,10 +33,13 @@ import com.android.bluetooth.cap.CapService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
+import com.android.bluetooth.csipclient.CsipService;
 import com.android.bluetooth.gatt.GattService;
+import com.android.bluetooth.bms.BapBroadcastService;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hfpclient.HeadsetClientService;
+import com.android.bluetooth.bc.BCService;
 import com.android.bluetooth.hid.HidDeviceService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.map.BluetoothMapService;
@@ -48,7 +51,6 @@ import com.android.bluetooth.pbapclient.PbapClientService;
 import com.android.bluetooth.sap.SapService;
 import com.android.bluetooth.apm.StreamAudioService;
 import com.android.bluetooth.ba.BATService;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -76,6 +78,8 @@ public class Config {
      * List of profile services with the profile-supported resource flag and bit mask.
      */
     private static final ProfileConfig[] PROFILE_SERVICES_AND_FLAGS = {
+            new ProfileConfig(CsipService.class, R.bool.profile_supported_csip,
+                    (1 << BluetoothProfile.CSIP_CLIENT)),
             new ProfileConfig(HeadsetService.class, R.bool.profile_supported_hs_hfp,
                     (1 << BluetoothProfile.HEADSET)),
             new ProfileConfig(A2dpService.class, R.bool.profile_supported_a2dp,
@@ -99,12 +103,16 @@ public class Config {
             new ProfileConfig(AvrcpControllerService.class,
                     R.bool.profile_supported_avrcp_controller,
                     (1 << BluetoothProfile.AVRCP_CONTROLLER)),
+            new ProfileConfig(BapBroadcastService.class, R.bool.profile_supported_bap_broadcast,
+                    (1 << BluetoothProfile.BAP_BROADCAST)),
             new ProfileConfig(SapService.class, R.bool.profile_supported_sap,
                     (1 << BluetoothProfile.SAP)),
             new ProfileConfig(PbapClientService.class, R.bool.profile_supported_pbapclient,
                     (1 << BluetoothProfile.PBAP_CLIENT)),
             new ProfileConfig(MapClientService.class, R.bool.profile_supported_mapmce,
                     (1 << BluetoothProfile.MAP_CLIENT)),
+            new ProfileConfig(BCService.class, R.bool.profile_supported_bac,
+                    (1 << BluetoothProfile.BASS_CLIENT)),
             new ProfileConfig(HidDeviceService.class, R.bool.profile_supported_hid_device,
                     (1 << BluetoothProfile.HID_DEVICE)),
             new ProfileConfig(BluetoothOppService.class, R.bool.profile_supported_opp,
@@ -285,6 +293,7 @@ public class Config {
             return false;
 
         boolean isBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
+        boolean isBCEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bc", true);
 
         // Split A2dp will be enabled by default
         boolean isSplitA2dpEnabled = true;
@@ -301,6 +310,10 @@ public class Config {
             Log.d(TAG," isBAEnabled = " + isBAEnabled
                           + " isSplitEnabled " + isSplitA2dpEnabled);
             return isBAEnabled && isSplitA2dpEnabled;
+        }
+        if(serviceName.equals("BCService")) {
+            Log.d(TAG," isBCEnabled = " + isBCEnabled);
+            return isBCEnabled;
         }
         // always return true for other profiles
         return true;
