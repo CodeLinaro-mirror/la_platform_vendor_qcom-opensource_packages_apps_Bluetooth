@@ -1244,6 +1244,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case MESSAGE_PROCESS_ATTR_CHANGED:
                 case MESSAGE_PROCESS_PLAY_POS_CHANGED:
                 case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
+                case MESSAGE_PROCESS_CONNECTION_CHANGE:
                     // All of these messages should be handled by parent state immediately.
                     return false;
 
