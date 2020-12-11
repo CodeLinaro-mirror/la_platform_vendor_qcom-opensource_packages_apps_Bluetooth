@@ -53,6 +53,7 @@ import com.android.bluetooth.apm.StreamAudioService;
 import com.android.bluetooth.ba.BATService;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class Config {
@@ -78,8 +79,6 @@ public class Config {
      * List of profile services with the profile-supported resource flag and bit mask.
      */
     private static final ProfileConfig[] PROFILE_SERVICES_AND_FLAGS = {
-            new ProfileConfig(CsipService.class, R.bool.profile_supported_csip,
-                    (1 << BluetoothProfile.CSIP_CLIENT)),
             new ProfileConfig(HeadsetService.class, R.bool.profile_supported_hs_hfp,
                     (1 << BluetoothProfile.HEADSET)),
             new ProfileConfig(A2dpService.class, R.bool.profile_supported_a2dp,
@@ -128,18 +127,26 @@ public class Config {
                     (1 << BATService.BA_TRANSMITTER)),
     };
 
-    /* List of Unicast LE Audio Profiles */
+    /* List of Unicast Advance Audio Profiles */
     private static ArrayList<ProfileConfig> unicastAdvAudioProfiles =
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
 
             ));
 
-    /* List of Broadcast LE Audio Profiles */
+    /* List of Broadcast Advance Audio Profiles */
     private static ArrayList<ProfileConfig> broadcastAdvAudioProfiles =
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
 
+            ));
+
+    /* List of Profiles common for Unicast and Broadcast advance audio features */
+    private static ArrayList<ProfileConfig> commonAdvAudioProfiles =
+            new ArrayList<ProfileConfig>(
+                Arrays.asList(
+                    new ProfileConfig(CsipService.class, R.bool.profile_supported_csip,
+                            (1 << BluetoothProfile.CSIP_CLIENT))
             ));
 
     private static Class[] sSupportedProfiles = new Class[0];
@@ -153,8 +160,9 @@ public class Config {
             return;
         }
 
-        // TODO: Property is set for both unicast and broadcast bits. To be removed later.
-        SystemProperties.set("persist.vendor.service.bt.adv_audio_mask", "3");
+        if (SystemProperties.get("persist.vendor.service.bt.adv_audio_mask").isEmpty()) {
+          SystemProperties.set("persist.vendor.service.bt.adv_audio_mask", "3");
+        }
         initAdvAudioConfig(ctx);
 
         ArrayList<Class> profiles = new ArrayList<>(PROFILE_SERVICES_AND_FLAGS.length);
@@ -191,9 +199,22 @@ public class Config {
 
         adv_audio_feature_mask = SystemProperties.getInt(
                                     "persist.vendor.service.bt.adv_audio_mask", 0);
+
         ArrayList<Class> profiles = new ArrayList<>();
 
-        /* Add unicast LEA profiles */
+        /* Add unicast advance audio profiles */
+        if (((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) ||
+            ((adv_audio_feature_mask & ADV_AUDIO_BROADCAST_FEAT_MASK) != 0)) {
+            for (ProfileConfig config : commonAdvAudioProfiles) {
+                boolean supported = resources.getBoolean(config.mSupported);
+                if (supported) {
+                    Log.d(TAG, "Adding " + config.mClass.getSimpleName());
+                    profiles.add(config.mClass);
+                }
+            }
+        }
+
+        /* Add unicast advance audio profiles */
         if ((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) {
             for (ProfileConfig config : unicastAdvAudioProfiles) {
                 boolean supported = resources.getBoolean(config.mSupported);
@@ -204,7 +225,7 @@ public class Config {
             }
         }
 
-        /* Add broadcast LEA profiles */
+        /* Add broadcast advance audio profiles */
         if ((adv_audio_feature_mask & ADV_AUDIO_BROADCAST_FEAT_MASK) != 0) {
             for (ProfileConfig config : broadcastAdvAudioProfiles) {
                 boolean supported = resources.getBoolean(config.mSupported);
@@ -215,9 +236,11 @@ public class Config {
             }
         }
 
-        // Copy LEA profiles to sSupportedProfiles
-        System.arraycopy(profiles.toArray(), 0, sSupportedProfiles,
-                         sSupportedProfiles.length, profiles.size());
+        // Copy advance audio profiles to sSupportedProfiles
+        List<Class> allProfiles = new ArrayList<Class>();
+        Collections.addAll(allProfiles, sSupportedProfiles);
+        allProfiles.addAll(profiles);
+        sSupportedProfiles = allProfiles.toArray(new Class[allProfiles.size()]);
     }
 
     protected static void initAdvAudioConfig (Context ctx) {
@@ -232,9 +255,6 @@ public class Config {
     }
 
     protected static boolean isLC3CodecSupported(Context ctx) {
-      boolean isLC3Supported = true;
-
-      /* TODO: To be uncommented once KS:428243 change is available in AU
       boolean isLC3Supported = false;
       AudioManager mAudioManager = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
       List<BluetoothCodecConfig> mmSupportedCodecs =
@@ -246,7 +266,7 @@ public class Config {
               Log.d(TAG, " LC3 codec supported : " + codecConfig);
               break;
           }
-      }*/
+      }
 
       return isLC3Supported;
     }
@@ -257,6 +277,21 @@ public class Config {
 
     private static long getProfileMask(Class profile) {
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
+            if (config.mClass == profile) {
+                return config.mMask;
+            }
+        }
+        for (ProfileConfig config : commonAdvAudioProfiles) {
+            if (config.mClass == profile) {
+                return config.mMask;
+            }
+        }
+        for (ProfileConfig config : unicastAdvAudioProfiles) {
+            if (config.mClass == profile) {
+                return config.mMask;
+            }
+        }
+        for (ProfileConfig config : broadcastAdvAudioProfiles) {
             if (config.mClass == profile) {
                 return config.mMask;
             }
