@@ -102,16 +102,12 @@ public class Config {
             new ProfileConfig(AvrcpControllerService.class,
                     R.bool.profile_supported_avrcp_controller,
                     (1 << BluetoothProfile.AVRCP_CONTROLLER)),
-            new ProfileConfig(BapBroadcastService.class, R.bool.profile_supported_bap_broadcast,
-                    (1 << BluetoothProfile.BAP_BROADCAST)),
             new ProfileConfig(SapService.class, R.bool.profile_supported_sap,
                     (1 << BluetoothProfile.SAP)),
             new ProfileConfig(PbapClientService.class, R.bool.profile_supported_pbapclient,
                     (1 << BluetoothProfile.PBAP_CLIENT)),
             new ProfileConfig(MapClientService.class, R.bool.profile_supported_mapmce,
                     (1 << BluetoothProfile.MAP_CLIENT)),
-            new ProfileConfig(BCService.class, R.bool.profile_supported_bac,
-                    (1 << BluetoothProfile.BASS_CLIENT)),
             new ProfileConfig(HidDeviceService.class, R.bool.profile_supported_hid_device,
                     (1 << BluetoothProfile.HID_DEVICE)),
             new ProfileConfig(BluetoothOppService.class, R.bool.profile_supported_opp,
@@ -138,7 +134,11 @@ public class Config {
     private static ArrayList<ProfileConfig> broadcastAdvAudioProfiles =
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
-
+                    new ProfileConfig(BCService.class, R.bool.profile_supported_bac,
+                        (1 << BluetoothProfile.BASS_CLIENT)),
+                    new ProfileConfig(BapBroadcastService.class,
+                         R.bool.profile_supported_bap_broadcast,
+                        (1 << BluetoothProfile.BAP_BROADCAST))
             ));
 
     /* List of Profiles common for Unicast and Broadcast advance audio features */
