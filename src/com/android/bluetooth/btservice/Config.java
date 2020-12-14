@@ -83,8 +83,6 @@ public class Config {
                     (1 << BluetoothProfile.HEADSET)),
             new ProfileConfig(A2dpService.class, R.bool.profile_supported_a2dp,
                     (1 << BluetoothProfile.A2DP)),
-            new ProfileConfig(CapService.class, R.bool.profile_supported_cap,
-                    (1 << CapService.CAP_AUDIO_UNICAST)),
             new ProfileConfig(A2dpSinkService.class, R.bool.profile_supported_a2dp_sink,
                     (1 << BluetoothProfile.A2DP_SINK)),
             new ProfileConfig(HidHostService.class, R.bool.profile_supported_hid_host,
@@ -121,8 +119,6 @@ public class Config {
             new ProfileConfig(HearingAidService.class,
                     com.android.internal.R.bool.config_hearing_aid_profile_supported,
                     (1 << BluetoothProfile.HEARING_AID)),
-            new ProfileConfig(StreamAudioService.class, R.bool.profile_supported_le_audio,
-                    (1 << StreamAudioService.LE_AUDIO_UNICAST)),
             new ProfileConfig(BATService.class, R.bool.profile_supported_ba,
                     (1 << BATService.BA_TRANSMITTER)),
     };
@@ -146,7 +142,11 @@ public class Config {
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
                     new ProfileConfig(CsipService.class, R.bool.profile_supported_csip,
-                            (1 << BluetoothProfile.CSIP_CLIENT))
+                            (1 << BluetoothProfile.CSIP_CLIENT)),
+                    new ProfileConfig(StreamAudioService.class, R.bool.profile_supported_le_audio,
+                            (1 << StreamAudioService.LE_AUDIO_UNICAST)),
+                    new ProfileConfig(CapService.class, R.bool.profile_supported_cap,
+                            (1 << CapService.CAP_AUDIO_UNICAST))
             ));
 
     private static Class[] sSupportedProfiles = new Class[0];
