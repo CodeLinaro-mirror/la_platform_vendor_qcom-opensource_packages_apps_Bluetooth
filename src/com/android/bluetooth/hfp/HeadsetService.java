@@ -143,8 +143,6 @@ public class HeadsetService extends ProfileService {
     private Context mContext = null;
     private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
     private static final int AUDIO_CONNECTION_DELAY_DEFAULT = 100;
-    public static boolean isLeAudioEnabled = false;
-    private CallAudio mCallAudio;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -251,12 +249,6 @@ public class HeadsetService extends ProfileService {
         mSystemInterface.getAudioManager().setAudioServerStateCallback(exec, mServerStateCallback);
 
         Log.i(TAG, " HeadsetService Started ");
-        isLeAudioEnabled = ApmConst.getLeAudioEnabled();
-        if(isLeAudioEnabled) {
-            DeviceProfileMap dMap = DeviceProfileMap.getDeviceProfileMapInstance();
-            dMap.init(this);
-            mCallAudio = CallAudio.init(this);
-        }
         return true;
     }
 
@@ -331,8 +323,6 @@ public class HeadsetService extends ProfileService {
             // Step 1: Clear
             mAdapterService = null;
         }
-        DeviceProfileMap dMap = DeviceProfileMap.getDeviceProfileMapInstance();
-        dMap.cleanup();
 
         return true;
     }
@@ -624,7 +614,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public boolean connect(BluetoothDevice device) {
-             if(isLeAudioEnabled) {
+             if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "connect LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.connect(device);
@@ -638,7 +628,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public boolean disconnect(BluetoothDevice device) {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "disconnect LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.disconnect(device);
@@ -652,7 +642,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public List<BluetoothDevice> getConnectedDevices() {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "getConnectedDevices LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.getConnectedDevices();
@@ -684,7 +674,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public int getConnectionState(BluetoothDevice device) {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "getConnectionState LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.getConnectionState(device);
@@ -698,7 +688,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public boolean setPriority(BluetoothDevice device, int connectionPolicy) {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "setPriority LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.setConnectionPolicy(device, connectionPolicy);
@@ -713,7 +703,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "setConnectionPolicy LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.setConnectionPolicy(device, connectionPolicy);
@@ -728,7 +718,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public int getPriority(BluetoothDevice device) {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "getPriority LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.getConnectionPolicy(device);
@@ -743,7 +733,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public int getConnectionPolicy(BluetoothDevice device) {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "getConnectionPolicy LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.getConnectionPolicy(device);
@@ -776,7 +766,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public boolean isAudioOn() {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "isAudioOn LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.isAudioOn();
@@ -799,7 +789,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public int getAudioState(BluetoothDevice device) {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "getAudioState LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.getAudioState(device);
@@ -813,7 +803,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public boolean connectAudio() {
-             if(isLeAudioEnabled) {
+             if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "connectAudio LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.connectAudio();
@@ -827,7 +817,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public boolean disconnectAudio() {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "disconnectAudio LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.disconnectAudio();
@@ -882,7 +872,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public boolean startScoUsingVirtualVoiceCall() {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "startScoUsingVirtualVoiceCall LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.startScoUsingVirtualVoiceCall();
@@ -896,7 +886,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public boolean stopScoUsingVirtualVoiceCall() {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                  Log.d(TAG, "stopScoUsingVirtualVoiceCall LE Audio enabled");
                 CallAudio mCallAudio = CallAudio.get();
                 return mCallAudio.stopScoUsingVirtualVoiceCall();
@@ -940,7 +930,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public boolean setActiveDevice(BluetoothDevice device) {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                 ActiveDeviceManagerService activeDeviceManager = ActiveDeviceManagerService.get();
                 return activeDeviceManager.setActiveDevice(device, ApmConst.AudioFeatures.CALL_AUDIO, true);
             }
@@ -953,7 +943,7 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public BluetoothDevice getActiveDevice() {
-            if(isLeAudioEnabled) {
+            if(ApmConst.getLeAudioEnabled()) {
                 ActiveDeviceManagerService activeDeviceManager = ActiveDeviceManagerService.get();
                 return activeDeviceManager.getActiveDevice(ApmConst.AudioFeatures.CALL_AUDIO);
             }
@@ -1134,7 +1124,7 @@ public class HeadsetService extends ProfileService {
 
     public boolean connect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
-         if(isLeAudioEnabled) {
+         if(ApmConst.getLeAudioEnabled()) {
             Log.d(TAG, "connect LE Audio enabled");
             CallAudio mCallAudio = CallAudio.get();
             return mCallAudio.connect(device);
@@ -1211,7 +1201,7 @@ public class HeadsetService extends ProfileService {
 
     public boolean disconnect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
-         if(isLeAudioEnabled) {
+         if(ApmConst.getLeAudioEnabled()) {
             Log.d(TAG, "connect LE Audio enabled");
             CallAudio mCallAudio = CallAudio.get();
             return mCallAudio.disconnect(device);
