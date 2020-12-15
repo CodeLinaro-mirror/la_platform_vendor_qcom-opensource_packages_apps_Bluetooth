@@ -307,10 +307,10 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".bms.BapBroadcastService"
-            android:enabled="@bool/profile_supported_bap_broadcast">
+            android:name = ".broadcast.BroadcastService"
+            android:enabled="@bool/profile_supported_broadcast">
             <intent-filter>
-                <action android:name="android.bluetooth.IBluetoothBapBroadcast" />
+                <action android:name="android.bluetooth.IBluetoothBroadcast" />
             </intent-filter>
         </service>
         <service
