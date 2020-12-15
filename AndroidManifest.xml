@@ -434,6 +434,10 @@
         </service>
         <service
             android:process="@string/process"
+            android:name = ".cc.CCService">
+        </service>
+        <service
+            android:process="@string/process"
             android:name = ".hearingaid.HearingAidService">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothHearingAid" />
