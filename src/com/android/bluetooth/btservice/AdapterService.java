@@ -214,6 +214,7 @@ public class AdapterService extends Service {
     private static final int GROUP_ID_END = 15;
     private static final int TYPE_BREDR = 100;
     private static final int TYPE_PRIVATE_ADDRESS = 101;
+    private static final int INVALID_GROUP_ID = 16;
 
     private final ArrayList<DiscoveringPackage> mDiscoveringPackages = new ArrayList<>();
 
@@ -4754,6 +4755,7 @@ public class AdapterService extends Service {
                             & BluetoothClass.Service.GROUP;
         Log.i(TAG," CSIP SUPPORT VALUE " +csipSupport + " device " +device);
         if (csipSupport == BluetoothClass.Service.GROUP) {
+            if (mCsipService == null) return false;
             // Add check for valid setid- TODO replace null with uuid
             int set_id = mCsipService.getRemoteDeviceSetId(device, null);
             Log.i(TAG," CSIP SETID  " + set_id + " device " +device);
@@ -4770,6 +4772,7 @@ public class AdapterService extends Service {
     }
 
     public int csipGetSetId(BluetoothDevice device) {
+        if (mCsipService == null) return INVALID_GROUP_ID;
         int setId = mCsipService.getRemoteDeviceSetId(device, null);
         Log.i(TAG," CSIP SET ID " +setId);
         return setId;
