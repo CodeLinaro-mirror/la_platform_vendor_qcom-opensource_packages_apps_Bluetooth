@@ -138,8 +138,6 @@ int register_com_android_bluetooth_a2dp(JNIEnv* env);
 
 int register_com_android_bluetooth_a2dp_sink(JNIEnv* env);
 
-int register_com_android_bluetooth_cap(JNIEnv* env);
-
 int register_com_android_bluetooth_avrcp(JNIEnv* env);
 
 int register_com_android_bluetooth_avrcp_target(JNIEnv* env);
@@ -164,15 +162,10 @@ int register_com_android_bluetooth_hearing_aid(JNIEnv* env);
 
 int register_com_android_bluetooth_avrcp_ext(JNIEnv* env);
 
-int register_com_android_bluetooth_bap_broadcast(JNIEnv* env);
-
 int register_com_android_bluetooth_ba(JNIEnv* env);
-
-int register_com_android_bluetooth_apm(JNIEnv* env);
 
 int register_com_android_bluetooth_hfp_vendorhfservice(JNIEnv* env);
 
-int register_com_android_bluetooth_csip_client(JNIEnv* env);
 }
 
 #endif /* COM_ANDROID_BLUETOOTH_H */

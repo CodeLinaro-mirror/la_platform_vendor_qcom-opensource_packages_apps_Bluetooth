@@ -20,6 +20,10 @@
 #include "bluetooth_socket_manager.h"
 #include "com_android_bluetooth.h"
 #include "hardware/bt_sock.h"
+#include "bt_features.h"
+#ifdef ADV_AUDIO_FEATURE
+#include "com_android_bluetooth_ext.h"
+#endif
 #include "permission_helpers.h"
 #include "utils/Log.h"
 #include "utils/misc.h"
@@ -1353,12 +1357,6 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     return JNI_ERR;
   }
 
-  status = android::register_com_android_bluetooth_cap(e);
-  if (status < 0) {
-    ALOGE("jni cap registration failure: %d", status);
-    return JNI_ERR;
-  }
-
   status = android::register_com_android_bluetooth_ba(e);
   if (status < 0) {
       ALOGE("jni BA Transmitter registration failure: %d", status);
@@ -1425,21 +1423,9 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     return JNI_ERR;
   }
 
-  status = android::register_com_android_bluetooth_bap_broadcast(e);
-  if (status < 0) {
-    ALOGE("jni bap broadcast registration failure: %d", status);
-    return JNI_ERR;
-  }
-
   status = android::register_com_android_bluetooth_hearing_aid(e);
   if (status < 0) {
     ALOGE("jni hearing aid registration failure: %d", status);
-    return JNI_ERR;
-  }
-
-  status = android::register_com_android_bluetooth_apm(e);
-  if (status < 0) {
-    ALOGE("jni APM registration failure: %d", status);
     return JNI_ERR;
   }
 
@@ -1449,10 +1435,12 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     return JNI_ERR;
   }
 
-  status = android::register_com_android_bluetooth_csip_client(e);
+#ifdef ADV_AUDIO_FEATURE
+  status = android::register_com_android_bluetooth_adv_audio_profiles(e);
   if (status < 0) {
-    ALOGE("jni csip registration failure: %d", status);
+    ALOGE("jni advance audio profile registration failure: %d", status);
     return JNI_ERR;
   }
+#endif
   return JNI_VERSION_1_6;
 }
