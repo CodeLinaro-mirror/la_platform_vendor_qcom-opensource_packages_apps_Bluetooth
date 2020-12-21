@@ -143,10 +143,10 @@ public class Config {
                 Arrays.asList(
                     new ProfileConfig(CsipService.class, R.bool.profile_supported_csip,
                             (1 << BluetoothProfile.CSIP_CLIENT)),
-                    new ProfileConfig(StreamAudioService.class, R.bool.profile_supported_le_audio,
-                            (1 << StreamAudioService.LE_AUDIO_UNICAST)),
                     new ProfileConfig(CapService.class, R.bool.profile_supported_cap,
-                            (1 << CapService.CAP_AUDIO_UNICAST))
+                            (1 << CapService.CAP_AUDIO_UNICAST)),
+                    new ProfileConfig(StreamAudioService.class, R.bool.profile_supported_le_audio,
+                            (1 << StreamAudioService.LE_AUDIO_UNICAST))
             ));
 
     private static Class[] sSupportedProfiles = new Class[0];
