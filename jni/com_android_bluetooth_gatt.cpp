@@ -1481,7 +1481,7 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
   jfieldID orgFid = env->GetFieldID(entryClazz, "org_id", "I");
   jfieldID TDSFlagsFid = env->GetFieldID(entryClazz, "tds_flags", "I");
   jfieldID TDSFlagsMaskFid = env->GetFieldID(entryClazz, "tds_flags_mask", "I");
-  jfieldID PSRISuppportid = env->GetFieldID(entryClazz, "psri_filter", "Z");
+  jfieldID grpIdentifierSuppportid = env->GetFieldID(entryClazz, "group_filter", "Z");
 
   for (int i = 0; i < numFilters; ++i) {
     ApcfCommand curr;
@@ -1554,7 +1554,7 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
     curr.org_id = env->GetIntField(current.get(), orgFid);
     curr.tds_flags = env->GetIntField(current.get(), TDSFlagsFid);
     curr.tds_flags_mask = env->GetIntField(current.get(), TDSFlagsMaskFid);
-    curr.group_filter_enabled = env->GetBooleanField(current.get(), PSRISuppportid);
+    curr.group_filter_enabled = env->GetBooleanField(current.get(), grpIdentifierSuppportid);
 
     native_filters.push_back(curr);
   }

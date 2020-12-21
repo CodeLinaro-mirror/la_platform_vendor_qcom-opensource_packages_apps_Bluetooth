@@ -32,7 +32,6 @@ import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
-import com.android.bluetooth.csipclient.CsipService;
 import com.android.bluetooth.gatt.GattService;
 import com.android.bluetooth.bms.BapBroadcastService;
 import com.android.bluetooth.hearingaid.HearingAidService;
@@ -47,6 +46,7 @@ import com.android.bluetooth.opp.BluetoothOppService;
 import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.pbap.BluetoothPbapService;
 import com.android.bluetooth.pbapclient.PbapClientService;
+import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.sap.SapService;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.ba.BATService;
@@ -140,7 +140,9 @@ public class Config {
     private static ArrayList<ProfileConfig> commonAdvAudioProfiles =
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
-                    new ProfileConfig(CsipService.class, R.bool.profile_supported_csip,
+                    new ProfileConfig(ReflectionUtils.getRequiredClass(
+                            "com.android.bluetooth.groupclient.GroupService"),
+                            R.bool.profile_supported_group_client,
                             (1 << BluetoothProfile.GROUP_CLIENT)),
                     new ProfileConfig(ApmConstIntf.CoordinatedAudioService, R.bool.profile_supported_ca,
                             (1 << ApmConstIntf.COORDINATED_AUDIO_UNICAST)),

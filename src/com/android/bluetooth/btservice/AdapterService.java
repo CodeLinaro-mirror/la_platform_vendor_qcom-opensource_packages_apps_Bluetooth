@@ -129,11 +129,11 @@ import com.android.bluetooth.mapclient.MapClientService;
 import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.pbap.BluetoothPbapService;
 import com.android.bluetooth.pbapclient.PbapClientService;
+import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.sap.SapService;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.bluetooth.bms.BapBroadcastService;
 import com.android.bluetooth.ba.BATService;
-import com.android.bluetooth.csipclient.CsipService;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
@@ -145,6 +145,7 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiConfiguration;
+import android.os.ParcelUuid;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -215,6 +216,8 @@ public class AdapterService extends Service {
     private static final int TYPE_BREDR = 100;
     private static final int TYPE_PRIVATE_ADDRESS = 101;
     private static final int INVALID_GROUP_ID = 16;
+
+    private static final UUID EMPTY_UUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
     private final ArrayList<DiscoveringPackage> mDiscoveringPackages = new ArrayList<>();
 
@@ -294,7 +297,7 @@ public class AdapterService extends Service {
     private BluetoothPbapService mPbapService;
     private PbapClientService mPbapClientService;
     private HearingAidService mHearingAidService;
-    private CsipService mCsipService;
+    private Object mGroupService;
     private SapService mSapService;
 
     ///*_REF
@@ -1402,7 +1405,7 @@ public class AdapterService extends Service {
         mPbapService = BluetoothPbapService.getBluetoothPbapService();
         mPbapClientService = PbapClientService.getPbapClientService();
         mHearingAidService = HearingAidService.getHearingAidService();
-        mCsipService = CsipService.getCsipService();
+        mGroupService = new ServiceFactory().getGroupService();
         mSapService = SapService.getSapService();
         if (isAdvBroadcastAudioFeatEnabled()) {
         ///*_REF
@@ -4633,12 +4636,15 @@ public class AdapterService extends Service {
     private int getDeviceType(BluetoothDevice device){
         enforceBluetoothPrivilegedPermission(this);
         int type = TYPE_BREDR;
-        if (mCsipService == null ) {
+        if (mGroupService == null ) {
             type = TYPE_BREDR;
         } else if (isIgnoreDevice(device)) {
             type  = TYPE_PRIVATE_ADDRESS;
         } else if (isCsipDevice(device)) {
-            type = mCsipService.getRemoteDeviceSetId(device, null); // Group ID
+            ArrayList<Object> args = new ArrayList<Object>(
+                    Arrays.asList(device, new ParcelUuid(EMPTY_UUID)));
+            type = (Integer)(new ReflectionUtils().invokeMethod(
+                    mGroupService, "getRemoteDeviceGroupId", args));
             if (type > GROUP_ID_END ) {
                 Log.e(TAG, "getDeviceType set id invalid " + type);
             }
@@ -4779,9 +4785,12 @@ public class AdapterService extends Service {
                             & BluetoothClass.Service.GROUP;
         Log.i(TAG," CSIP SUPPORT VALUE " +csipSupport + " device " +device);
         if (csipSupport == BluetoothClass.Service.GROUP) {
-            if (mCsipService == null) return false;
+            if (mGroupService == null) return false;
             // Add check for valid setid- TODO replace null with uuid
-            int set_id = mCsipService.getRemoteDeviceSetId(device, null);
+            ArrayList<Object> args = new ArrayList<Object>(
+                    Arrays.asList(device, new ParcelUuid(EMPTY_UUID)));
+            int set_id = (Integer)(new ReflectionUtils().invokeMethod(
+                    mGroupService, "getRemoteDeviceGroupId", args));
             Log.i(TAG," CSIP SETID  " + set_id + " device " +device);
             if (set_id!=16) { //TODO Use csip macro once its public
                 status = true;
@@ -4796,8 +4805,11 @@ public class AdapterService extends Service {
     }
 
     public int csipGetSetId(BluetoothDevice device) {
-        if (mCsipService == null) return INVALID_GROUP_ID;
-        int setId = mCsipService.getRemoteDeviceSetId(device, null);
+        if (mGroupService == null) return INVALID_GROUP_ID;
+        ArrayList<Object> args = new ArrayList<Object>(
+                Arrays.asList(device, new ParcelUuid(EMPTY_UUID)));
+        int setId = (Integer)(new ReflectionUtils().invokeMethod(
+                mGroupService, "getRemoteDeviceGroupId", args));
         Log.i(TAG," CSIP SET ID " +setId);
         return setId;
     }

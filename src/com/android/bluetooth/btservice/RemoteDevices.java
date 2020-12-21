@@ -68,13 +68,14 @@ import android.os.ParcelUuid;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothStatsLog;
-import com.android.bluetooth.csipclient.CsipService;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.hfp.HeadsetHalConstants;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.ArrayUtils;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -819,9 +820,23 @@ final class RemoteDevices {
                             // RSSI from hal is in one byte
                             device.mRssi = val[0];
                             break;
-                        case AbstractionLayer.BT_PROPERTY_REMOTE_COORDINATED_SET:
-                            CsipService.loadCoordinatedSetFromBondedDevice(
-                                    bdDevice, new String(val));
+                        case AbstractionLayer.BT_PROPERTY_REMOTE_DEVICE_GROUP:
+                            try {
+                                Method mLoadGroups = null;
+                                Class<?> grpSvcCls = Class.forName(
+                                    "com.android.bluetooth.groupclient.GroupService");
+                                if (grpSvcCls != null) {
+                                    mLoadGroups = grpSvcCls.getMethod(
+                                        "loadDeviceGroupFromBondedDevice",
+                                        BluetoothDevice.class, String.class);
+                                    if (mLoadGroups != null) {
+                                        mLoadGroups.invoke(null, bdDevice, new String(val));
+                                    }
+                                }
+                            } catch (NoSuchMethodException|IllegalAccessException|
+                                     InvocationTargetException|ClassNotFoundException e) {
+                                 Log.e(TAG, "Exception in reading groups: " + e);
+                            }
                             break;
                         case AbstractionLayer.BT_PROPERTY_LEA_UUID_BY_TRANSPORT:
                         {

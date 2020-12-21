@@ -41,7 +41,7 @@ import java.util.UUID;
     public static final int TYPE_MANUFACTURER_DATA = 5;
     public static final int TYPE_SERVICE_DATA = 6;
     public static final int TYPE_TRANSPORT_DISCOVERY_DATA = 7;
-    public static final int TYPE_PSRI_AD_TYPE_FILTER = 8;
+    public static final int TYPE_GROUP_AD_TYPE_FILTER = 8;
 
     // Max length is 31 - 3(flags) - 2 (one byte for length and one byte for type).
     private static final int MAX_LEN_PER_FIELD = 26;
@@ -63,7 +63,7 @@ import java.util.UUID;
         public int org_id;
         public int tds_flags;
         public int tds_flags_mask;
-        public boolean psri_filter;
+        public boolean group_filter;
     }
 
     private Set<Entry> mEntries = new HashSet<Entry>();
@@ -160,10 +160,10 @@ import java.util.UUID;
         mEntries.add(entry);
     }
 
-    void addPSRIFilterEntry(boolean psriFilterEnabled) {
+    void addGroupFilterEntry(boolean groupFilterEnabled) {
         Entry entry = new Entry();
-        entry.type = TYPE_PSRI_AD_TYPE_FILTER;
-        entry.psri_filter = psriFilterEnabled;
+        entry.type = TYPE_GROUP_AD_TYPE_FILTER;
+        entry.group_filter = groupFilterEnabled;
         mEntries.add(entry);
     }
 
@@ -257,7 +257,7 @@ import java.util.UUID;
                 filter.getTDSFlagsMask(), filter.getWifiNANHash());
         }
         if (filter.getGroupFilteringValue()) {
-            addPSRIFilterEntry(filter.getGroupFilteringValue());
+            addGroupFilterEntry(filter.getGroupFilteringValue());
         }
     }
 

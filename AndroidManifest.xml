@@ -445,7 +445,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".csipclient.CsipService">
+            android:name = ".groupclient.GroupService">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothDeviceGroup" />
             </intent-filter>
