@@ -318,25 +318,22 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onCustomAction(String action, Bundle extras) {
             if (DBG) Log.d(TAG, "onCustomAction:" + action);
+            if (extras == null) {
+                return;
+            }
+            if (mActiveDevice == null) {
+                Log.w(TAG, "mActiveDevice is null");
+                return;
+            }
+            AvrcpControllerStateMachine activeDeviceStateMachine = mDeviceStateMap.get(mActiveDevice);
+            if (activeDeviceStateMachine == null) {
+                Log.w(TAG, "activeDeviceStateMachine is null");
+                return;
+            }
             if (AvrcpControllerStateMachine.CUSTOM_ACTION_SEND_PASS_THRU_CMD.equals(action)) {
-                if (extras == null) {
-                    return;
-                }
-                if (mActiveDevice == null) {
-                    Log.w(TAG, "mActiveDevice is null");
-                    return;
-                }
-                AvrcpControllerStateMachine activeDeviceStateMachine = mDeviceStateMap.get(mActiveDevice);
-                if (DBG) Log.d(TAG, "Find state machine for active device " + mActiveDevice);
-                if (activeDeviceStateMachine != null) {
-                    int cmd = extras.getInt(AvrcpControllerStateMachine.KEY_CMD);
-                    int state = extras.getInt(AvrcpControllerStateMachine.KEY_STATE);
-                    if (DBG) Log.d(TAG, "Send MSG_AVRCP_PASSTHRU_EXT to device " + mActiveDevice);
-                    activeDeviceStateMachine.sendMessage(AvrcpControllerStateMachine.MSG_AVRCP_PASSTHRU_EXT,
-                            cmd, state);
-                } else {
-                    Log.e(TAG, "Cannot find state machine for active device " + mActiveDevice);
-                }
+                activeDeviceStateMachine.handleCustomActionSendPassThruCmd(extras);
+            } else {
+                Log.w(TAG, "Custom action " + action + " not supported.");
             }
         }
 

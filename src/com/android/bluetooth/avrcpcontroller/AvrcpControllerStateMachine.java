@@ -1293,7 +1293,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                 .getBoolean(R.bool.a2dp_sink_automatically_request_audio_focus);
     }
 
-    private void handleCustomActionSendPassThruCmd(Bundle extras) {
+    public void handleCustomActionSendPassThruCmd(Bundle extras) {
         Log.d(TAG, "handleCustomActionSendPassThruCmd extras: " + extras);
         if (extras == null) {
             return;
