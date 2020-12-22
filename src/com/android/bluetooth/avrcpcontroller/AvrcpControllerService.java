@@ -112,6 +112,9 @@ public class AvrcpControllerService extends ProfileService {
     public static final int KEY_STATE_PRESSED = 0;
     public static final int KEY_STATE_RELEASED = 1;
 
+    // UID size is 8 bytes (AVRCP 1.6 spec)
+    private static final byte[] EMPTY_UID = {0, 0, 0, 0, 0, 0, 0, 0};
+
     /* Active peer device */
     private BluetoothDevice mActiveDevice = null;
 
@@ -332,6 +335,8 @@ public class AvrcpControllerService extends ProfileService {
             }
             if (AvrcpControllerStateMachine.CUSTOM_ACTION_SEND_PASS_THRU_CMD.equals(action)) {
                 activeDeviceStateMachine.handleCustomActionSendPassThruCmd(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_GET_ITEM_ATTR.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionGetItemAttributes(extras);
             } else {
                 Log.w(TAG, "Custom action " + action + " not supported.");
             }
@@ -1301,4 +1306,15 @@ public class AvrcpControllerService extends ProfileService {
      */
     public native void setActiveDeviceNative(byte[] address);
 
+    /**
+     * Get item attributes with provided uid
+     *
+     * @param scope          scope of item to played
+     * @param uid            song unique id
+     * @param uidCounter     counter
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getItemAttributesNative(byte[] address, byte scope, long uid, int uidCounter,
+            byte numAttributes, int[] attribIds);
 }
