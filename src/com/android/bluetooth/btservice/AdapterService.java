@@ -1382,66 +1382,68 @@ public class AdapterService extends Service {
         mHearingAidService = HearingAidService.getHearingAidService();
         mCsipService = CsipService.getCsipService();
         mSapService = SapService.getSapService();
+        if (isAdvBroadcastAudioFeatEnabled()) {
         ///*_REF
-        Class<?> bcClass = null;
-        try {
-            bcClass = Class.forName("com.android.bluetooth.bc.BCService");
-        } catch (ClassNotFoundException ex) {
-            Log.e(TAG, "no BC: exists");
-            bcClass = null;
-        }
-        if (bcClass != null) {
-            Log.d(TAG, "Able to get BC class handle");
+            Class<?> bcClass = null;
             try {
-                mBCGetService =  bcClass.getMethod("getBCService", null);
-            } catch (NoSuchMethodException e) {
-                Log.e(TAG, "no BC:getBCService method exists");
-                return;
+                bcClass = Class.forName("com.android.bluetooth.bc.BCService");
+            } catch (ClassNotFoundException ex) {
+                Log.e(TAG, "no BC: exists");
+                bcClass = null;
             }
-            if (mBCGetService != null) {
+            if (bcClass != null) {
+                Log.d(TAG, "Able to get BC class handle");
                 try {
-                   mBCService = mBCGetService.invoke(null, null);
-                } catch(IllegalAccessException e) {
-                   Log.e(TAG, "BC:Connect IllegalAccessException");
-                } catch (InvocationTargetException e) {
-                   Log.e(TAG, "BC:Connect InvocationTargetException");
+                    mBCGetService =  bcClass.getMethod("getBCService", null);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:getBCService method exists");
+                    return;
+                }
+                if (mBCGetService != null) {
+                    try {
+                       mBCService = mBCGetService.invoke(null, null);
+                    } catch(IllegalAccessException e) {
+                       Log.e(TAG, "BC:Connect IllegalAccessException");
+                    } catch (InvocationTargetException e) {
+                       Log.e(TAG, "BC:Connect InvocationTargetException");
+                    }
+                }
+
+                try {
+                    mBCGetConnPolicy =  bcClass.getMethod("getConnectionPolicy", BluetoothDevice.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:getConnectionPolicy method exists");
+                }
+
+                try {
+                    mBCGetConnState =    bcClass.getMethod("getConnectionState", BluetoothDevice.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:getConnectionState method exists");
+                    //break;
+                }
+
+                try {
+                    mBCSetConnPolicy =  bcClass.getMethod("setConnectionPolicy", new Class[] {BluetoothDevice.class, int.class});
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:setConnectionPolicy method exists");
+                    //break;
+                }
+
+                try {
+                    mBCConnect =    bcClass.getMethod("connect", BluetoothDevice.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:connect method exists");
+                    //break;
+                }
+                try {
+                    mBCDisconnect =  bcClass.getMethod("disconnect", BluetoothDevice.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:disconnect method exists");
+                    //break;
                 }
             }
-
-            try {
-                mBCGetConnPolicy =  bcClass.getMethod("getConnectionPolicy", BluetoothDevice.class);
-            } catch (NoSuchMethodException e) {
-                Log.e(TAG, "no BC:getConnectionPolicy method exists");
-            }
-
-            try {
-                mBCGetConnState =    bcClass.getMethod("getConnectionState", BluetoothDevice.class);
-            } catch (NoSuchMethodException e) {
-                Log.e(TAG, "no BC:getConnectionState method exists");
-                //break;
-            }
-
-            try {
-                mBCSetConnPolicy =  bcClass.getMethod("setConnectionPolicy", new Class[] {BluetoothDevice.class, int.class});
-            } catch (NoSuchMethodException e) {
-                Log.e(TAG, "no BC:setConnectionPolicy method exists");
-                //break;
-            }
-
-            try {
-                mBCConnect =    bcClass.getMethod("connect", BluetoothDevice.class);
-            } catch (NoSuchMethodException e) {
-                Log.e(TAG, "no BC:connect method exists");
-                //break;
-            }
-            try {
-                mBCDisconnect =  bcClass.getMethod("disconnect", BluetoothDevice.class);
-            } catch (NoSuchMethodException e) {
-                Log.e(TAG, "no BC:disconnect method exists");
-                //break;
-            }
+            //_REF*/
         }
-        //_REF*/
     }
 
     ///*_REF
