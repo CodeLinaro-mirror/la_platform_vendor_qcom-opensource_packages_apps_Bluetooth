@@ -268,7 +268,8 @@ public class ActiveDeviceManager {
                                 + "device= " + device);
                     }
                     final BapBroadcastService bapBroadcastService = mFactory.getBapBroadcastService();
-                    if (device != null && bapBroadcastService.isBapBroadcastActive()) {
+                    if (device != null && bapBroadcastService != null &&
+                        bapBroadcastService.isBapBroadcastActive()) {
                         if (device.getAddress().equals(bapBroadcastService.getBapBroadcastAddress())) {
                             Log.d(TAG," Update from Bap BA, bail out");
                             break;
