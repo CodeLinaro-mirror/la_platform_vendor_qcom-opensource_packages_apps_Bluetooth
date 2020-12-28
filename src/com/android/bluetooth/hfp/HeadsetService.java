@@ -1651,8 +1651,10 @@ public class HeadsetService extends ProfileService {
         if(ApmConst.getLeAudioEnabled()) {
             ActiveDeviceManagerService mActiveDeviceManager =
                     ActiveDeviceManagerService.get();
+            /*Precautionary Change: Force Active Device Manager
+             * to always return true*/
             return mActiveDeviceManager.setActiveDevice(device,
-                    ApmConst.AudioFeatures.CALL_AUDIO);
+                    ApmConst.AudioFeatures.CALL_AUDIO, true);
         } else {
             return setActiveDeviceHF(device);
         }
@@ -2030,7 +2032,11 @@ public class HeadsetService extends ProfileService {
                     return false;
                 }
             }
-            if (!isTwsPlusActive(fromDevice) &&
+            if (fromDevice == null) {
+                Log.e(TAG, "dialOutgoingCall, fromDevice is null");
+                return false;
+            }
+            if ((!fromDevice.equals(mActiveDevice)) && !isTwsPlusActive(fromDevice) &&
                 !setActiveDevice(fromDevice)) {
                 Log.e(TAG, "dialOutgoingCall failed to set active device to " + fromDevice);
                 return false;
