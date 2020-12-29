@@ -1317,6 +1317,9 @@ class AvrcpControllerStateMachine extends StateMachine {
             }
             mBipStateMachine.sendMessage(FLAG,
                     mAddressedPlayer.getCurrentTrack().getCoverArtHandle());
+        } else {
+            AvrcpControllerService.getElementAttributesNative(
+                mDeviceAddress, (byte)0, null);
         }
     }
 
