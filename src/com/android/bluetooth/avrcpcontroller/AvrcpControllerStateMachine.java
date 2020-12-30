@@ -1480,11 +1480,6 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
         MediaMetadata metadata = mAddressedPlayer.getCurrentTrack().getMetadata();
         BluetoothMediaBrowserService.trackChanged(metadata);
-
-        Intent intent = new Intent(AvrcpControllerService.ACTION_TRACK_EVENT);
-        intent.putExtra(AvrcpControllerService.EXTRA_METADATA, metadata);
-        logD(" broadcastMetaDataChanged = " + metadata.getDescription());
-        mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
     }
 
     private boolean shouldRequestFocus() {
