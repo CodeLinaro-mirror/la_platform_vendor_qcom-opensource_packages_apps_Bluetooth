@@ -54,13 +54,11 @@ import android.content.Intent;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
-import com.android.bluetooth.apm.ApmConst;
-import com.android.bluetooth.apm.DeviceProfileMap;
 
 import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.btservice.ProfileService;
-import com.android.bluetooth.apm.ApmConst;
-import com.android.bluetooth.apm.DeviceProfileMap;
+import com.android.bluetooth.apm.ApmConstIntf;
+import com.android.bluetooth.apm.DeviceProfileMapIntf;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
@@ -486,9 +484,9 @@ final class A2dpStateMachine extends StateMachine {
                 mConnectionState = BluetoothProfile.STATE_CONNECTED;
             }
             removeDeferredMessages(CONNECT);
-            DeviceProfileMap dpm = DeviceProfileMap.getDeviceProfileMapInstance();
-            dpm.profileConnectionUpdate(mDevice, ApmConst.AudioFeatures.MEDIA_AUDIO,
-                    ApmConst.AudioProfiles.A2DP, true);
+            DeviceProfileMapIntf dpm = DeviceProfileMapIntf.getDeviceProfileMapInstance();
+            dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.MEDIA_AUDIO,
+                    ApmConstIntf.AudioProfiles.A2DP, true);
             // Each time a device connects, we want to re-check if it supports optional
             // codecs (perhaps it's had a firmware update, etc.) and save that state if
             // it differs from what we had saved before.

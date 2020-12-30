@@ -111,10 +111,10 @@ import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
-import com.android.bluetooth.apm.ApmConst;
-import com.android.bluetooth.apm.ActiveDeviceManagerService;
-import com.android.bluetooth.apm.MediaAudio;
-import com.android.bluetooth.apm.CallAudio;
+import com.android.bluetooth.apm.ApmConstIntf;
+import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
+import com.android.bluetooth.apm.MediaAudioIntf;
+import com.android.bluetooth.apm.CallAudioIntf;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.btservice.storage.MetadataDatabase;
@@ -1178,9 +1178,9 @@ public class AdapterService extends Service {
      * @return true if any profile is enabled, false otherwise
      */
     private boolean isAnyProfileEnabled(BluetoothDevice device) {
-        boolean isLeAudioEnabled = ApmConst.getLeAudioEnabled();
+        boolean isLeAudioEnabled = ApmConstIntf.getLeAudioEnabled();
         if(isLeAudioEnabled) {
-            MediaAudio mMediaAudio = MediaAudio.get();
+            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
             if(mMediaAudio != null && mMediaAudio.getConnectionPolicy(device)
                         > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
                 return true;
@@ -1194,7 +1194,7 @@ public class AdapterService extends Service {
             return true;
         }
         if(isLeAudioEnabled) {
-            CallAudio mCallAudio = CallAudio.get();
+            CallAudioIntf mCallAudio = CallAudioIntf.get();
             if(mCallAudio != null && mCallAudio.getConnectionPolicy(device)
                         > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
                 return true;
@@ -1256,9 +1256,9 @@ public class AdapterService extends Service {
         ParcelUuid[] remoteDeviceUuids = getRemoteUuids(device);
         ParcelUuid[] localDeviceUuids = getUuids();
 
-        boolean isLeAudioEnabled = ApmConst.getLeAudioEnabled();
+        boolean isLeAudioEnabled = ApmConstIntf.getLeAudioEnabled();
         if(isLeAudioEnabled) {
-            CallAudio mCallAudio = CallAudio.get();
+            CallAudioIntf mCallAudio = CallAudioIntf.get();
             if(mCallAudio != null && isSupported(localDeviceUuids, remoteDeviceUuids,
                 BluetoothProfile.HEADSET, device) && mCallAudio.getConnectionPolicy(device)
                 > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
@@ -1281,7 +1281,7 @@ public class AdapterService extends Service {
         }
 
         if(isLeAudioEnabled) {
-            MediaAudio mMediaAudio = MediaAudio.get();
+            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
             if(mMediaAudio != null && isSupported(localDeviceUuids, remoteDeviceUuids,
                 BluetoothProfile.A2DP, device) && mMediaAudio.getConnectionPolicy(device)
                 > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
@@ -3195,8 +3195,8 @@ public class AdapterService extends Service {
 
         boolean setA2dp = false;
         boolean setHeadset = false;
-        boolean isLeAudioEnabled = ApmConst.getLeAudioEnabled();
-        ActiveDeviceManagerService activeDeviceManager = ActiveDeviceManagerService.get();
+        boolean isLeAudioEnabled = ApmConstIntf.getLeAudioEnabled();
+        ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
 
         // Determine for which profiles we want to set device as our active device
         switch(profiles) {
@@ -3217,7 +3217,7 @@ public class AdapterService extends Service {
         if (setA2dp && mA2dpService != null) {
             if(isLeAudioEnabled) {
                 activeDeviceManager.setActiveDevice(device, 
-                        ApmConst.AudioFeatures.MEDIA_AUDIO, true);
+                        ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
             } else {
                 mA2dpService.setActiveDevice(device);
             }
@@ -3231,7 +3231,7 @@ public class AdapterService extends Service {
         if (setHeadset && mHeadsetService != null) {
             if(isLeAudioEnabled) {
                 activeDeviceManager.setActiveDevice(device, 
-                        ApmConst.AudioFeatures.CALL_AUDIO, true);
+                        ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
             } else {
                 mHeadsetService.setActiveDevice(device);
             }
@@ -3253,7 +3253,7 @@ public class AdapterService extends Service {
             Log.e(TAG, "connectAllEnabledProfiles: Not all profile services running");
             return false;
         }
-        boolean isLeAudioEnabled = ApmConst.getLeAudioEnabled();
+        boolean isLeAudioEnabled = ApmConstIntf.getLeAudioEnabled();
 
         // Checks if any profiles are enabled and if so, only connect enabled profiles
         if (isAnyProfileEnabled(device)) {
@@ -3267,7 +3267,7 @@ public class AdapterService extends Service {
         // All profile toggles disabled, so connects all supported profiles
         if(isLeAudioEnabled) {
     /*Check for isSupported here for LE devices*/
-            MediaAudio mMediaAudio = MediaAudio.get();
+            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
             if(mMediaAudio != null && isSupported(localDeviceUuids, remoteDeviceUuids,
                         BluetoothProfile.A2DP, device)) {
                 mMediaAudio.setConnectionPolicy(device,
@@ -3289,7 +3289,7 @@ public class AdapterService extends Service {
             numProfilesConnected++;
         }
         if(isLeAudioEnabled) {
-            CallAudio mCallAudio = CallAudio.get();
+            CallAudioIntf mCallAudio = CallAudioIntf.get();
             if(mCallAudio != null && isSupported(localDeviceUuids, remoteDeviceUuids,
                         BluetoothProfile.HEADSET, device)) {
                 mCallAudio.setConnectionPolicy(device,
@@ -3375,9 +3375,9 @@ public class AdapterService extends Service {
             Log.e(TAG, "disconnectAllEnabledProfiles: Not all profile services bound");
             return false;
         }
-        boolean isLeAudioEnabled = ApmConst.getLeAudioEnabled();
+        boolean isLeAudioEnabled = ApmConstIntf.getLeAudioEnabled();
         if(isLeAudioEnabled) {
-            MediaAudio mMediaAudio = MediaAudio.get();
+            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
             if(mMediaAudio != null)
                 mMediaAudio.disconnect(device, true);
         } else if (mA2dpService != null && mA2dpService.getConnectionState(device)
@@ -3391,7 +3391,7 @@ public class AdapterService extends Service {
             mA2dpSinkService.disconnect(device);
         }
         if(isLeAudioEnabled) {
-            CallAudio mCallAudio = CallAudio.get();
+            CallAudioIntf mCallAudio = CallAudioIntf.get();
             if(mCallAudio != null)
                 mCallAudio.disconnect(device);
         } else if (mHeadsetService != null && mHeadsetService.getConnectionState(device)
