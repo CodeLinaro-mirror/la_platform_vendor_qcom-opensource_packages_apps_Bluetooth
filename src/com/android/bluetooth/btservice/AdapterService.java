@@ -3115,16 +3115,16 @@ public class AdapterService extends Service {
             DeviceProperties deviceMapProp
                 = mRemoteDevices.getDeviceProperties(mappingDevice);
             if (deviceMapProp != null) {
-                Log.e(TAG," getLEA ADDR " + deviceMapProp.getLeaValidAddr());
-                deviceMapProp.setDefaultLeaAddr();
-                Log.e(TAG," getLEA ADDR " + deviceMapProp.getLeaValidAddr());
+                Log.e(TAG," getAdvAudio ADDR " + deviceMapProp.getValidBDAddr());
+                deviceMapProp.setDefaultBDAddrValidType();
+                Log.e(TAG," getAdvAudio ADDR " + deviceMapProp.getValidBDAddr());
             } else {
-                Log.e(TAG,"  getLEA ADDR NULL ");
-                deviceProp.setDefaultLeaAddr();
+                Log.e(TAG,"  getAdvAudio ADDR NULL ");
+                deviceProp.setDefaultBDAddrValidType();
             }
         } else {
-            Log.e(TAG,"  getLEA DEVICE IS  NULL ");
-            deviceProp.setDefaultLeaAddr();
+            Log.e(TAG,"  getAdvAudio device is NULL ");
+            deviceProp.setDefaultBDAddrValidType();
         }
         Message msg = mBondStateMachine.obtainMessage(BondStateMachine.REMOVE_BOND);
         msg.obj = device;
@@ -4640,7 +4640,7 @@ public class AdapterService extends Service {
             type = TYPE_BREDR;
         } else if (isIgnoreDevice(device)) {
             type  = TYPE_PRIVATE_ADDRESS;
-        } else if (isCsipDevice(device)) {
+        } else if (isGroupDevice(device)) {
             ArrayList<Object> args = new ArrayList<Object>(
                     Arrays.asList(device, new ParcelUuid(EMPTY_UUID)));
             type = (Integer)(new ReflectionUtils().invokeMethod(
@@ -4750,8 +4750,8 @@ public class AdapterService extends Service {
         return false;
     }
 
-    public void processSetMember(int setId, BluetoothDevice device) {
-      Log.i(TAG," Processing CSIP Set Member " + device +
+    public void processGroupMember(int groupId, BluetoothDevice device) {
+      Log.i(TAG," Processing Group Member " + device +
           " BondState " + device.getBondState());
       DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
       if (deviceProp == null) {
@@ -4763,55 +4763,58 @@ public class AdapterService extends Service {
             deviceProp.getBluetoothClass();
           deviceProp.setBluetoothClass(tempBluetoothClass);
           deviceProp.setBondingInitiatedLocally(true);
-          Log.i(TAG," Processing CSIP Set Member " + device +
+          Log.i(TAG," Processing Group Member " + device +
               " tempBluetoothClass " + tempBluetoothClass);
       }
       if (device.getBondState() == BluetoothDevice.BOND_NONE) {
           Message msg =
             mBondStateMachine.obtainMessage(BondStateMachine.ADD_DEVICE_BOND_QUEUE);
           msg.obj = device;
-          msg.arg1 = setId;
+          msg.arg1 = groupId;
 
           mBondStateMachine.sendMessage(msg);
       }
     }
 
-    public boolean isCsipDevice(BluetoothDevice device) {
+    public boolean isGroupDevice(BluetoothDevice device) {
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         boolean status = false;
 
         if (deviceProp == null) return false;
-        int csipSupport = deviceProp.getBluetoothClass()
+        int groupSupport = deviceProp.getBluetoothClass()
                             & BluetoothClass.Service.GROUP;
-        Log.i(TAG," CSIP SUPPORT VALUE " +csipSupport + " device " +device);
-        if (csipSupport == BluetoothClass.Service.GROUP) {
+
+        Log.i(TAG," Group SUPPORT VALUE " +groupSupport + " device " +device);
+        if (groupSupport == BluetoothClass.Service.GROUP) {
             if (mGroupService == null) return false;
-            // Add check for valid setid- TODO replace null with uuid
+            // Add check for valid groupId- TODO replace null with uuid
             ArrayList<Object> args = new ArrayList<Object>(
                     Arrays.asList(device, new ParcelUuid(EMPTY_UUID)));
-            int set_id = (Integer)(new ReflectionUtils().invokeMethod(
+            int groupId = (Integer)(new ReflectionUtils().invokeMethod(
                     mGroupService, "getRemoteDeviceGroupId", args));
-            Log.i(TAG," CSIP SETID  " + set_id + " device " +device);
-            if (set_id!=16) { //TODO Use csip macro once its public
+            Log.i(TAG," group id  " + groupId + " device " + device);
+            if (groupId != INVALID_GROUP_ID) {
                 status = true;
             }
-            if (deviceProp.getLeaValidAddr() == 0) {
-                Log.i(TAG," ITS PRIVATE ADDR  " + deviceProp.getLeaValidAddr() + " device " +device);
+            if (deviceProp.getValidBDAddr() == 0) {
+                Log.i(TAG," ITS PRIVATE ADDR  " + deviceProp.getValidBDAddr()
+                        + " device " +device);
                 status = false;
             }
         }
-        Log.i(TAG," isCsipDevice " +status +"  device name "+device.getName()+" addr "+device.getAddress());
+        Log.i(TAG," isGroupDevice " + status + "  device name " + device.getName()
+                + " addr " + device.getAddress());
         return status;
     }
 
-    public int csipGetSetId(BluetoothDevice device) {
+    public int getGroupId(BluetoothDevice device) {
         if (mGroupService == null) return INVALID_GROUP_ID;
         ArrayList<Object> args = new ArrayList<Object>(
                 Arrays.asList(device, new ParcelUuid(EMPTY_UUID)));
-        int setId = (Integer)(new ReflectionUtils().invokeMethod(
+        int groupId = (Integer)(new ReflectionUtils().invokeMethod(
                 mGroupService, "getRemoteDeviceGroupId", args));
-        Log.i(TAG," CSIP SET ID " +setId);
-        return setId;
+        Log.i(TAG," Group ID " + groupId);
+        return groupId;
     }
 
     public boolean isIgnoreDevice(BluetoothDevice device) {
@@ -4819,7 +4822,7 @@ public class AdapterService extends Service {
         boolean status = false;
         if (deviceProp == null) return false;
 
-        if (deviceProp.getLeaValidAddr() == 0) {
+        if (deviceProp.getValidBDAddr() == 0) {
                 status = true;
         }
         Log.i(TAG," isIgnoreDevice " +status +" device name "+device.getName()+" addr "+device.getAddress());
@@ -4840,38 +4843,38 @@ public class AdapterService extends Service {
         return mappingDevice;
     }
 
-    public boolean isLeAudioDevice(BluetoothDevice device) {
+    public boolean isAdvAudioDevice(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         boolean status = false;
         if (deviceProp == null) return false;
 
-        Log.i(TAG," isLeAudioDevice " + device + " getBluetoothClass "
+        Log.i(TAG," isAdvAudioDevice " + device + " getBluetoothClass "
             + deviceProp.getBluetoothClass());
 
         int leAudioSupport = (deviceProp.getBluetoothClass())
                                & (BluetoothClass.Service.GROUP);
 
         if ((leAudioSupport == BluetoothClass.Service.GROUP)
-            && (deviceProp.getLeaValidAddr() != 0)) { // Add check for valid setid
+            && (deviceProp.getValidBDAddr() != 0)) {
             status = true;
         }
-        Log.i(TAG," isLeAudioDevice " +status);
+        Log.i(TAG," isAdvAudioDevice " +status);
         return status;
     }
 
-    public boolean isCsipLockSupport(BluetoothDevice device) {
+    public boolean isGroupExclAccessSupport(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         ParcelUuid[] uuids = deviceProp.getUuids();
         boolean status = false;
-        ParcelUuid CSIP_LOCK_SUPPORT =
-            ParcelUuid.fromString("00002B86-0000-1000-8000-00805F9B34FB");
+        ParcelUuid GROUP_EXCL_ACCESS_SUPPORT =
+            ParcelUuid.fromString("000DDAA0-0000-1000-8000-00805F9B34FB");
 
-        if (ArrayUtils.contains(uuids,CSIP_LOCK_SUPPORT)) {
+        if (ArrayUtils.contains(uuids,GROUP_EXCL_ACCESS_SUPPORT)) {
             status = true;
         }
-        Log.i(TAG," Csip Lock SUpported ? " +status);
+        Log.i(TAG,"isGroupExclusiveAccess supported  " +status);
         return status;
     }
 

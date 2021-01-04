@@ -92,12 +92,12 @@ public final class AbstractionLayer {
     static final int BT_PROPERTY_LOCAL_IO_CAPS = 0x0e;
     static final int BT_PROPERTY_LOCAL_IO_CAPS_BLE = 0x0f;
 
-    static final int BT_PROPERTY_LE_AUDIO_UUIDS = 0xA0;
-    static final int BT_PROPERTY_LE_AUDIO_ACTION_UUID = 0xA1;
-    static final int BT_PROPERTY_LEA_UUID_TRANSPORT = 0xA2;
-    static final int BT_PROPERTY_LEA_VALID_ADDR = 0xA3;
-    static final int BT_PROPERTY_LEA_ID_BD_ADDR = 0xA4;
-    static final int BT_PROPERTY_LEA_UUID_BY_TRANSPORT = 0xA5;
+    static final int BT_PROPERTY_ADV_AUDIO_UUIDS = 0xA0;
+    static final int BT_PROPERTY_ADV_AUDIO_ACTION_UUID = 0xA1;
+    static final int BT_PROPERTY_ADV_AUDIO_UUID_TRANSPORT = 0xA2;
+    static final int BT_PROPERTY_ADV_AUDIO_VALID_ADDR_TYPE = 0xA3;
+    static final int BT_PROPERTY_ADV_AUDIO_ID_BD_ADDR = 0xA4;
+    static final int BT_PROPERTY_ADV_AUDIO_UUID_BY_TRANSPORT = 0xA5;
 
     static final int BT_BOND_STATE_NONE = 0x00;
     static final int BT_BOND_STATE_BONDING = 0x01;
