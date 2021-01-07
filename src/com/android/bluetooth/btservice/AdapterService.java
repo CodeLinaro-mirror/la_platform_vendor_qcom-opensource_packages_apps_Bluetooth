@@ -136,7 +136,7 @@ import com.android.internal.util.ArrayUtils;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.NetworkInfo;
-import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.WifiConfiguration;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -200,7 +200,7 @@ public class AdapterService extends Service {
 
     private static final int CONTROLLER_ENERGY_UPDATE_TIMEOUT_MILLIS = 30;
     private static final int DELAY_A2DP_SLEEP_MILLIS = 100;
-
+    private static final int TYPE_BREDR = 100;
     private final ArrayList<DiscoveringPackage> mDiscoveringPackages = new ArrayList<>();
 
     static {
@@ -556,6 +556,15 @@ public class AdapterService extends Service {
     public void onCreate() {
         super.onCreate();
         debugLog("onCreate()");
+
+        Log.i(TAG, "Current user: " + ActivityManager.getCurrentUser() +
+                  " Owner user: " + UserHandle.myUserId());
+        if (ActivityManager.getCurrentUser() != UserHandle.myUserId())
+        {
+            Log.i(TAG, "Not match with current user. Quit...");
+            System.exit(0);
+        }
+
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mRemoteDevices = new RemoteDevices(this, Looper.getMainLooper());
         mRemoteDevices.init();
@@ -566,7 +575,11 @@ public class AdapterService extends Service {
         mAdapterStateMachine =  AdapterState.make(this);
         mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
         mVendorSocket = new VendorSocket(this);
-        initNative(isGuest(), isSingleUserMode());
+        int configCompareResult = 0;
+        // Android TV doesn't show consent dialogs for just works and encryption only le pairing
+        boolean isAtvDevice = getApplicationContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_LEANBACK_ONLY);
+        initNative(isGuest(), isSingleUserMode(), configCompareResult, isAtvDevice);
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
         mAppOps = getSystemService(AppOpsManager.class);
@@ -590,6 +603,9 @@ public class AdapterService extends Service {
         mProfileObserver = new ProfileObserver(getApplicationContext(), this, new Handler());
         mProfileObserver.start();
 
+        mDatabaseManager = new DatabaseManager(this);
+        mDatabaseManager.start(MetadataDatabase.createDatabase(this));
+
         // Phone policy is specific to phone implementations and hence if a device wants to exclude
         // it out then it can be disabled by using the flag below.
         if (getResources().getBoolean(com.android.bluetooth.R.bool.enable_phone_policy)) {
@@ -603,9 +619,6 @@ public class AdapterService extends Service {
 
         mActiveDeviceManager = new ActiveDeviceManager(this, new ServiceFactory());
         mActiveDeviceManager.start();
-
-        mDatabaseManager = new DatabaseManager(this);
-        mDatabaseManager.start(MetadataDatabase.createDatabase(this));
 
         mSilenceDeviceManager = new SilenceDeviceManager(this, new ServiceFactory(),
                 Looper.getMainLooper());
@@ -692,6 +705,19 @@ public class AdapterService extends Service {
                 int fuid = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, 0);
                 Utils.setForegroundUserId(fuid);
                 setForegroundUserIdNative(fuid);
+
+                Log.i(TAG, "User switched: Current user: " + ActivityManager.getCurrentUser() +
+                      " Owner user: " + UserHandle.myUserId());
+                if (ActivityManager.getCurrentUser() != UserHandle.myUserId()) {
+                    Log.i(TAG, "Not match with current user. Quit...");
+                    if (getAdapterService() != null) {
+                        /* Stop all profile services before quit */
+                        Log.i(TAG, "ssrCleanupCallback");
+                        getAdapterService().ssrCleanupCallback();
+                    } else {
+                        System.exit(0);
+                    }
+                }
             }
         }
     };
@@ -2376,6 +2402,9 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public int getDeviceType(BluetoothDevice device) { return TYPE_BREDR; }
+
+        @Override
         public void dump(FileDescriptor fd, String[] args) {
             PrintWriter writer = new PrintWriter(new FileOutputStream(fd));
             AdapterService service = getService();
@@ -3301,7 +3330,7 @@ public class AdapterService extends Service {
         return mSilenceDeviceManager.getSilenceMode(device);
     }
 
-    boolean setPhonebookAccessPermission(BluetoothDevice device, int value) {
+    public boolean setPhonebookAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
         SharedPreferences pref = getSharedPreferences(PHONEBOOK_ACCESS_PERMISSION_PREFERENCE_FILE,
@@ -3327,7 +3356,7 @@ public class AdapterService extends Service {
                 : BluetoothDevice.ACCESS_REJECTED;
     }
 
-    boolean setMessageAccessPermission(BluetoothDevice device, int value) {
+    public boolean setMessageAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
         SharedPreferences pref = getSharedPreferences(MESSAGE_ACCESS_PERMISSION_PREFERENCE_FILE,
@@ -3353,7 +3382,7 @@ public class AdapterService extends Service {
                 : BluetoothDevice.ACCESS_REJECTED;
     }
 
-    boolean setSimAccessPermission(BluetoothDevice device, int value) {
+    public boolean setSimAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
         SharedPreferences pref =
@@ -4226,10 +4255,13 @@ public class AdapterService extends Service {
         try {
 
             WifiManager mWifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
-            final SoftApConfiguration config = mWifiManager.getSoftApConfiguration();
-            if ((mWifiManager != null) && ((mWifiManager.isWifiEnabled() ||
+            final WifiConfiguration config = mWifiManager.getWifiApConfiguration();
+            if ((mWifiManager != null) && (mWifiManager.isWifiEnabled() ||
                 ((mWifiManager.getWifiApState() == WifiManager.WIFI_AP_STATE_ENABLED) &&
-                ((config.getBand() & SoftApConfiguration.BAND_5GHZ) != 0))))) {
+                ((config != null) && ((config.apBand == WifiConfiguration.AP_BAND_5GHZ) ||
+                (config.apBand == WifiConfiguration.AP_BAND_ANY) ||
+                (config.apBand == WifiConfiguration.AP_BAND_DUAL)))))) {
+
                 return true;
             }
             return false;
@@ -4241,7 +4273,8 @@ public class AdapterService extends Service {
 
     static native void classInitNative();
 
-    native boolean initNative(boolean startRestricted, boolean isSingleUserMode);
+    native boolean initNative(boolean startRestricted, boolean isSingleUserMode,
+                              int configCompareResult, boolean isAtvDevice);
 
     native void cleanupNative();
 
@@ -4270,13 +4303,13 @@ public class AdapterService extends Service {
     native boolean getDevicePropertyNative(byte[] address, int type);
 
     /*package*/
-    native boolean createBondNative(byte[] address, int transport);
+    public native boolean createBondNative(byte[] address, int transport);
 
     /*package*/
     native boolean createBondOutOfBandNative(byte[] address, int transport, OobData oobData);
 
     /*package*/
-    native boolean removeBondNative(byte[] address);
+    public native boolean removeBondNative(byte[] address);
 
     /*package*/
     native boolean cancelBondNative(byte[] address);
