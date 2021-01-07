@@ -447,7 +447,7 @@
             android:process="@string/process"
             android:name = ".csipclient.CsipService">
             <intent-filter>
-                <action android:name="android.bluetooth.IBluetoothCsip" />
+                <action android:name="android.bluetooth.IBluetoothDeviceGroup" />
             </intent-filter>
         </service>
         <!-- Authenticator for PBAP account. -->

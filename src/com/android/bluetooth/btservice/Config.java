@@ -142,7 +142,7 @@ public class Config {
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
                     new ProfileConfig(CsipService.class, R.bool.profile_supported_csip,
-                            (1 << BluetoothProfile.CSIP_CLIENT)),
+                            (1 << BluetoothProfile.GROUP_CLIENT)),
                     new ProfileConfig(CapService.class, R.bool.profile_supported_cap,
                             (1 << CapService.CAP_AUDIO_UNICAST)),
                     new ProfileConfig(StreamAudioService.class, R.bool.profile_supported_le_audio,
