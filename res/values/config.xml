@@ -117,4 +117,7 @@
     <!-- Package that is providing the exposure notification service -->
     <string name="exposure_notification_package">com.google.android.gms</string>
 
+    <!-- Flag whether or not to enable Bluetooth power manager -->
+    <bool name="enable_power_manager">true</bool>
+
 </resources>
