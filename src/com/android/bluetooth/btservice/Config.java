@@ -29,7 +29,6 @@ import android.os.SystemProperties;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.a2dp.A2dpService;
-import com.android.bluetooth.cap.CapService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
@@ -49,7 +48,7 @@ import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.pbap.BluetoothPbapService;
 import com.android.bluetooth.pbapclient.PbapClientService;
 import com.android.bluetooth.sap.SapService;
-import com.android.bluetooth.apm.StreamAudioService;
+import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.ba.BATService;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -143,10 +142,10 @@ public class Config {
                 Arrays.asList(
                     new ProfileConfig(CsipService.class, R.bool.profile_supported_csip,
                             (1 << BluetoothProfile.GROUP_CLIENT)),
-                    new ProfileConfig(CapService.class, R.bool.profile_supported_cap,
-                            (1 << CapService.CAP_AUDIO_UNICAST)),
-                    new ProfileConfig(StreamAudioService.class, R.bool.profile_supported_le_audio,
-                            (1 << StreamAudioService.LE_AUDIO_UNICAST))
+                    new ProfileConfig(ApmConstIntf.CoordinatedAudioService, R.bool.profile_supported_ca,
+                            (1 << ApmConstIntf.COORDINATED_AUDIO_UNICAST)),
+                    new ProfileConfig(ApmConstIntf.StreamAudioService, R.bool.profile_supported_le_audio,
+                            (1 << ApmConstIntf.LE_AUDIO_UNICAST))
             ));
 
     private static Class[] sSupportedProfiles = new Class[0];

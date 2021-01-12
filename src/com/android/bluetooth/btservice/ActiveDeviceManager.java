@@ -36,7 +36,7 @@ import android.os.Message;
 import android.util.Log;
 import com.android.bluetooth.bms.BapBroadcastService;
 import com.android.bluetooth.a2dp.A2dpService;
-import com.android.bluetooth.apm.ApmConst;
+import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.ba.BATService;
@@ -379,7 +379,7 @@ public class ActiveDeviceManager {
                     }
                     // Just assign locally the new value
                     mHearingAidActiveDevice = device;
-                    if (device != null && (!ApmConst.getLeAudioEnabled())) {
+                    if (device != null && (!ApmConstIntf.getLeAudioEnabled())) {
                         setA2dpActiveDevice(null);
                         setHfpActiveDevice(null);
                     }
@@ -466,7 +466,7 @@ public class ActiveDeviceManager {
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
-        if(!ApmConst.getLeAudioEnabled()) {
+        if(!ApmConstIntf.getLeAudioEnabled()) {
             /*APM will send callback with Active Device update*/;
             filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
             filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
@@ -617,12 +617,12 @@ public class ActiveDeviceManager {
         setBapBroadcastActiveDevice(null);
     }
     public void onActiveDeviceChange(BluetoothDevice device, int audioType) {
-        if(audioType == ApmConst.AudioFeatures.CALL_AUDIO) {
+        if(audioType == ApmConstIntf.AudioFeatures.CALL_AUDIO) {
             Intent intent = new Intent(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
             mHandler.obtainMessage(MESSAGE_HFP_ACTION_ACTIVE_DEVICE_CHANGED,
                         intent).sendToTarget();
-        } else if(audioType == ApmConst.AudioFeatures.MEDIA_AUDIO) {
+        } else if(audioType == ApmConstIntf.AudioFeatures.MEDIA_AUDIO) {
             Intent intent = new Intent(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
             mHandler.obtainMessage(MESSAGE_A2DP_ACTION_ACTIVE_DEVICE_CHANGED,
@@ -630,14 +630,14 @@ public class ActiveDeviceManager {
         }
     }
     public void onDeviceConnStateChange(BluetoothDevice device, int state, int prevState, int audioType) {
-        if(audioType == ApmConst.AudioFeatures.CALL_AUDIO && state == BluetoothProfile.STATE_DISCONNECTED) {
+        if(audioType == ApmConstIntf.AudioFeatures.CALL_AUDIO && state == BluetoothProfile.STATE_DISCONNECTED) {
             Intent intent = new Intent(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
             intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
             intent.putExtra(BluetoothProfile.EXTRA_STATE, state);
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
             mHandler.obtainMessage(MESSAGE_HFP_ACTION_CONNECTION_STATE_CHANGED,
                         intent).sendToTarget();
-        } else if(audioType == ApmConst.AudioFeatures.MEDIA_AUDIO && prevState == BluetoothProfile.STATE_CONNECTED) {
+        } else if(audioType == ApmConstIntf.AudioFeatures.MEDIA_AUDIO && prevState == BluetoothProfile.STATE_CONNECTED) {
             Intent intent = new Intent(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
             intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
             intent.putExtra(BluetoothProfile.EXTRA_STATE, state);

@@ -34,8 +34,8 @@ import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.a2dp.A2dpService;
-import com.android.bluetooth.apm.ActiveDeviceManagerService;
-import com.android.bluetooth.apm.ApmConst;
+import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
+import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
@@ -816,11 +816,11 @@ public class HearingAidService extends ProfileService {
                         BluetoothMetricsProto.ProfileId.HEARING_AID);
             }
             if (!mHiSyncIdConnectedMap.getOrDefault(myHiSyncId, false)) {
-                if(ApmConst.getLeAudioEnabled()) {
-                    ActiveDeviceManagerService mActiveDeviceManager = 
-                            ActiveDeviceManagerService.get();
-                    mActiveDeviceManager.setActiveDevice(device, ApmConst.AudioFeatures.CALL_AUDIO, true);
-                    mActiveDeviceManager.setActiveDevice(device, ApmConst.AudioFeatures.MEDIA_AUDIO, true);
+                if(ApmConstIntf.getLeAudioEnabled()) {
+                    ActiveDeviceManagerServiceIntf mActiveDeviceManager = 
+                            ActiveDeviceManagerServiceIntf.get();
+                    mActiveDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
+                    mActiveDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
                 } else {
                     setActiveDevice(device);
                 }
@@ -828,12 +828,12 @@ public class HearingAidService extends ProfileService {
             }
         }
         if (fromState == BluetoothProfile.STATE_CONNECTED && getConnectedDevices().isEmpty()) {
-            ActiveDeviceManagerService service = ActiveDeviceManagerService.get();
-            if(ApmConst.getLeAudioEnabled()) {
-                ActiveDeviceManagerService mActiveDeviceManager = 
-                        ActiveDeviceManagerService.get();
-                mActiveDeviceManager.setActiveDevice(null, ApmConst.AudioFeatures.CALL_AUDIO, false);
-                mActiveDeviceManager.setActiveDevice(null, ApmConst.AudioFeatures.MEDIA_AUDIO, false);
+            ActiveDeviceManagerServiceIntf service = ActiveDeviceManagerServiceIntf.get();
+            if(ApmConstIntf.getLeAudioEnabled()) {
+                ActiveDeviceManagerServiceIntf mActiveDeviceManager = 
+                        ActiveDeviceManagerServiceIntf.get();
+                mActiveDeviceManager.setActiveDevice(null, ApmConstIntf.AudioFeatures.CALL_AUDIO, false);
+                mActiveDeviceManager.setActiveDevice(null, ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
             } else {
                 setActiveDevice(null);
             }
@@ -946,11 +946,11 @@ public class HearingAidService extends ProfileService {
             if (service == null) {
                 return false;
             }
-            if(ApmConst.getLeAudioEnabled()) {
-                ActiveDeviceManagerService mActiveDeviceManager = 
-                        ActiveDeviceManagerService.get();
-                mActiveDeviceManager.setActiveDevice(device, ApmConst.AudioFeatures.CALL_AUDIO, true);
-                mActiveDeviceManager.setActiveDevice(device, ApmConst.AudioFeatures.MEDIA_AUDIO, true);
+            if(ApmConstIntf.getLeAudioEnabled()) {
+                ActiveDeviceManagerServiceIntf mActiveDeviceManager = 
+                        ActiveDeviceManagerServiceIntf.get();
+                mActiveDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
+                mActiveDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
             } else {
             return service.setActiveDevice(device);
             }

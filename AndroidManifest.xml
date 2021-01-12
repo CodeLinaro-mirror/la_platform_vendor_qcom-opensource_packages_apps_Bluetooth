@@ -324,7 +324,7 @@
         <service
             android:process="@string/process"
             android:name = ".cap.CapService"
-            android:enabled="@bool/profile_supported_cap">
+            android:enabled="@bool/profile_supported_ca">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothCap" />
             </intent-filter>
