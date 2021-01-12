@@ -153,16 +153,20 @@ public class ActiveDeviceManager {
                                            intent).sendToTarget();
                     break;
                 case BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED:
-                    mHandler.obtainMessage(MESSAGE_A2DP_ACTION_ACTIVE_DEVICE_CHANGED,
+                    if(!ApmConstIntf.getLeAudioEnabled()) {
+                        mHandler.obtainMessage(MESSAGE_A2DP_ACTION_ACTIVE_DEVICE_CHANGED,
                                            intent).sendToTarget();
+                    }
                     break;
                 case BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED:
                     mHandler.obtainMessage(MESSAGE_HFP_ACTION_CONNECTION_STATE_CHANGED,
                                            intent).sendToTarget();
                     break;
                 case BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED:
-                    mHandler.obtainMessage(MESSAGE_HFP_ACTION_ACTIVE_DEVICE_CHANGED,
-                        intent).sendToTarget();
+                    if(!ApmConstIntf.getLeAudioEnabled()) {
+                        mHandler.obtainMessage(MESSAGE_HFP_ACTION_ACTIVE_DEVICE_CHANGED,
+                                           intent).sendToTarget();
+                    }
                     break;
                 case BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED:
                     mHandler.obtainMessage(MESSAGE_HEARING_AID_ACTION_ACTIVE_DEVICE_CHANGED,
