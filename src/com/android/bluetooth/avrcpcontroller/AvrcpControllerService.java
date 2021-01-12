@@ -82,6 +82,16 @@ public class AvrcpControllerService extends ProfileService {
     private static final byte JNI_PLAY_STATUS_REV_SEEK = 0x04;
     private static final byte JNI_PLAY_STATUS_ERROR = -1;
 
+    /*
+     * AVRCP Error types as defined in spec. Also they should be in sync with btrc_status_t.
+     * NOTE: Not all may be defined.
+     */
+    public static final int JNI_AVRC_STS_INVALID_CMD = 0x00;
+    public static final int JNI_AVRC_STS_INVALID_PARAMETER = 0x01;
+    public static final int JNI_AVRC_STS_NO_ERROR = 0x04;
+    public static final int JNI_AVRC_STS_INVALID_SCOPE = 0x0a;
+    public static final int JNI_AVRC_INV_RANGE = 0x0b;
+
     /* Folder/Media Item scopes.
      * Keep in sync with AVRCP 1.6 sec. 6.10.1
      */
@@ -355,6 +365,8 @@ public class AvrcpControllerService extends ProfileService {
                 activeDeviceStateMachine.handleCustomActionRequestContinuingResponse(extras);
             } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_ABORT_CONTINUING_RESPONSE.equals(action)) {
                 activeDeviceStateMachine.handleCustomActionAbortContinuingResponse(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_ADD_TO_NOW_PLAYING.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionAddToNowPlaying(extras);
             } else {
                 Log.w(TAG, "Custom action " + action + " not supported.");
             }
@@ -1096,6 +1108,19 @@ public class AvrcpControllerService extends ProfileService {
         }
     }
 
+    private void handleAddToNowPlayingRsp(byte[] address, int status) {
+        if (DBG) {
+            Log.d(TAG, "handleAddToNowPlayingRsp status" + status);
+        }
+        BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                    AvrcpControllerStateMachine.MESSAGE_PROCESS_ADD_TO_NOW_PLAYING, status, 0);
+        }
+    }
+
     /* Generic Profile Code */
 
     /**
@@ -1345,6 +1370,15 @@ public class AvrcpControllerService extends ProfileService {
      * @param playerId player number
      */
     public native void setAddressedPlayerNative(byte[] address, int playerId);
+
+    /**
+     * add folder into now playing list
+     *
+     * @param scope          scope of item to played
+     * @param uid            song unique id
+     * @param uidCounter     counter
+     */
+    native static void addToNowPlayingNative(byte[] address, byte scope, long uid, int uidCounter);
 
     /**
      * Set a specific device to be the active device

@@ -42,6 +42,7 @@ class AvrcpPlayer {
     public static final int FEATURE_FORWARD = 47;
     public static final int FEATURE_PREVIOUS = 48;
     public static final int FEATURE_BROWSING = 59;
+    public static final int FEATURE_ADD_TO_NOWPLAYING = 61;
 
     private int mPlayStatus = PlaybackStateCompat.STATE_NONE;
     private long mPlayTime = PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN;
@@ -159,6 +160,10 @@ class AvrcpPlayer {
 
     public boolean supportsSetting(int settingType, int settingValue) {
         return mSupportedPlayerApplicationSettings.supportsSetting(settingType, settingValue);
+    }
+
+    public boolean isAddToNowPlayingSupported() {
+        return supportsFeature(FEATURE_ADD_TO_NOWPLAYING);
     }
 
     public PlaybackStateCompat getPlaybackState() {

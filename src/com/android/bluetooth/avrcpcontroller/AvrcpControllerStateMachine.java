@@ -97,6 +97,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_UIDS_CHANGED = 219;
     static final int MESSAGE_PROCESS_RC_FEATURES = 220;
     static final int MESSAGE_PROCESS_ERROR_STATUS_CODE = 221;
+    static final int MESSAGE_PROCESS_ADD_TO_NOW_PLAYING = 222;
 
     //300->399 Events for Browsing
     static final int MESSAGE_GET_FOLDER_ITEMS = 300;
@@ -116,6 +117,8 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MSG_AVRCP_REQUEST_CONTINUING_RESPONSE = 309;
     // Internal message to abort continuing response
     static final int MSG_AVRCP_ABORT_CONTINUING_RESPONSE = 310;
+    // Internal message to add item into NowPlaying
+    static final int MSG_AVRCP_ADD_TO_NOW_PLAYING = 311;
 
     static final int MESSAGE_INTERNAL_ABS_VOL_TIMEOUT = 404;
 
@@ -282,7 +285,45 @@ class AvrcpControllerStateMachine extends StateMachine {
     public static final String CUSTOM_ACTION_ABORT_CONTINUING_RESPONSE =
         "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_ABORT_CONTINUING_RESPONSE";
 
+    /**
+     * Custom action to add item into NowPlaying.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * <p>Intent {@link #ACTION_CUSTOM_ACTION_RESULT} will be broadcast to notify the result.
+     * {@link AvrcpControllerService} will update NowPlaying list if succeed.
+     *
+     * @param Bundle wrapped with {@link #MediaMetadata.METADATA_KEY_MEDIA_ID}
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     *      {@link com.android.bluetooth.avrcpcontroller.AvrcpControllerService}
+     */
+    public static final String CUSTOM_ACTION_ADD_TO_NOW_PLAYING =
+        "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_ADD_TO_NOW_PLAYING";
+
+    // + Response for custom action
+    public static final String ACTION_CUSTOM_ACTION_RESULT =
+        "com.android.bluetooth.a2dpsink.mbs.action.CUSTOM_ACTION_RESULT";
+
+    public static final String EXTRA_CUSTOM_ACTION =
+        "com.android.bluetooth.a2dpsink.mbs.extra.CUSTOM_ACTION";
+
+    public static final String EXTRA_CUSTOM_ACTION_RESULT =
+        "com.android.bluetooth.a2dpsink.mbs.extra.CUSTOM_ACTION_RESULT";
+
+    // Result code
+    public static final int RESULT_SUCCESS = 0;
+    public static final int RESULT_ERROR = 1;
+    public static final int RESULT_INVALID_PARAMETER = 2;
+    public static final int RESULT_NOT_SUPPORTED = 3;
+    public static final int RESULT_TIMEOUT = 4;
+
     GetFolderList mGetFolderList = null;
+    AddToNowPlaying mAddToNowPlaying = null;
 
     public static final String EXTRA_OPERATION_CODE =
        "com.android.bluetooth.avrcpcontroller.extra.OPERATION_CODE";
@@ -322,6 +363,9 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         mGetFolderList = new GetFolderList();
         addState(mGetFolderList, mConnected);
+
+        mAddToNowPlaying = new AddToNowPlaying();
+        addState(mAddToNowPlaying, mConnected);
 
         mCar = Car.createCar(service.getApplicationContext(), mConnection);
         mCar.connect();
@@ -614,6 +658,11 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                 case MSG_AVRCP_ABORT_CONTINUING_RESPONSE:
                     AbortContinuingResponse(msg.arg1);
+                    return true;
+
+                case MSG_AVRCP_ADD_TO_NOW_PLAYING:
+                    mAddToNowPlaying.setMediaId((String) msg.obj);
+                    transitionTo(mAddToNowPlaying);
                     return true;
 
                 case MESSAGE_PROCESS_TRACK_CHANGED:
@@ -1165,6 +1214,91 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
     }
 
+    class AddToNowPlaying extends State {
+        private String STATE_TAG = "Avrcp.AddToNowPlaying";
+        private String mMediaId = null;
+
+        public void setMediaId(String mediaId) {
+            mMediaId = mediaId;
+        }
+
+        private boolean isSupported() {
+            boolean supported = false;
+            BrowseTree.BrowseNode currBrPlayer =
+                mBrowseTree.getCurrentBrowsedPlayer();
+            if (currBrPlayer != null) {
+                int playerId = currBrPlayer.getPlayerID();
+                if (DBG) {
+                    Log.d(STATE_TAG, "current browsed playerId " + playerId);
+                }
+                for (int i = 0; i < mAvailablePlayerList.size(); i++) {
+                    AvrcpPlayer player = mAvailablePlayerList.valueAt(i);
+                    if (player.getId() == playerId) {
+                        supported = player.isAddToNowPlayingSupported();
+                        break;
+                    }
+                }
+            }
+            return supported;
+        }
+
+        @Override
+        public void enter() {
+            BrowseTree.BrowseNode currItem = mBrowseTree.findBrowseNodeByID(mMediaId);
+            BrowseTree.BrowseNode currFolder = mBrowseTree.getCurrentBrowsedFolder();
+            Log.d(STATE_TAG, "processAddToNowPlayingReq mediaId=" + mMediaId + " node=" + currItem);
+            if (currItem != null) {
+                int scope = currFolder.getScope();
+
+                if (isSupported()) {
+                    Log.d(STATE_TAG, "Add to now playing, scope: " + scope);
+
+                    if (scope != AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST) {
+                        AvrcpControllerService.addToNowPlayingNative(
+                            mDeviceAddress, (byte)scope,
+                            currItem.getBluetoothID(), mUidCounter);
+                        sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
+                    } else {
+                        Log.w(STATE_TAG, "Add to now playing invalid scope: " + scope);
+                        broadcastAddToNowPlayingResult(AvrcpControllerService.JNI_AVRC_STS_INVALID_SCOPE);
+                        transitionTo(mConnected);
+                    }
+                } else {
+                    Log.w(STATE_TAG, "Add to now playing not supported");
+                    broadcastAddToNowPlayingResult(AvrcpControllerService.JNI_AVRC_STS_INVALID_CMD);
+                    transitionTo(mConnected);
+                }
+            } else {
+                transitionTo(mConnected);
+            }
+        }
+
+        @Override
+        public boolean processMessage(Message msg) {
+            Log.d(STATE_TAG, "processMessage " + msg);
+            switch (msg.what) {
+                case MESSAGE_PROCESS_ADD_TO_NOW_PLAYING:
+                    removeMessages(MESSAGE_INTERNAL_CMD_TIMEOUT);
+                    broadcastAddToNowPlayingResult(msg.arg1);
+                    transitionTo(mConnected);
+                    break;
+
+                case MESSAGE_INTERNAL_CMD_TIMEOUT:
+                    transitionTo(mConnected);
+                    break;
+
+                case MESSAGE_PROCESS_UIDS_CHANGED:
+                    processUIDSChange(msg);
+                    break;
+
+                default:
+                    Log.d(STATE_TAG, "deferring message " + msg + " to connected!");
+                    deferMessage(msg);
+            }
+            return true;
+        }
+    }
+
     protected class Disconnecting extends State {
         @Override
         public void enter() {
@@ -1482,6 +1616,40 @@ class AvrcpControllerStateMachine extends StateMachine {
         BluetoothMediaBrowserService.trackChanged(metadata);
     }
 
+    private void broadcastAddToNowPlayingResult(int status) {
+        logD("broadcastAddToNowPlayingResult status: " + status);
+        broadcastResult(CUSTOM_ACTION_ADD_TO_NOW_PLAYING, status);
+    }
+
+    private void broadcastResult(String cmd, int status) {
+        int result = getResult(status);
+        logD("broadcastResult cmd: " + cmd + ", result: " + result + ", status: " + status);
+
+        Intent intent = new Intent(ACTION_CUSTOM_ACTION_RESULT);
+        intent.putExtra(EXTRA_CUSTOM_ACTION, cmd);
+        intent.putExtra(EXTRA_CUSTOM_ACTION_RESULT, result);
+
+        mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
+    }
+
+    private int getResult(int status) {
+        switch (status) {
+            case AvrcpControllerService.JNI_AVRC_STS_NO_ERROR:
+                return RESULT_SUCCESS;
+
+            case AvrcpControllerService.JNI_AVRC_STS_INVALID_CMD:
+                return RESULT_NOT_SUPPORTED;
+
+            case AvrcpControllerService.JNI_AVRC_STS_INVALID_PARAMETER:
+            case AvrcpControllerService.JNI_AVRC_STS_INVALID_SCOPE:
+            case AvrcpControllerService.JNI_AVRC_INV_RANGE:
+                return RESULT_INVALID_PARAMETER;
+
+            default:
+                return RESULT_ERROR;
+        }
+    }
+
     private boolean shouldRequestFocus() {
         return mService.getResources()
                 .getBoolean(R.bool.a2dp_sink_automatically_request_audio_focus);
@@ -1543,5 +1711,15 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         int pduId = extras.getInt(KEY_PDU_ID, 0);
         sendMessage(MSG_AVRCP_ABORT_CONTINUING_RESPONSE, pduId, 0);
+    }
+
+    public void handleCustomActionAddToNowPlaying(Bundle extras) {
+        logD("handleCustomActionAddToNowPlaying extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        String mediaId = extras.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
+        sendMessage(MSG_AVRCP_ADD_TO_NOW_PLAYING, mediaId);
     }
 }
