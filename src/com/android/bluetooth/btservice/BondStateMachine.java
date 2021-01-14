@@ -75,6 +75,8 @@ final class BondStateMachine extends StateMachine {
     static final int BOND_STATE_BONDING = 1;
     static final int BOND_STATE_BONDED = 2;
     static final int ADD_DEVICE_BOND_QUEUE = 11;
+    private static final int GROUP_ID_START = 0;
+    private static final int GROUP_ID_END = 15;
 
     private AdapterService mAdapterService;
     private AdapterProperties mAdapterProperties;
@@ -183,11 +185,11 @@ final class BondStateMachine extends StateMachine {
                     }
                     break;
                  case ADD_DEVICE_BOND_QUEUE:
-                    int setIdentifer = msg.arg1;
+                    int groupIdentifer = msg.arg1;
                     Log.i(TAG, "Adding to bonding queue in stable state "
                         +dev.getAddress());
-                    Integer setId = new Integer(setIdentifer);
-                    mBondingQueue.put(dev , setId);
+                    Integer groupId = new Integer(groupIdentifer);
+                    mBondingQueue.put(dev , groupId);
                     mBondingDevStatus.put(dev, 0);
 
                     if (mDevices.size() == 0) {
@@ -337,11 +339,11 @@ final class BondStateMachine extends StateMachine {
 
                     break;
                 case ADD_DEVICE_BOND_QUEUE:
-                    int setIdentifer = msg.arg1;
+                    int groupIdentifer = msg.arg1;
                     Log.i(TAG, "Adding to bonding queue pendingState " + dev.getAddress());
-                    Integer setId = new Integer(setIdentifer);
+                    Integer groupId = new Integer(groupIdentifer);
                     //mAdapterProperties.onBondStateChanged(dev, BluetoothDevice.BOND_NONE);
-                    mBondingQueue.put(dev , setId);
+                    mBondingQueue.put(dev , groupId);
                     mBondingDevStatus.put(dev, 0);
 
                     if (mDevices.size() == 0) {
@@ -566,7 +568,7 @@ final class BondStateMachine extends StateMachine {
             (newState == BluetoothDevice.BOND_BONDED)) {
             if (mAdapterService.isGroupDevice(device)) {
                 int groupId = mAdapterService.getGroupId(device);
-                if ((groupId >= 0) && groupId <= 15) {
+                if ((groupId >= GROUP_ID_START) && groupId <= GROUP_ID_END) {
                     infoLog("SEND INTENT of " + device +
                         " with groupId " + groupId);
                     intent.putExtra(BluetoothDevice.EXTRA_GROUP_ID, groupId);
@@ -577,12 +579,12 @@ final class BondStateMachine extends StateMachine {
                 if (mapBdAddr != null) {
                     if  (mBondingQueue.containsKey(mapBdAddr)) {
                         infoLog(" Mapped Address in the queue" + mapBdAddr);
-                        Integer setid = mBondingQueue.get(mapBdAddr);
-                        if ((setid != null)
-                            && ((setid.intValue() >= 0)  && ((setid.intValue() <= 15)))) {
+                        Integer groupid = mBondingQueue.get(mapBdAddr);
+                        if ((groupid != null)
+                            && ((groupid.intValue() >= 0)  && ((groupid.intValue() <= 15)))) {
                             infoLog("Device in Bonding queue" + device
-                                + " with setid " + setid);
-                            intent.putExtra(BluetoothDevice.EXTRA_GROUP_ID, setid);
+                                + " with groupid " + groupid);
+                            intent.putExtra(BluetoothDevice.EXTRA_GROUP_ID, groupid);
                         }
                     }
                 }
