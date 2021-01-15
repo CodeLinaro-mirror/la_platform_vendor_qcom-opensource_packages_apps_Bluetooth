@@ -108,6 +108,10 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MSG_AVRCP_PASSTHRU_EXT = 305;
     // Internal message to get item attributes
     static final int MSG_AVRCP_GET_ITEM_ATTR = 306;
+    // Internal message to get element attributes
+    static final int MSG_AVRCP_GET_ELEMENT_ATTR = 307;
+    // Internal message to get folder items(PTS verification only)
+    static final int MSG_GET_FOLDER_ITEMS_PTS = 308;
 
     static final int MESSAGE_INTERNAL_ABS_VOL_TIMEOUT = 404;
 
@@ -196,6 +200,50 @@ class AvrcpControllerStateMachine extends StateMachine {
         "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_GET_ITEM_ATTR";
     public static final String KEY_BROWSE_SCOPE = "scope";
     public static final String KEY_ATTRIBUTE_ID = "attribute_id";
+
+    /**
+     * Custom action to get element attributes.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * <p>Intent {@link AvrcpControllerService.ACTION_TRACK_EVENT} will be broadcast.
+     * to notify the item attributes retrieved.
+     *
+     * @param Bundle wrapped with KEY_ATTRIBUTE_ID
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     *      {@link android.media.MediaMetadata}
+     *      {@link com.android.bluetooth.avrcpcontroller.AvrcpControllerService}
+     */
+    public static final String CUSTOM_ACTION_GET_ELEMENT_ATTR =
+        "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_GET_ELEMENT_ATTR";
+
+    /**
+     * Custom action to get folder items.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * <p>Intent {@link AvrcpControllerService.EXTRA_FOLDER_LIST} will be broadcast.
+     * to notify the items(player or folder/item) retrieved.
+     *
+     * @param Bundle wrapped with KEY_BROWSE_SCOPE and KEY_ATTRIBUTE_ID
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     *      {@link android.media.MediaMetadata}
+     *      {@link com.android.bluetooth.avrcpcontroller.AvrcpControllerService}
+     */
+    public static final String CUSTOM_ACTION_GET_FOLDER_ITEM =
+        "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_GET_FOLDER_ITEM";
+    public static final String KEY_START = "start";
+    public static final String KEY_END = "end";
 
     GetFolderList mGetFolderList = null;
 
@@ -476,6 +524,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
 
                 case MESSAGE_GET_FOLDER_ITEMS:
+                    mGetFolderList.setPTSTag(false);
                     transitionTo(mGetFolderList);
                     return true;
 
@@ -510,6 +559,16 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                 case MSG_AVRCP_GET_ITEM_ATTR:
                     getItemAttributes((Bundle) msg.obj);
+                    return true;
+
+                case MSG_AVRCP_GET_ELEMENT_ATTR:
+                    getElementAttributes((Bundle) msg.obj);
+                    return true;
+
+                case MSG_GET_FOLDER_ITEMS_PTS:
+                    getFolderItem((Bundle) msg.obj);
+                    mGetFolderList.setPTSTag(true);
+                    transitionTo(mGetFolderList);
                     return true;
 
                 case MESSAGE_PROCESS_TRACK_CHANGED:
@@ -766,6 +825,22 @@ class AvrcpControllerStateMachine extends StateMachine {
                 logD("processGetItemAttrReq GetElementAttributes");
             }
         }
+
+        private synchronized void getElementAttributes(Bundle extras) {
+            int [] attributeId = extras.getIntArray(KEY_ATTRIBUTE_ID);
+            AvrcpControllerService.getElementAttributesNative(
+                mDeviceAddress, (byte) attributeId.length, attributeId);
+        }
+
+        private synchronized void getFolderItem(Bundle extras) {
+            int scope = extras.getInt(KEY_BROWSE_SCOPE, 0);
+            int start = extras.getInt(KEY_START, 0);
+            int end = extras.getInt(KEY_END, 0xFF);
+            int [] attributeId = extras.getIntArray(KEY_ATTRIBUTE_ID);
+            AvrcpControllerService.getFolderItemsNative(
+                mDeviceAddress, (byte) scope, (byte) start, (byte) end,
+                (byte) attributeId.length, attributeId);
+        }
     }
 
     // Handle the get folder listing action
@@ -778,6 +853,12 @@ class AvrcpControllerStateMachine extends StateMachine {
         BrowseTree.BrowseNode mBrowseNode;
         BrowseTree.BrowseNode mNextStep;
 
+        boolean mPTSTag = false;
+
+        public void setPTSTag(boolean isPTS) {
+            mPTSTag = isPTS;
+        }
+
         @Override
         public void enter() {
             logD(STATE_TAG + " Entering GetFolderList");
@@ -785,6 +866,11 @@ class AvrcpControllerStateMachine extends StateMachine {
             sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
             super.enter();
             mAbort = false;
+
+            if (mPTSTag == true) {
+                return;
+            }
+
             Message msg = getCurrentMessage();
             if (msg.what == MESSAGE_GET_FOLDER_ITEMS) {
                 {
@@ -1364,5 +1450,23 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
 
         sendMessage(MSG_AVRCP_GET_ITEM_ATTR, extras);
+    }
+
+    public void handleCustomActionGetElementAttributes(Bundle extras) {
+        logD("handleCustomActionGetElementAttributes extras" + extras);
+        if (extras == null) {
+            return;
+        }
+
+        sendMessage(MSG_AVRCP_GET_ELEMENT_ATTR, extras);
+    }
+
+    public void handleCustomActionGetFolderItems(Bundle extras) {
+        logD("handleCustomActionGetFolderItems extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        sendMessage(MSG_GET_FOLDER_ITEMS_PTS, extras);
     }
 }

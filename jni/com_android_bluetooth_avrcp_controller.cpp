@@ -1373,6 +1373,83 @@ static void getItemAttributesNative(JNIEnv* env, jobject object, jbyteArray addr
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 
+static void getElementAttributesNative(JNIEnv *env, jobject object, jbyteArray address,
+                                     jbyte numAttr, jintArray attrIds) {
+  if (!sBluetoothAvrcpInterface) return;
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (!addr) {
+    jniThrowIOException(env, EINVAL);
+    return;
+  }
+
+  RawAddress rawAddress;
+  rawAddress.FromOctets((uint8_t*)addr);
+
+  if (numAttr > BTRC_MAX_ELEM_ATTR_SIZE) {
+    ALOGE("getElementAttributesNative: number of attributes exceed maximum");
+    return;
+  }
+
+  jint* attr = NULL;
+  if ((numAttr > 0) && (attrIds != NULL)) {
+    attr = env->GetIntArrayElements(attrIds, NULL);
+    if (!attr) {
+      jniThrowIOException(env, EINVAL);
+      return;
+    }
+  }
+
+  ALOGI("%s: sBluetoothAvrcpInterface: %p", __func__, sBluetoothAvrcpInterface);
+  bt_status_t status = sBluetoothAvrcpInterface->get_element_attribute_cmd(
+      rawAddress, numAttr, (uint32_t*)attr);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed sending getElementAttributesNative command, status: %d", status);
+  }
+
+  if (attr) env->ReleaseIntArrayElements(attrIds, attr, 0);
+  env->ReleaseByteArrayElements(address, addr, 0);
+}
+
+static void getFolderItemsNative(JNIEnv* env, jobject object, jbyteArray address,
+                           jbyte scope, jbyte start, jbyte end, jbyte numAttr,
+                           jintArray attrIds) {
+  if (!sBluetoothAvrcpInterface) return;
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (!addr) {
+    jniThrowIOException(env, EINVAL);
+    return;
+  }
+
+  RawAddress rawAddress;
+  rawAddress.FromOctets((uint8_t*)addr);
+
+  if (numAttr > BTRC_MAX_ELEM_ATTR_SIZE) {
+    ALOGE("getFolderItemsNative: number of attributes exceed maximum");
+    return;
+  }
+
+  jint* attr = NULL;
+  if ((numAttr > 0) && (attrIds != NULL)) {
+    attr = env->GetIntArrayElements(attrIds, NULL);
+    if (!attr) {
+      jniThrowIOException(env, EINVAL);
+      return;
+    }
+  }
+
+  ALOGI("%s: sBluetoothAvrcpInterface: %p", __func__, sBluetoothAvrcpInterface);
+  bt_status_t status = sBluetoothAvrcpInterface->get_folder_items_vendor_cmd(
+      rawAddress, scope, start, end, numAttr, (uint32_t*)attr);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed sending getFolderItemsNative command, status: %d", status);
+  }
+
+  if (attr) env->ReleaseIntArrayElements(attrIds, attr, 0);
+  env->ReleaseByteArrayElements(address, addr, 0);
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void*)classInitNative},
     {"initNative", "()V", (void*)initNative},
@@ -1396,6 +1473,8 @@ static JNINativeMethod sMethods[] = {
     {"setAddressedPlayerNative", "([BI)V", (void*)setAddressedPlayerNative},
     {"setActiveDeviceNative", "([B)V", (void*)setActiveDeviceNative},
     {"getItemAttributesNative", "([BBJIB[I)V",(void *) getItemAttributesNative},
+    {"getElementAttributesNative", "([BB[I)V",(void *) getElementAttributesNative},
+    {"getFolderItemsNative", "([BBBBB[I)V", (void *) getFolderItemsNative},
 };
 
 int register_com_android_bluetooth_avrcp_controller(JNIEnv* env) {

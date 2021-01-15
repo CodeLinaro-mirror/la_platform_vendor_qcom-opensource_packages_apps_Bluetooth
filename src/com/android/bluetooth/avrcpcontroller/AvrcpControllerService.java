@@ -135,6 +135,15 @@ public class AvrcpControllerService extends ProfileService {
     public static final String EXTRA_METADATA =
             "android.bluetooth.avrcp-controller.profile.extra.METADATA";
 
+    public static final String ACTION_FOLDER_LIST =
+            "android.bluetooth.avrcp-controller.profile.action.FOLDER_LIST";
+
+    public static final String EXTRA_FOLDER_LIST =
+        "android.bluetooth.avrcp-controller.profile.extra.FOLDER_LIST";
+
+    public static final String EXTRA_FOLDER_ID =
+        "android.bluetooth.avrcp-controller.profile.extra.EXTRA_FOLDER_ID";
+
     static BrowseTree sBrowseTree;
     private static AvrcpControllerService sService;
     private final BluetoothAdapter mAdapter;
@@ -337,6 +346,10 @@ public class AvrcpControllerService extends ProfileService {
                 activeDeviceStateMachine.handleCustomActionSendPassThruCmd(extras);
             } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_GET_ITEM_ATTR.equals(action)) {
                 activeDeviceStateMachine.handleCustomActionGetItemAttributes(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_GET_ELEMENT_ATTR.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionGetElementAttributes(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_GET_FOLDER_ITEM.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionGetFolderItems(extras);
             } else {
                 Log.w(TAG, "Custom action " + action + " not supported.");
             }
@@ -1316,5 +1329,25 @@ public class AvrcpControllerService extends ProfileService {
      * @param attribIds      list of attributes
      */
     native static void getItemAttributesNative(byte[] address, byte scope, long uid, int uidCounter,
+            byte numAttributes, int[] attribIds);
+
+    /**
+     * Get element attributes
+     *
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getElementAttributesNative(byte[] address, byte numAttributes, int[] attribIds);
+
+    /**
+     * Get folder items with specified range
+     *
+     * @param scope          scope of item to played
+     * @param start          start of range
+     * @param end            end of range
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getFolderItemsNative(byte[] address, byte scope, byte start, byte end,
             byte numAttributes, int[] attribIds);
 }
