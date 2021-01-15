@@ -433,7 +433,7 @@
             android:process="@string/process"
             android:name = ".bc.BCService">
             <intent-filter>
-                <action android:name="android.bluetooth.IBluetoothScanOffloader" />
+                <action android:name="android.bluetooth.IBluetoothSyncHelper" />
             </intent-filter>
         </service>
         <service

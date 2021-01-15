@@ -673,8 +673,6 @@ class PhonePolicy {
             Log.e(TAG, "BC reference are null");
             return;
         }
-
-
         for (BluetoothDevice device : bondedDevices) {
             int connPolicy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             try {
@@ -687,7 +685,7 @@ class PhonePolicy {
             debugLog("autoConnectBC, attempt auto-connect with device " + device
                      + " connPolicy " + connPolicy);
             if (connPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
-                debugLog("autoConnectBC() - Connecting Bass Client with " + device.toString());
+                debugLog("autoConnectBC() - Connecting BC with " + device.toString());
                 try {
                     mBCConnect.invoke(mBCService, device);
                 } catch(IllegalAccessException e) {

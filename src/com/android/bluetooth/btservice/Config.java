@@ -36,7 +36,6 @@ import com.android.bluetooth.gatt.GattService;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hfpclient.HeadsetClientService;
-import com.android.bluetooth.bc.BCService;
 import com.android.bluetooth.hid.HidDeviceService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.map.BluetoothMapService;
@@ -59,6 +58,15 @@ public class Config {
     protected static int adv_audio_feature_mask;
     protected static final int ADV_AUDIO_UNICAST_FEAT_MASK = 0x01;
     protected static final int ADV_AUDIO_BROADCAST_FEAT_MASK = 0x02;
+    private static Class mBCServiceClass = null;
+    static {
+        try {
+            mBCServiceClass = Class.forName("com.android.bluetooth.bc.BCService");
+        } catch (ClassNotFoundException ex) {
+            Log.e(TAG, "no BCService: exists");
+            mBCServiceClass = null;
+        }
+    }
 
     private static class ProfileConfig {
         Class mClass;
@@ -136,8 +144,8 @@ public class Config {
     private static ArrayList<ProfileConfig> broadcastAdvAudioProfiles =
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
-                    new ProfileConfig(BCService.class, R.bool.profile_supported_bac,
-                        (1 << BluetoothProfile.BASS_CLIENT)),
+                    new ProfileConfig(mBCServiceClass, R.bool.profile_supported_bac,
+                        (1 << BluetoothProfile.BC_PROFILE)),
                     new ProfileConfig(mBroadcastClass,
                          R.bool.profile_supported_broadcast,
                         (1 << BluetoothProfile.BROADCAST))
@@ -224,7 +232,7 @@ public class Config {
         if ((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) {
             for (ProfileConfig config : unicastAdvAudioProfiles) {
                 boolean supported = resources.getBoolean(config.mSupported);
-                if (supported) {
+                if (supported && config.mClass != null) {
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
                     profiles.add(config.mClass);
                 }
@@ -235,7 +243,7 @@ public class Config {
         if ((adv_audio_feature_mask & ADV_AUDIO_BROADCAST_FEAT_MASK) != 0) {
             for (ProfileConfig config : broadcastAdvAudioProfiles) {
                 boolean supported = resources.getBoolean(config.mSupported);
-                if (supported) {
+                if (supported && config.mClass != null) {
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
                     profiles.add(config.mClass);
                 }

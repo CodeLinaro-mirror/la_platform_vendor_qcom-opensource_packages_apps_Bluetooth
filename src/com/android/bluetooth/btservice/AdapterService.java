@@ -1170,7 +1170,7 @@ public class AdapterService extends Service {
         if (profile == BluetoothProfile.SAP) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.SAP);
         }
-        if (profile == BluetoothProfile.BASS_CLIENT) {
+        if (profile == BluetoothProfile.BC_PROFILE) {
             return ArrayUtils.contains(remoteDeviceUuids, ParcelUuid.fromString    ("00008FDB-0000-1000-8000-00805F9B34FB"));
         }
 
@@ -1348,7 +1348,7 @@ public class AdapterService extends Service {
         }
         ///*_REF
         if (mBCService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
-                BluetoothProfile.BASS_CLIENT, device) && mBCGetConnPolicy != null) {
+                BluetoothProfile.BC_PROFILE, device) && mBCGetConnPolicy != null) {
                 int connPolicy = BluetoothProfile.CONNECTION_POLICY_FORBIDDEN;
                 try {
                    connPolicy = (int) mBCGetConnPolicy.invoke(mBCService, device);
@@ -3435,7 +3435,7 @@ public class AdapterService extends Service {
         }
         ///*_REF
         if (mBCService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
-                BluetoothProfile.BASS_CLIENT, device)) {
+                BluetoothProfile.BC_PROFILE, device)) {
             Log.i(TAG, "connectAllEnabledProfiles: Connecting BC Profile");
             try {
                   mBCSetConnPolicy.invoke(mBCService, device,BluetoothProfile.CONNECTION_POLICY_ALLOWED);
