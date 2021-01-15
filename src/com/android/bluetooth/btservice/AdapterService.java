@@ -1091,23 +1091,23 @@ public class AdapterService extends Service {
      */
     private boolean isSupported(ParcelUuid[] localDeviceUuids, ParcelUuid[] remoteDeviceUuids,
             int profile, BluetoothDevice device) {
-        ParcelUuid TMAS_UMR =
-            ParcelUuid.fromString("0000FE01-0000-1000-8000-00805F9B34FB");
+        ParcelUuid ADV_AUDIO_T_MEDIA =
+            ParcelUuid.fromString("00006AD0-0000-1000-8000-00805F9B34FB");
 
-        ParcelUuid HAS_UUID =
-            ParcelUuid.fromString("0000FD00-0000-1000-8000-00805F9B34FB");
+        ParcelUuid ADV_AUDIO_HEARINGAID =
+            ParcelUuid.fromString("00006AD2-0000-1000-8000-00805F9B34FB");
 
-        ParcelUuid PACS_UMR =
-            ParcelUuid.fromString("0000FDE2-0000-1000-8000-00805F9B34FB");
+        ParcelUuid ADV_AUDIO_P_MEDIA =
+            ParcelUuid.fromString("00006AD1-0000-1000-8000-00805F9B34FB");
 
-        ParcelUuid PACS_CT =
-            ParcelUuid.fromString("0000FDE1-0000-1000-8000-00805F9B34FB");
+        ParcelUuid ADV_AUDIO_P_VOICE =
+            ParcelUuid.fromString("00006AD4-0000-1000-8000-00805F9B34FB");
 
-        ParcelUuid TMAS_CT =
-            ParcelUuid.fromString("0000FFA4-0000-1000-8000-00805F9B34FB");
+        ParcelUuid ADV_AUDIO_T_VOICE =
+            ParcelUuid.fromString("00006AD5-0000-1000-8000-00805F9B34FB");
 
-        ParcelUuid TMAS_CG =
-            ParcelUuid.fromString("0000FDA3-0000-1000-8000-00805F9B34FB");
+        ParcelUuid ADV_AUDIO_G_MEDIA =
+            ParcelUuid.fromString("00006AD3-0000-1000-8000-00805F9B34FB");
 
         if (remoteDeviceUuids == null || remoteDeviceUuids.length == 0) {
             Log.e(TAG, "isSupported: Remote Device Uuids Empty");
@@ -1118,9 +1118,9 @@ public class AdapterService extends Service {
                     && ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HSP))
                     || (ArrayUtils.contains(localDeviceUuids, BluetoothUuid.HFP_AG)
                     && ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HFP))
-                    || ArrayUtils.contains(remoteDeviceUuids, HAS_UUID)
-                    || ArrayUtils.contains(remoteDeviceUuids, TMAS_CT)
-                    || ArrayUtils.contains(remoteDeviceUuids, PACS_CT));
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_HEARINGAID)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_T_VOICE)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_P_VOICE));
         }
         if (profile == BluetoothProfile.HEADSET_CLIENT) {
           return (ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HFP_AG)
@@ -1129,9 +1129,10 @@ public class AdapterService extends Service {
         if (profile == BluetoothProfile.A2DP) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.ADV_AUDIO_DIST)
                     || ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.A2DP_SINK)
-                    || ArrayUtils.contains(remoteDeviceUuids, TMAS_UMR)
-                    || ArrayUtils.contains(remoteDeviceUuids, HAS_UUID)
-                    || ArrayUtils.contains(remoteDeviceUuids, PACS_UMR);
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_T_MEDIA)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_HEARINGAID)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_G_MEDIA)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_P_MEDIA);
         }
         if (profile == BluetoothProfile.A2DP_SINK) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.ADV_AUDIO_DIST)
@@ -4978,7 +4979,7 @@ public class AdapterService extends Service {
         ParcelUuid[] uuids = deviceProp.getUuids();
         boolean status = false;
         ParcelUuid GROUP_EXCL_ACCESS_SUPPORT =
-            ParcelUuid.fromString("000DDAA0-0000-1000-8000-00805F9B34FB");
+            ParcelUuid.fromString("00006AD8-0000-1000-8000-00805F9B34FB");
 
         if (ArrayUtils.contains(uuids,GROUP_EXCL_ACCESS_SUPPORT)) {
             status = true;

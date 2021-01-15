@@ -301,6 +301,25 @@ class PhonePolicy {
 
     // Policy implementation, all functions MUST be private
     private void processInitProfilePriorities(BluetoothDevice device, ParcelUuid[] uuids) {
+
+        ParcelUuid ADV_AUDIO_T_MEDIA =
+            ParcelUuid.fromString("00006AD0-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_HEARINGAID =
+            ParcelUuid.fromString("00006AD2-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_P_MEDIA =
+            ParcelUuid.fromString("00006AD1-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_P_VOICE =
+            ParcelUuid.fromString("00006AD4-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_T_VOICE =
+            ParcelUuid.fromString("00006AD5-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_G_MEDIA =
+            ParcelUuid.fromString("00006AD3-0000-1000-8000-00805F9B34FB");
+
         debugLog("processInitProfilePriorities() - device " + device);
         HidHostService hidService = mFactory.getHidHostService();
         A2dpService a2dpService = mFactory.getA2dpService();
@@ -341,9 +360,9 @@ class PhonePolicy {
 
         if ((a2dpService != null) && (ArrayUtils.contains(uuids, BluetoothUuid.A2DP_SINK)
                 || ArrayUtils.contains(uuids, BluetoothUuid.ADV_AUDIO_DIST)
-                || ArrayUtils.contains(uuids, BluetoothUuid.TMAS_UMR)
-                || ArrayUtils.contains(uuids, BluetoothUuid.HAS_UUID)
-                || ArrayUtils.contains(uuids, BluetoothUuid.PACS_UMR)) && (
+                || ArrayUtils.contains(uuids, ADV_AUDIO_T_MEDIA)
+                || ArrayUtils.contains(uuids, ADV_AUDIO_HEARINGAID)
+                || ArrayUtils.contains(uuids, ADV_AUDIO_P_MEDIA)) && (
                 a2dpService.getConnectionPolicy(device)
                         == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
             debugLog("setting peer device to connection policy on for a2dp" + device);
