@@ -350,6 +350,10 @@ public class AvrcpControllerService extends ProfileService {
                 activeDeviceStateMachine.handleCustomActionGetElementAttributes(extras);
             } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_GET_FOLDER_ITEM.equals(action)) {
                 activeDeviceStateMachine.handleCustomActionGetFolderItems(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_REQUEST_CONTINUING_RESPONSE.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionRequestContinuingResponse(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_ABORT_CONTINUING_RESPONSE.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionAbortContinuingResponse(extras);
             } else {
                 Log.w(TAG, "Custom action " + action + " not supported.");
             }
@@ -1350,4 +1354,18 @@ public class AvrcpControllerService extends ProfileService {
      */
     native static void getFolderItemsNative(byte[] address, byte scope, byte start, byte end,
             byte numAttributes, int[] attribIds);
+
+    /**
+     * Request for continuing response
+     *
+     * @param pduId  ID of PDU data packet
+     */
+    native static void requestContinuingResponseNative(byte[] address, byte pduId);
+
+    /**
+     * Abort continuing response
+     *
+     * @param pduId  ID of PDU data packet
+     */
+    native static void abortContinuingResponseNative(byte[] address, byte pduId);
 }

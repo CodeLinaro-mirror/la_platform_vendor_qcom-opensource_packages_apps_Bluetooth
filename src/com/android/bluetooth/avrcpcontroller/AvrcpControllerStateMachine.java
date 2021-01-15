@@ -112,6 +112,10 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MSG_AVRCP_GET_ELEMENT_ATTR = 307;
     // Internal message to get folder items(PTS verification only)
     static final int MSG_GET_FOLDER_ITEMS_PTS = 308;
+    // Internal message to request for continuing response
+    static final int MSG_AVRCP_REQUEST_CONTINUING_RESPONSE = 309;
+    // Internal message to abort continuing response
+    static final int MSG_AVRCP_ABORT_CONTINUING_RESPONSE = 310;
 
     static final int MESSAGE_INTERNAL_ABS_VOL_TIMEOUT = 404;
 
@@ -244,6 +248,39 @@ class AvrcpControllerStateMachine extends StateMachine {
         "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_GET_FOLDER_ITEM";
     public static final String KEY_START = "start";
     public static final String KEY_END = "end";
+
+    /**
+     * Custom action to request for continuing response packets.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * @param Bundle wrapped with {@link #KEY_PDU_ID}
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     */
+    public static final String CUSTOM_ACTION_REQUEST_CONTINUING_RESPONSE =
+        "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_REQUEST_CONTINUING_RESPONSE";
+    public static final String KEY_PDU_ID = "pdu_id";
+
+    /**
+     * Custom action to abort continuing response.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * @param Bundle wrapped with {@link #KEY_PDU_ID}
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     */
+    public static final String CUSTOM_ACTION_ABORT_CONTINUING_RESPONSE =
+        "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_ABORT_CONTINUING_RESPONSE";
 
     GetFolderList mGetFolderList = null;
 
@@ -571,6 +608,14 @@ class AvrcpControllerStateMachine extends StateMachine {
                     transitionTo(mGetFolderList);
                     return true;
 
+                case MSG_AVRCP_REQUEST_CONTINUING_RESPONSE:
+                    RequestContinuingResponse(msg.arg1);
+                    return true;
+
+                case MSG_AVRCP_ABORT_CONTINUING_RESPONSE:
+                    AbortContinuingResponse(msg.arg1);
+                    return true;
+
                 case MESSAGE_PROCESS_TRACK_CHANGED:
                     TrackInfo trackInfo = (TrackInfo) msg.obj;
                     mAddressedPlayer.updateCurrentTrack(trackInfo);
@@ -840,6 +885,18 @@ class AvrcpControllerStateMachine extends StateMachine {
             AvrcpControllerService.getFolderItemsNative(
                 mDeviceAddress, (byte) scope, (byte) start, (byte) end,
                 (byte) attributeId.length, attributeId);
+        }
+
+        private void RequestContinuingResponse(int pduId) {
+            logD("processRequestContinuingResponse pduId=" + pduId);
+            AvrcpControllerService.requestContinuingResponseNative(
+                mDeviceAddress, (byte) pduId);
+        }
+
+        private void AbortContinuingResponse(int pduId) {
+            Log.d(TAG, "processAbortContinuingResponse pduId=" + pduId);
+            AvrcpControllerService.abortContinuingResponseNative(
+                mDeviceAddress, (byte) pduId);
         }
     }
 
@@ -1468,5 +1525,25 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
 
         sendMessage(MSG_GET_FOLDER_ITEMS_PTS, extras);
+    }
+
+    public void handleCustomActionRequestContinuingResponse(Bundle extras) {
+        logD("handleCustomActionRequestContinuingResponse extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        int pduId = extras.getInt(KEY_PDU_ID, 0);
+        sendMessage(MSG_AVRCP_REQUEST_CONTINUING_RESPONSE, pduId, 0);
+    }
+
+    public void handleCustomActionAbortContinuingResponse(Bundle extras) {
+        logD("handleCustomActionAbortContinuingResponse extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        int pduId = extras.getInt(KEY_PDU_ID, 0);
+        sendMessage(MSG_AVRCP_ABORT_CONTINUING_RESPONSE, pduId, 0);
     }
 }
