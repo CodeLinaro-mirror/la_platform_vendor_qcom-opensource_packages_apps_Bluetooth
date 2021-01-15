@@ -24,7 +24,6 @@ import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hid.HidDeviceService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.pan.PanService;
-import com.android.bluetooth.bms.BapBroadcastService;
 
 import android.util.Log;
 
@@ -55,10 +54,6 @@ public class ServiceFactory {
 
     public PanService getPanService() {
         return PanService.getPanService();
-    }
-
-    public BapBroadcastService getBapBroadcastService() {
-        return BapBroadcastService.getBapBroadcastService();
     }
 
     public HearingAidService getHearingAidService() {

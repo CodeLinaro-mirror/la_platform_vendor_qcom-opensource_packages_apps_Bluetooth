@@ -33,7 +33,6 @@ import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
 import com.android.bluetooth.gatt.GattService;
-import com.android.bluetooth.bms.BapBroadcastService;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hfpclient.HeadsetClientService;
@@ -54,7 +53,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 public class Config {
     private static final String TAG = "AdapterServiceConfig";
 
@@ -74,6 +72,15 @@ public class Config {
         }
     }
 
+    private static Class mBroadcastClass = null;
+    static {
+        try {
+            mBroadcastClass = Class.forName("com.android.bluetooth.broadcast.BroadcastService");
+        } catch(ClassNotFoundException ex) {
+            Log.d(TAG,"BroadcastService class not found");
+            Log.w(TAG, ex);
+        }
+    }
     /**
      * List of profile services with the profile-supported resource flag and bit mask.
      */
@@ -131,9 +138,9 @@ public class Config {
                 Arrays.asList(
                     new ProfileConfig(BCService.class, R.bool.profile_supported_bac,
                         (1 << BluetoothProfile.BASS_CLIENT)),
-                    new ProfileConfig(BapBroadcastService.class,
-                         R.bool.profile_supported_bap_broadcast,
-                        (1 << BluetoothProfile.BAP_BROADCAST))
+                    new ProfileConfig(mBroadcastClass,
+                         R.bool.profile_supported_broadcast,
+                        (1 << BluetoothProfile.BROADCAST))
             ));
 
     /* List of Profiles common for Unicast and Broadcast advance audio features */

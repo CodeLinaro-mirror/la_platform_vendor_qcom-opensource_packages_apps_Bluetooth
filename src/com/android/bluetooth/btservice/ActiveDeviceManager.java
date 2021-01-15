@@ -34,13 +34,13 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
-import com.android.bluetooth.bms.BapBroadcastService;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.ba.BATService;
 import com.android.internal.annotations.VisibleForTesting;
+import java.lang.reflect.*;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -127,7 +127,12 @@ public class ActiveDeviceManager {
     private BluetoothDevice mHfpActiveDevice = null;
     private BluetoothDevice mHearingAidActiveDevice = null;
     private boolean mTwsPlusSwitch = false;
-    private BluetoothDevice mBapBroadcastActiveDevice = null;
+
+    Object mBroadcastService = null;
+    Method mBroadcastIsActive = null;
+    Method mBroadcastNotifyState = null;
+    Method mBroadcastGetAddr = null;
+    Method mBroadcastDevice = null;
 
     // Broadcast receiver for all changes
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -216,7 +221,7 @@ public class ActiveDeviceManager {
                             break;      // The device is already connected
                         }
                         mA2dpConnectedDevices.add(device);
-                        if (mHearingAidActiveDevice == null || mBapBroadcastActiveDevice == null) {
+                        if (mHearingAidActiveDevice == null) {
                             // New connected device: select it as active
                             setA2dpActiveDevice(device);
                             break;
@@ -267,17 +272,33 @@ public class ActiveDeviceManager {
                         Log.d(TAG, "handleMessage(MESSAGE_A2DP_ACTION_ACTIVE_DEVICE_CHANGED): "
                                 + "device= " + device);
                     }
-                    final BapBroadcastService bapBroadcastService = mFactory.getBapBroadcastService();
-                    if (device != null && bapBroadcastService != null &&
-                        bapBroadcastService.isBapBroadcastActive()) {
-                        if (device.getAddress().equals(bapBroadcastService.getBapBroadcastAddress())) {
-                            Log.d(TAG," Update from Bap BA, bail out");
+                    boolean is_broadcast_active = false;
+                    String broadcastBDA = null;
+                    if (device != null && mBroadcastService != null && mBroadcastIsActive != null &&
+                        mBroadcastGetAddr != null) {
+                        try {
+                            is_broadcast_active = (boolean) mBroadcastIsActive.invoke(mBroadcastService);
+                        } catch(IllegalAccessException e) {
+                            Log.e(TAG, "Broadcast:IsActive IllegalAccessException");
+                        } catch (InvocationTargetException e) {
+                            Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
+                        }
+                        try {
+                            broadcastBDA = (String) mBroadcastGetAddr.invoke(mBroadcastService);
+                        } catch(IllegalAccessException e) {
+                            Log.e(TAG, "Broadcast:GetAddr IllegalAccessException");
+                        } catch (InvocationTargetException e) {
+                            Log.e(TAG, "Broadcast:GetAddr InvocationTargetException");
+                        }
+                    }
+                    if (is_broadcast_active && device != null && broadcastBDA != null) {
+                        if (device.getAddress().equals(broadcastBDA)) {
+                            Log.d(TAG," Update from BA, bail out");
                             break;
                         }
                     }
                     if (device != null && !Objects.equals(mA2dpActiveDevice, device)) {
                         setHearingAidActiveDevice(null);
-                        setBapBroadcastActiveDevice(null);
                     }
                     // Just assign locally the new value
                     mA2dpActiveDevice = device;
@@ -385,23 +406,6 @@ public class ActiveDeviceManager {
                     }
                 }
                 break;
-
-                case MESSAGE_BAP_BROADCAST_ACTIVE_DEVICE_CHANGED: {
-                    Intent intent = (Intent) msg.obj;
-                    BluetoothDevice device =
-                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                    if (DBG) {
-                        Log.d(TAG, "handleMessage(MESSAGE_BAP_BROADCAST_ACTIVE_DEVICE_CHANGED): "
-                                + "device= " + device);
-                    }
-                    // Just assign locally the new value
-                    mBapBroadcastActiveDevice = device;
-                    if (device != null) {
-                        setA2dpActiveDevice(null);
-                        //setHfpActiveDevice(null);
-                    }
-                }
-                break;
             }
         }
     }
@@ -475,6 +479,10 @@ public class ActiveDeviceManager {
         mAdapterService.registerReceiver(mReceiver, filter);
 
         mAudioManager.registerAudioDeviceCallback(mAudioManagerAudioDeviceCallback, mHandler);
+        mBroadcastService = mAdapterService.getBroadcastService();
+        mBroadcastIsActive = mAdapterService.getBroadcastActive();
+        mBroadcastGetAddr = mAdapterService.getBroadcastAddress();
+        mBroadcastNotifyState = mAdapterService.getBroadcastNotifyState();
     }
 
     void cleanup() {
@@ -510,13 +518,6 @@ public class ActiveDeviceManager {
         return mHandlerThread.getLooper();
     }
 
-    public void notify_bap_broadcast_active_device(BluetoothDevice device) {
-        Intent intent = new Intent("BAP_BROADCAST_ACTIVE_DEVICE_CHANGE");
-        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
-
-        mHandler.obtainMessage(MESSAGE_BAP_BROADCAST_ACTIVE_DEVICE_CHANGED,
-                 intent).sendToTarget();
-    }
     private boolean setA2dpActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setA2dpActiveDevice(" + device + ")");
@@ -561,16 +562,19 @@ public class ActiveDeviceManager {
         mHearingAidActiveDevice = device;
     }
 
-    private void setBapBroadcastActiveDevice(BluetoothDevice device) {
+    private void setBroadcastActiveDevice(BluetoothDevice device) {
         if (DBG) {
-            Log.d(TAG, "setBapBroadcastActiveDevice(" + device + ")");
+            Log.d(TAG, "setBroadcastActiveDevice(" + device + ")");
         }
-        final BapBroadcastService bapBroadcastService = mFactory.getBapBroadcastService();
-        if (bapBroadcastService == null) return;
-        //if (bapBroadcastService.setActiveDevice(device) != 0) return;
-        bapBroadcastService.notifyBroadcastEnabled(false);
-        Log.d(TAG, " setting BapBroadcast active device to " + device);
-        mBapBroadcastActiveDevice = device;
+        if (mBroadcastService != null && mBroadcastNotifyState != null) {
+            try {
+                mBroadcastNotifyState.invoke(mBroadcastService, false);
+            } catch (IllegalAccessException e) {
+                Log.e(TAG, "Broadcast:NotifyState IllegalAccessException");
+            } catch (InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:NotifyState InvocationTargetException");
+            }
+        }
     }
     private void resetState() {
         mA2dpConnectedDevices.clear();
@@ -614,7 +618,7 @@ public class ActiveDeviceManager {
         setA2dpActiveDevice(null);
         setHfpActiveDevice(null);
         setHearingAidActiveDevice(null);
-        setBapBroadcastActiveDevice(null);
+        setBroadcastActiveDevice(null);
     }
     public void onActiveDeviceChange(BluetoothDevice device, int audioType) {
         if(audioType == ApmConstIntf.AudioFeatures.CALL_AUDIO) {

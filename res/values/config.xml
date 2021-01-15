@@ -32,7 +32,7 @@
     <bool name="profile_supported_sap">true</bool>
     <bool name="profile_supported_pbapclient">false</bool>
     <bool name="profile_supported_mapmce">false</bool>
-    <bool name="profile_supported_bap_broadcast">true</bool>
+    <bool name="profile_supported_broadcast">true</bool>
     <bool name="profile_supported_hid_device">true</bool>
     <bool name="profile_supported_le_audio">true</bool>
     <bool name="profile_supported_ba">false</bool>

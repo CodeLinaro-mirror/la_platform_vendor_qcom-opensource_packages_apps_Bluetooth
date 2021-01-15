@@ -132,12 +132,12 @@ import com.android.bluetooth.pbapclient.PbapClientService;
 import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.sap.SapService;
 import com.android.bluetooth.sdp.SdpManager;
-import com.android.bluetooth.bms.BapBroadcastService;
 import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
 import com.android.internal.util.ArrayUtils;
+import android.media.MediaMetadata;
 
 import java.lang.reflect.*;
 
@@ -220,7 +220,6 @@ public class AdapterService extends Service {
     private static final UUID EMPTY_UUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
     private final ArrayList<DiscoveringPackage> mDiscoveringPackages = new ArrayList<>();
-
     static {
         System.loadLibrary("bluetooth_qti_jni");
         classInitNative();
@@ -308,6 +307,14 @@ public class AdapterService extends Service {
     Method mBCConnect = null;
     Method mBCDisconnect = null;
     Method mBCGetConnState = null;
+    Object mBroadcastService = null;
+    Method mBroadcastGetService = null;
+    Method mBroadcastIsActive = null;
+    Method mBroadcastIsStreaming = null;
+    Method mBroadcastNotifyState = null;
+    Method mBroadcastGetAddr = null;
+    Method mBroadcastDevice = null;
+    Method mBroadcastMeta = null;
     //_REF*/
     /**
      * Register a {@link ProfileService} with AdapterService.
@@ -415,9 +422,6 @@ public class AdapterService extends Service {
         return mVendor.startClockSync();
     }
 
-    public void notify_bap_broadcast_active(BluetoothDevice device) {
-        mActiveDeviceManager.notify_bap_broadcast_active_device(device);
-    }
     private static final int MESSAGE_PROFILE_SERVICE_STATE_CHANGED = 1;
     private static final int MESSAGE_PROFILE_SERVICE_REGISTERED = 2;
     private static final int MESSAGE_PROFILE_SERVICE_UNREGISTERED = 3;
@@ -1469,6 +1473,63 @@ public class AdapterService extends Service {
             }
             //_REF*/
         }
+        if (isAdvBroadcastAudioFeatEnabled()) {
+        //_REF*/
+            Class<?> broadcastClass = null;
+            try {
+                broadcastClass = Class.forName("com.android.bluetooth.broadcast.BroadcastService");
+            } catch (ClassNotFoundException ex) {
+                Log.e(TAG, "no Broadcast: exists");
+                broadcastClass = null;
+            }
+            if (broadcastClass != null) {
+                try {
+                    mBroadcastGetService = broadcastClass.getMethod("getBroadcastService", null);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BroadcastService method exists");
+                    return;
+                }
+                if (mBroadcastGetService != null) {
+                    try {
+                        mBroadcastService = mBroadcastGetService.invoke(null, null);
+                    } catch(IllegalAccessException e) {
+                        Log.e(TAG, "BroadcastService IllegalAccessException");
+                    } catch (InvocationTargetException e) {
+                        Log.e(TAG, "BroadcastService InvocationTargetException");
+                    }
+                }
+                try {
+                    mBroadcastIsActive = broadcastClass.getMethod("isBroadcastActive");
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:IsActive method exists");
+                }
+                try {
+                    mBroadcastIsStreaming = broadcastClass.getMethod("isBroadcastStreaming");
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:IsActive method exists");
+                }
+                try {
+                    mBroadcastNotifyState = broadcastClass.getMethod("notifyBroadcastEnabled", boolean.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:NotifyState method exists");
+                }
+                try {
+                    mBroadcastGetAddr = broadcastClass.getMethod("getBroadcastAddress");
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:GetAddr method exists");
+                }
+                try {
+                    mBroadcastDevice = broadcastClass.getMethod("getBroadcastDevice");
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:GetDevice method exists");
+                }
+                try {
+                    mBroadcastMeta = broadcastClass.getMethod("updateMetadataFromAvrcp", MediaMetadata.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:UpdateMetadata method exists");
+                }
+            }
+        }
     }
 
     ///*_REF
@@ -1490,6 +1551,33 @@ public class AdapterService extends Service {
         return !mCleaningUp;
     }
 
+    public Object getBroadcastService() {
+        return mBroadcastService;
+    }
+
+    public Method getBroadcastActive() {
+        return mBroadcastIsActive;
+    }
+
+    public Method getBroadcastStreaming() {
+        return mBroadcastIsStreaming;
+    }
+
+    public Method getBroadcastNotifyState() {
+        return mBroadcastNotifyState;
+    }
+
+    public Method getBroadcastAddress() {
+        return mBroadcastGetAddr;
+    }
+
+    public Method getBroadcastDevice() {
+        return mBroadcastDevice;
+    }
+
+    public Method getBroadcastMeta() {
+        return mBroadcastMeta;
+    }
     /**
      * Handlers for incoming service calls
      */
@@ -3486,12 +3574,28 @@ public class AdapterService extends Service {
      */
     public String getRemoteName(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        BapBroadcastService mBapBroadcastService = BapBroadcastService.getBapBroadcastService();
-        if (mBapBroadcastService != null &&
-            device.getAddress().equals(mBapBroadcastService.getBapBroadcastAddress()) &&
-            mBapBroadcastService.isBapBroadcastActive()) {
-            Log.d(TAG," Request Name for Bap Broadcast device ");
-            return "Bap_Broadcast_Source";
+        if (mBroadcastService != null && mBroadcastGetAddr != null
+            && mBroadcastIsActive != null) {
+            String Address = null;
+            boolean isactive = false;
+            try {
+                Address = (String)mBroadcastGetAddr.invoke(mBroadcastService);
+            } catch(IllegalAccessException e) {
+                Log.e(TAG, "Broadcast:GetAddr IllegalAccessException");
+            } catch (InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:GetAddr InvocationTargetException");
+            }
+            try {
+                isactive = (boolean)mBroadcastIsActive.invoke(mBroadcastService);
+            } catch(IllegalAccessException e) {
+                Log.e(TAG, "Broadcast:IsActive IllegalAccessException");
+            } catch (InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
+            }
+            if (device.getAddress().equals(Address) && isactive) {
+                Log.d(TAG," Request Name for Broadcast device ");
+                return "Broadcast_Source";
+            }
         }
         if (device.getAddress().equals(BATService.mBAAddress)) {
             Log.d(TAG," Request Name for BA device ");
@@ -3848,11 +3952,16 @@ public class AdapterService extends Service {
 
     public boolean isLeBroadcastActive() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        BapBroadcastService mBapBroadcastService =
-                     BapBroadcastService.getBapBroadcastService();
-        if (mBapBroadcastService != null) {
-            Log.d(TAG,"isLeBroadcastActive");
-            return mBapBroadcastService.isBapBroadcastActive();
+        if (mBroadcastService != null && mBroadcastIsActive != null) {
+            boolean is_active = false;
+            try {
+                is_active = (boolean)mBroadcastIsActive.invoke(mBroadcastService);
+            } catch(IllegalAccessException e) {
+                Log.e(TAG, "Broadcast:IsActive IllegalAccessException");
+            } catch (InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
+            }
+            return is_active;
         }
         return false;
     }
