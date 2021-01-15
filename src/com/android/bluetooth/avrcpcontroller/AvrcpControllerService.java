@@ -367,6 +367,8 @@ public class AvrcpControllerService extends ProfileService {
                 activeDeviceStateMachine.handleCustomActionAbortContinuingResponse(extras);
             } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_ADD_TO_NOW_PLAYING.equals(action)) {
                 activeDeviceStateMachine.handleCustomActionAddToNowPlaying(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_SET_ADDRESSED_PLAYER.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionSetAddressedPlayer(extras);
             } else {
                 Log.w(TAG, "Custom action " + action + " not supported.");
             }

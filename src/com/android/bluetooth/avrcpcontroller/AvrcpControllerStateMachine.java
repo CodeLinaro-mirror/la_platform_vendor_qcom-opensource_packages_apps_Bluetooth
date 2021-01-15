@@ -119,6 +119,8 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MSG_AVRCP_ABORT_CONTINUING_RESPONSE = 310;
     // Internal message to add item into NowPlaying
     static final int MSG_AVRCP_ADD_TO_NOW_PLAYING = 311;
+    // Internal message to set addressed player(PTS verification only)
+    static final int MSG_SET_ADDRESSED_PLAYER_PTS = 313;
 
     static final int MESSAGE_INTERNAL_ABS_VOL_TIMEOUT = 404;
 
@@ -314,6 +316,27 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     public static final String EXTRA_CUSTOM_ACTION_RESULT =
         "com.android.bluetooth.a2dpsink.mbs.extra.CUSTOM_ACTION_RESULT";
+
+    /**
+     * Custom action to set addressed player.
+     *
+     * <p>This is called in {@link MediaController.TransportControls.sendCustomAction}
+     *
+     * <p>This is an asynchronous call: it will return immediately.
+     *
+     * <p>Intent {@link #ACTION_CUSTOM_ACTION_RESULT} will be broadcast to notify the result.
+     * {@link AvrcpControllerService} will update NowPlaying list if succeed.
+     *
+     * @param Bundle wrapped with {@link #MediaMetadata.METADATA_KEY_MEDIA_ID}
+     *
+     * @return void
+     *
+     * @See {@link android.media.session.MediaController}
+     *      {@link com.android.bluetooth.avrcpcontroller.AvrcpControllerService}
+     */
+    public static final String CUSTOM_ACTION_SET_ADDRESSED_PLAYER =
+        "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_SET_ADDRESSED_PLAYER";
+    public static final String KEY_PLAYER_ID = "player_id";
 
     // Result code
     public static final int RESULT_SUCCESS = 0;
@@ -665,6 +688,11 @@ class AvrcpControllerStateMachine extends StateMachine {
                     transitionTo(mAddToNowPlaying);
                     return true;
 
+                case MSG_SET_ADDRESSED_PLAYER_PTS:
+                    int playerId = ((Bundle) msg.obj).getInt(KEY_PLAYER_ID, 0);
+                    setAddressedPlayer(playerId);
+                    return true;
+
                 case MESSAGE_PROCESS_TRACK_CHANGED:
                     TrackInfo trackInfo = (TrackInfo) msg.obj;
                     mAddressedPlayer.updateCurrentTrack(trackInfo);
@@ -816,6 +844,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                         mDeviceAddress, node.getScope(),
                         node.getBluetoothID(), mUidCounter);
             }
+        }
+
+        private void setAddressedPlayer(int playerId) {
+            mService.setAddressedPlayerNative(mDeviceAddress, playerId);
         }
 
         private synchronized void passThru(int cmd) {
@@ -1027,6 +1059,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                     removeMessages(MESSAGE_INTERNAL_CMD_TIMEOUT);
                     sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
                     navigateToFolderOrRetrieve(mBrowseNode);
+                    break;
+
+               case MESSAGE_PROCESS_SET_ADDRESSED_PLAYER:
+                    //Do nothing
                     break;
 
                 case MESSAGE_PROCESS_FOLDER_PATH:
@@ -1721,5 +1757,14 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         String mediaId = extras.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
         sendMessage(MSG_AVRCP_ADD_TO_NOW_PLAYING, mediaId);
+    }
+
+    public void handleCustomActionSetAddressedPlayer(Bundle extras) {
+        logD("handleCustomActionSetAddressedPlayer extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        sendMessage(MSG_SET_ADDRESSED_PLAYER_PTS, extras);
     }
 }
