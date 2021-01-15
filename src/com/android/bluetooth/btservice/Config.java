@@ -161,9 +161,7 @@ public class Config {
             return;
         }
 
-        if (SystemProperties.get("persist.vendor.service.bt.adv_audio_mask").isEmpty()) {
-          SystemProperties.set("persist.vendor.service.bt.adv_audio_mask", "3");
-        }
+        AdapterService.setAdvanceAudioSupport();
         initAdvAudioConfig(ctx);
 
         ArrayList<Class> profiles = new ArrayList<>(PROFILE_SERVICES_AND_FLAGS.length);

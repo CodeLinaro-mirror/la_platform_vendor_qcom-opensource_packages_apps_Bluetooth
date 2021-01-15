@@ -4894,4 +4894,24 @@ public class AdapterService extends Service {
 
         mVendor.registerUuidSrvcDisc(uuid);
     }
+
+    public static void setAdvanceAudioSupport() {
+        Log.d(TAG, "setAdvanceAudioSupport");
+        Method mSetAdvanceAudioSupport = null;
+
+        try {
+            Class<?> grpSvcCls = Class.forName(
+                    "com.android.bluetooth.groupclient.GroupService");
+            if (grpSvcCls != null) {
+                mSetAdvanceAudioSupport = grpSvcCls.getMethod(
+                    "setAdvanceAudioSupport");
+                if (mSetAdvanceAudioSupport != null) {
+                    mSetAdvanceAudioSupport.invoke(null);
+                }
+            }
+        } catch (NoSuchMethodException|IllegalAccessException|
+                 InvocationTargetException|ClassNotFoundException e) {
+             Log.e(TAG, "Exception setAdvanceAudioSupport: " + e);
+        }
+    }
 }
