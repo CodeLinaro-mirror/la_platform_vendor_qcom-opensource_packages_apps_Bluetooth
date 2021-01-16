@@ -1533,6 +1533,7 @@ public class AdapterService extends Service {
                 } catch (NoSuchMethodException e) {
                     Log.e(TAG, "no Broadcast:UpdateMetadata method exists");
                 }
+                mActiveDeviceManager.init_broadcast_ref();
             }
         }
     }

@@ -483,12 +483,14 @@ public class ActiveDeviceManager {
         mAdapterService.registerReceiver(mReceiver, filter);
 
         mAudioManager.registerAudioDeviceCallback(mAudioManagerAudioDeviceCallback, mHandler);
+    }
+
+    void init_broadcast_ref() {
         mBroadcastService = mAdapterService.getBroadcastService();
         mBroadcastIsActive = mAdapterService.getBroadcastActive();
         mBroadcastGetAddr = mAdapterService.getBroadcastAddress();
         mBroadcastNotifyState = mAdapterService.getBroadcastNotifyState();
     }
-
     void cleanup() {
         if (DBG) {
             Log.d(TAG, "cleanup()");
