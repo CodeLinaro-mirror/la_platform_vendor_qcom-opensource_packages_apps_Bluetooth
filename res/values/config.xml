@@ -16,7 +16,7 @@
     <bool name="profile_supported_a2dp">true</bool>
     <bool name="profile_supported_a2dp_sink">false</bool>
     <bool name="profile_supported_hs_hfp">true</bool>
-    <bool name="profile_supported_hfpclient">false</bool>
+    <bool name="profile_supported_hfpclient">true</bool>
     <bool name="profile_supported_hid_host">true</bool>
     <bool name="profile_supported_opp">true</bool>
     <bool name="profile_supported_pan">true</bool>
@@ -74,7 +74,7 @@
     <bool name="a2dp_sink_automatically_request_audio_focus">false</bool>
 
     <!-- For enabling the hfp client connection service -->
-    <bool name="hfp_client_connection_service_enabled">false</bool>
+    <bool name="hfp_client_connection_service_enabled">true</bool>
 
     <!-- For supporting emergency call through the hfp client connection service  -->
     <bool name="hfp_client_connection_service_support_emergency_call">false</bool>
