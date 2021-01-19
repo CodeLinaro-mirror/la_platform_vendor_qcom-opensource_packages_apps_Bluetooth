@@ -581,6 +581,7 @@ class PhonePolicy {
                                                 mostRecentlyActiveHfpDevice);
             debugLog("autoConnect: mostRecentlyConnectedA2dpSrcDevice: " +
                                                 mostRecentlyConnectedA2dpSrcDevice);
+            autoConnectBC();
             //Initiate auto-connection for latest connected a2dp source device.
             if (mostRecentlyConnectedA2dpSrcDevice != null) {
                debugLog("autoConnect: attempting auto connection for recently"+
@@ -620,9 +621,6 @@ class PhonePolicy {
                     autoConnectHeadset(peerTwsDevice);
                 }
             }
-            ///*_REF
-            autoConnectBC();
-            //_REF*/
         } else {
             debugLog("autoConnect() - BT is in quiet mode. Not initiating auto connections");
         }
