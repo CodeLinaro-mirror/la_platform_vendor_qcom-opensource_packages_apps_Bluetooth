@@ -339,4 +339,22 @@ public abstract class MetadataDatabase extends RoomDatabase {
             }
         }
     };
+
+    @VisibleForTesting
+    static final Migration MIGRATION_105_106 = new Migration(105, 106) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            try {
+                database.execSQL("ALTER TABLE metadata ADD COLUMN `is_active_hfpclient_device` "
+                        + "INTEGER NOT NULL DEFAULT 0");
+
+            } catch (SQLException ex) {
+                // Check if user has new schema, but is just missing the version update
+                Cursor cursor = database.query("SELECT * FROM metadata");
+                if (cursor == null || (cursor.getColumnIndex("is_active_hfpclient_device") == -1)) {
+                    throw ex;
+                }
+            }
+        }
+    };
 }
