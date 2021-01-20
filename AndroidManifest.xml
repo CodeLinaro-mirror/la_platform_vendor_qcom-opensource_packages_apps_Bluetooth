@@ -323,14 +323,6 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".cap.CapService"
-            android:enabled="@bool/profile_supported_ca">
-            <intent-filter>
-                <action android:name="android.bluetooth.IBluetoothCap" />
-            </intent-filter>
-        </service>
-        <service
-            android:process="@string/process"
             android:name = ".a2dpsink.A2dpSinkService"
             android:enabled="@bool/profile_supported_a2dp_sink">
             <intent-filter>
