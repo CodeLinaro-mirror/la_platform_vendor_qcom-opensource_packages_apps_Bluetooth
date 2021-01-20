@@ -22,6 +22,7 @@ import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
+import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHearingAid;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
@@ -41,6 +42,7 @@ import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
+import com.android.bluetooth.hfpclient.HeadsetClientService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.ba.BATService;
@@ -141,6 +143,11 @@ class PhonePolicy {
                     mHandler.obtainMessage(MESSAGE_PROFILE_ACTIVE_DEVICE_CHANGED,
                             BluetoothProfile.HEADSET, -1, // No-op argument
                             intent).sendToTarget();
+                    break;
+                case BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED:
+                    mHandler.obtainMessage(MESSAGE_PROFILE_CONNECTION_STATE_CHANGED,
+                                    BluetoothProfile.HEADSET_CLIENT, -1, // No-op argument
+                                    intent).sendToTarget();
                     break;
                 case BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED:
                     mHandler.obtainMessage(MESSAGE_PROFILE_ACTIVE_DEVICE_CHANGED,
@@ -253,6 +260,7 @@ class PhonePolicy {
     protected void start() {
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
         filter.addAction(BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED);
@@ -284,6 +292,7 @@ class PhonePolicy {
         A2dpService a2dpService = mFactory.getA2dpService();
         A2dpSinkService a2dpSinkService = mFactory.getA2dpSinkService();
         HeadsetService headsetService = mFactory.getHeadsetService();
+        HeadsetClientService headsetClientService =  mFactory.getHeadsetClientService();
         PanService panService = mFactory.getPanService();
         HearingAidService hearingAidService = mFactory.getHearingAidService();
         BluetoothDevice peerTwsDevice = null;
@@ -313,6 +322,20 @@ class PhonePolicy {
                 debugLog("setting peer earbud to connection policy on for hfp" + peerTwsDevice);
             mAdapterService.getDatabase().setProfileConnectionPolicy(device,
                     BluetoothProfile.HEADSET, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+            }
+        }
+
+        if ((headsetClientService != null) && ((ArrayUtils.contains(uuids, BluetoothUuid.HSP)
+                || ArrayUtils.contains(uuids, BluetoothUuid.HFP)) && (
+                headsetClientService.getConnectionPolicy(device)
+                        == BluetoothProfile.CONNECTION_POLICY_UNKNOWN))) {
+            debugLog("setting peer device to connection policy on for hfp" + device);
+            mAdapterService.getDatabase().setProfileConnectionPolicy(device,
+                    BluetoothProfile.HEADSET_CLIENT, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+            if (peerTwsDevice != null) {
+                debugLog("setting peer earbud to connection policy on for hfp" + peerTwsDevice);
+            mAdapterService.getDatabase().setProfileConnectionPolicy(device,
+                    BluetoothProfile.HEADSET_CLIENT, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             }
         }
 
@@ -360,7 +383,7 @@ class PhonePolicy {
         debugLog("processProfileStateChanged, device=" + device + ", profile=" + profileId + ", "
                 + prevState + " -> " + nextState);
         if ((profileId == BluetoothProfile.A2DP) || (profileId == BluetoothProfile.HEADSET)
-                || profileId == BluetoothProfile.A2DP_SINK) {
+                || (profileId == BluetoothProfile.A2DP_SINK) || (profileId == BluetoothProfile.HEADSET_CLIENT)) {
             BluetoothDevice peerTwsDevice =
                     (mAdapterService != null && mAdapterService.isTwsPlusDevice(device)) ?
                     mAdapterService.getTwsPlusPeerDevice(device):null;
@@ -372,6 +395,10 @@ class PhonePolicy {
                         break;
                     case BluetoothProfile.HEADSET:
                         mHeadsetRetrySet.remove(device);
+                        break;
+                    case BluetoothProfile.HEADSET_CLIENT:
+                        debugLog("processProfileStateChanged connected hs_client");
+                        mDatabaseManager.setConnectionForHfpClient(device);
                         break;
                     case BluetoothProfile.A2DP_SINK:
                         mDatabaseManager.setConnectionForA2dpSrc(device);
@@ -391,6 +418,10 @@ class PhonePolicy {
                         Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionForHfp "
                                     + " for device "+ device);
                         mDatabaseManager.setDisconnectionForHfp(device);
+                    } else if (profileId == BluetoothProfile.HEADSET_CLIENT) {
+                        Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionForHfpclient "
+                                    + " for device "+ device);
+                        mDatabaseManager.setDisconnectionForHfpClient(device);
                     }
                     if (profileId == BluetoothProfile.A2DP_SINK) {
                         Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionForA2dpSrc "
@@ -420,6 +451,12 @@ class PhonePolicy {
                             + device);
                 mDatabaseManager.setConnectionForHfp(device);
             }
+
+        if (profileId == BluetoothProfile.HEADSET_CLIENT) {
+                Log.w(TAG, "processActiveDeviceChanged: Calling setConnectionForHfpClient for device "
+                            + device);
+                mDatabaseManager.setConnectionForHfpClient(device);
+            }
         }
     }
 
@@ -432,12 +469,18 @@ class PhonePolicy {
         boolean atLeastOneProfileConnectedForDevice = false;
         boolean allProfilesEmpty = true;
         HeadsetService hsService = mFactory.getHeadsetService();
+        HeadsetClientService hsClientService = mFactory.getHeadsetClientService();
         A2dpService a2dpService = mFactory.getA2dpService();
         PanService panService = mFactory.getPanService();
         A2dpSinkService a2dpSinkService = mFactory.getA2dpSinkService();
 
         if (hsService != null) {
             List<BluetoothDevice> hsConnDevList = hsService.getConnectedDevices();
+            allProfilesEmpty &= hsConnDevList.isEmpty();
+            atLeastOneProfileConnectedForDevice |= hsConnDevList.contains(device);
+        }
+        if (hsClientService != null) {
+            List<BluetoothDevice> hsConnDevList = hsClientService.getConnectedDevices();
             allProfilesEmpty &= hsConnDevList.isEmpty();
             atLeastOneProfileConnectedForDevice |= hsConnDevList.contains(device);
         }
@@ -503,10 +546,14 @@ class PhonePolicy {
                     mDatabaseManager.getMostRecentlyConnectedHfpDevice();
             final BluetoothDevice mostRecentlyConnectedA2dpSrcDevice =
                     mDatabaseManager.getMostRecentlyConnectedA2dpSrcDevice();
+            final BluetoothDevice mostRecentlyActiveHfpClientDevice =
+                    mDatabaseManager.getMostRecentlyConnectedHfpClientDevice();
             debugLog("autoConnect: mostRecentlyActiveA2dpDevice: " +
                                                 mostRecentlyActiveA2dpDevice);
             debugLog("autoConnect: mostRecentlyActiveHfpDevice: " +
                                                 mostRecentlyActiveHfpDevice);
+            debugLog("autoConnect: mostRecentlyActiveHfpClientDevice: " +
+                                                mostRecentlyActiveHfpClientDevice);
             debugLog("autoConnect: mostRecentlyConnectedA2dpSrcDevice: " +
                                                 mostRecentlyConnectedA2dpSrcDevice);
             //Initiate auto-connection for latest connected a2dp source device.
@@ -532,10 +579,12 @@ class PhonePolicy {
                 debugLog("autoConnect: recently connected A2DP active Device " +
                     mostRecentlyActiveA2dpDevice + " attempting auto connection for A2DP, HFP");
                 autoConnectHeadset(mostRecentlyActiveA2dpDevice);
+                autoConnectHeadsetClient(mostRecentlyActiveHfpClientDevice);
                 autoConnectA2dp(mostRecentlyActiveA2dpDevice);
                 if (peerTwsDevice != null) {
                     debugLog("autoConnect: 2nd pair TWS+ EB");
                     autoConnectHeadset(peerTwsDevice);
+                    autoConnectHeadsetClient(mostRecentlyActiveHfpClientDevice);
                     autoConnectA2dp(peerTwsDevice);
                 }
             } else if (mostRecentlyActiveHfpDevice != null) {
@@ -543,9 +592,11 @@ class PhonePolicy {
                      " recently connected HFP Device " + mostRecentlyActiveHfpDevice
                     + " attempting auto connection for HFP");
                 autoConnectHeadset(mostRecentlyActiveHfpDevice);
+                autoConnectHeadsetClient(mostRecentlyActiveHfpClientDevice);
                 if (peerTwsDevice != null) {
                     debugLog("autoConnectHF: 2nd pair TWS+ EB");
                     autoConnectHeadset(peerTwsDevice);
+                    autoConnectHeadsetClient(mostRecentlyActiveHfpClientDevice);
                 }
             }
         } else {
@@ -582,6 +633,21 @@ class PhonePolicy {
         } else {
             debugLog("autoConnectHeadset: skipped auto-connect HFP with device " + device
                     + " headsetConnectionPolicy " + headsetConnectionPolicy);
+        }
+    }
+    private void autoConnectHeadsetClient(BluetoothDevice device) {
+        final HeadsetClientService hsclientService = mFactory.getHeadsetClientService();
+        if (hsclientService == null) {
+            warnLog("autoConnectHeadsetClient, service is null");
+            return;
+        }
+        int headsetClientConnectionPolicy = hsclientService.getConnectionPolicy(device);
+        if (headsetClientConnectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+             debugLog("autoConnectHeadsetClient, Connecting HFP with " + device);
+             hsclientService.connect(device);
+        } else {
+            debugLog("autoConnectHeadsetClient: skipped auto-connect HFP with device " + device
+                    + " headsetClientConnectionPolicy " + headsetClientConnectionPolicy);
         }
     }
 
@@ -660,6 +726,7 @@ class PhonePolicy {
         }
 
         HeadsetService hsService = mFactory.getHeadsetService();
+        HeadsetClientService hsClientService = mFactory.getHeadsetClientService();
         A2dpService a2dpService = mFactory.getA2dpService();
         PanService panService = mFactory.getPanService();
         A2dpSinkService a2dpSinkService = mFactory.getA2dpSinkService();
@@ -667,6 +734,8 @@ class PhonePolicy {
         List<BluetoothDevice> hsConnDevList = null;
         List<BluetoothDevice> a2dpConnDevList = null;
         List<BluetoothDevice> a2dpSinkConnDevList = null;
+        List<BluetoothDevice> hsClientConnDevList = null;
+
         if (hsService != null) {
             hsConnDevList = hsService.getConnectedDevices();
         }
@@ -675,6 +744,9 @@ class PhonePolicy {
         }
         if (a2dpSinkService != null) {
             a2dpSinkConnDevList = a2dpSinkService.getConnectedDevices();
+        }
+        if (hsClientService != null) {
+            hsClientConnDevList = hsClientService.getConnectedDevices();
         }
 
         boolean a2dpConnected = false;
@@ -703,6 +775,8 @@ class PhonePolicy {
         // for desired profile is ON.
         debugLog("HF connected for device : " + device + " " +
                 (hsConnDevList == null ? false :hsConnDevList.contains(device)));
+        debugLog("HF Client connected for device : " + device + " " +
+                (hsClientConnDevList == null ? false :hsClientConnDevList.contains(device)));
         debugLog("A2DP connected for device : " + device + " " +
                 (a2dpConnDevList == null ? false :a2dpConnDevList.contains(device)));
         debugLog("A2DPSink connected for device : " + device + " " +
@@ -793,6 +867,17 @@ class PhonePolicy {
             }
         }
 
+        if(hsClientService != null) {
+           if (hsClientConnDevList.isEmpty() &&
+                    (hsClientService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED) &&
+                    (hsClientService.getConnectionState(device) ==
+                            BluetoothProfile.STATE_DISCONNECTED) &&
+                    (a2dpConnected || (a2dpService != null &&
+                         a2dpService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN))) {
+                debugLog("Retrying connection for HFP client with device " + device);
+                hsClientService.connect(device);
+            }
+        }
     }
 
     private static void debugLog(String msg) {
