@@ -119,6 +119,7 @@ class PhonePolicy {
     Method mBCConnect = null;
     Method mBCDisconnect = null;
     Method mBCGetConnState = null;
+    String mBCId = null;
     //_REF*/
     private void initBCReferences() {
         if (mAdapterService != null) {
@@ -126,6 +127,7 @@ class PhonePolicy {
             mBCGetConnPolicy = mAdapterService.getBCGetConnPolicy();
             mBCSetConnPolicy = mAdapterService.getBCSetConnPolicy();
             mBCConnect = mAdapterService.getBCConnect();
+            mBCId = mAdapterService.getBCId();
         }
     }
 
@@ -402,8 +404,8 @@ class PhonePolicy {
 
         ///*_REF
         initBCReferences();
-        if (mBCService != null && ArrayUtils.contains(uuids,
-                ParcelUuid.fromString("00008FDB-0000-1000-8000-00805F9B34FB")) &&
+        if (mBCService != null && mBCId != null && ArrayUtils.contains(uuids,
+                ParcelUuid.fromString(mBCId)) &&
                 mBCGetConnPolicy != null && mBCSetConnPolicy != null) {
             int connPolicy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             try {

@@ -1104,13 +1104,17 @@ public class GattService extends ProfileService {
             ScanResult result = null;
             ScanRecord record = ScanRecord.parseFromBytes(scanRecordData);
             Map<ParcelUuid, byte[]> listOfUuids = record.getServiceData();
-            boolean isBroadcastSource = false;
-            String BROADCAST_SRC_UUID = "00008FDD-0000-1000-8000-00805F9B34FB";
-            if (listOfUuids != null) {
-                 isBroadcastSource = listOfUuids.containsKey(ParcelUuid.fromString(BROADCAST_SRC_UUID));
+            boolean isPrevClient = false;
+            String BS_ID = null;
+            AdapterService adapterService = AdapterService.getAdapterService();
+            if (adapterService != null) {
+                BS_ID = adapterService.getBSId();
+            }
+            if (listOfUuids != null && BS_ID != null) {
+                 isPrevClient = listOfUuids.containsKey(ParcelUuid.fromString(BS_ID));
             }
 
-            if (client.allowAddressTypeInResults && isBroadcastSource) {
+            if (client.allowAddressTypeInResults && isPrevClient) {
                 Log.d(TAG, "populate AddressType for previleged client");
                 result =
                     new ScanResult(device, addressType, eventType, primaryPhy, secondaryPhy, advertisingSid,

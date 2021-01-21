@@ -307,6 +307,8 @@ public class AdapterService extends Service {
     Method mBCConnect = null;
     Method mBCDisconnect = null;
     Method mBCGetConnState = null;
+    String mBCId = null;
+    String mBSId = null;
     Object mBroadcastService = null;
     Method mBroadcastGetService = null;
     Method mBroadcastIsActive = null;
@@ -1176,7 +1178,7 @@ public class AdapterService extends Service {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.SAP);
         }
         if (profile == BluetoothProfile.BC_PROFILE) {
-            return ArrayUtils.contains(remoteDeviceUuids, ParcelUuid.fromString    ("00008FDB-0000-1000-8000-00805F9B34FB"));
+            return mBCId != null && ArrayUtils.contains(remoteDeviceUuids, ParcelUuid.fromString (mBCId));
         }
 
         Log.e(TAG, "isSupported: Unexpected profile passed in to function: " + profile);
@@ -1475,6 +1477,20 @@ public class AdapterService extends Service {
                     Log.e(TAG, "no BC:disconnect method exists");
                     //break;
                 }
+                try {
+                    mBCId = (String)bcClass.getDeclaredField("BC_ID").get(null);
+                } catch (NoSuchFieldException ex) {
+                    Log.w(TAG, ex);
+                } catch (IllegalAccessException ex) {
+                    Log.w(TAG, ex);
+                }
+                try {
+                    mBSId = (String)bcClass.getDeclaredField("BS_ID").get(null);
+                } catch (NoSuchFieldException ex) {
+                    Log.w(TAG, ex);
+                } catch (IllegalAccessException ex) {
+                    Log.w(TAG, ex);
+                }
             }
             //_REF*/
         }
@@ -1550,6 +1566,13 @@ public class AdapterService extends Service {
     }
     public Method getBCConnect() {
         return mBCConnect;
+    }
+    public String getBCId() {
+        return mBCId;
+    }
+
+    public String getBSId() {
+        return mBSId;
     }
     //_REF*/
 
