@@ -2486,12 +2486,12 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean isLeBroadcastActive() {
+        public boolean isBroadcastActive() {
             AdapterService service = getService();
             if (service == null) {
                 return false;
             }
-            return service.isLeBroadcastActive();
+            return service.isBroadcastActive();
         }
         @Override
         public boolean factoryReset() {
@@ -3979,7 +3979,7 @@ public class AdapterService extends Service {
         return mAdapterProperties.isA2dpOffloadEnabled();
     }
 
-    public boolean isLeBroadcastActive() {
+    public boolean isBroadcastActive() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         if (mBroadcastService != null && mBroadcastIsActive != null) {
             boolean is_active = false;
