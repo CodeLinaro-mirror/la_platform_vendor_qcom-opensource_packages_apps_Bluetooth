@@ -69,6 +69,7 @@ import android.util.Log;
 
 import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.R;
+import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.hfp.HeadsetHalConstants;
 import com.android.internal.annotations.VisibleForTesting;
@@ -78,6 +79,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -836,6 +838,15 @@ final class RemoteDevices {
                             } catch (NoSuchMethodException|IllegalAccessException|
                                      InvocationTargetException|ClassNotFoundException e) {
                                  Log.e(TAG, "Exception in reading groups: " + e);
+                            }
+                            break;
+                        case AbstractionLayer.BT_PROPERTY_GROUP_EIR_DATA:
+                            Object mGroupService = new ServiceFactory().getGroupService();
+                            if (mGroupService != null) {
+                                ArrayList<Object> args = new ArrayList<Object>(
+                                        Arrays.asList(bdDevice, new String(val)));
+                                new ReflectionUtils().invokeMethod(
+                                        mGroupService, "handleEIRGroupData", args);
                             }
                             break;
                         case AbstractionLayer.BT_PROPERTY_ADV_AUDIO_UUID_BY_TRANSPORT:

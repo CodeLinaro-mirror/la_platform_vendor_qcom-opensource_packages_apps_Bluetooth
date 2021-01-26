@@ -99,6 +99,8 @@ public final class AbstractionLayer {
     static final int BT_PROPERTY_ADV_AUDIO_ID_BD_ADDR = 0xA4;
     static final int BT_PROPERTY_ADV_AUDIO_UUID_BY_TRANSPORT = 0xA5;
 
+    static final int BT_PROPERTY_GROUP_EIR_DATA = 0xFE;
+
     static final int BT_BOND_STATE_NONE = 0x00;
     static final int BT_BOND_STATE_BONDING = 0x01;
     static final int BT_BOND_STATE_BONDED = 0x02;
