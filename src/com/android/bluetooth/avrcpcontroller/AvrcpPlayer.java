@@ -52,7 +52,6 @@ class AvrcpPlayer {
     private String mName = "";
     private int mPlayerType;
     private TrackInfo mCurrentTrack = new TrackInfo();
-    private PlaybackState mPlaybackState;
     private byte[] mPlayerFeatures = new byte[16];
     private long mAvailableActions = PlaybackStateCompat.ACTION_PREPARE;
     private PlaybackStateCompat mPlaybackStateCompat;
@@ -187,8 +186,9 @@ class AvrcpPlayer {
     public synchronized void updateCurrentTrack(TrackInfo update) {
         if (update != null) {
             long trackNumber = update.getTrackNum();
-            mPlaybackState = new PlaybackState.Builder(mPlaybackState).setActiveQueueItemId(
-                             trackNumber - 1).build();
+            mPlaybackStateCompat = new PlaybackStateCompat.Builder(
+                    mPlaybackStateCompat).setActiveQueueItemId(
+                    trackNumber - 1).build();
 
             String imageLocation = update.getImageLocation();
             String thumbNailLocation = update.getThumbNailLocation();
