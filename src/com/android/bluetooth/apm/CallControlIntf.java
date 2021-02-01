@@ -43,25 +43,25 @@ import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 
-class CallControlIntf {
+public class CallControlIntf {
     public static final String TAG = "APM: CallControlIntf";
-    private CallControlIntf mInterface = null;
+    private static CallControlIntf mInterface = null;
 
-    Class CallControl = null;
-    Object mCallControlObj = null;
+    static Class CallControl = null;
+    static Object mCallControlObj = null;
 
     private CallControlIntf() {
 
     }
 
-    public CallControlIntf get() {
+     public static CallControlIntf get() {
         if(mInterface == null) {
             mInterface = new CallControlIntf();
         }
         return mInterface;
     }
 
-    protected void init (Object obj) {
+    protected static void init (Object obj) {
         Log.i(TAG, "init");
         mCallControlObj = obj;
 
@@ -113,6 +113,32 @@ class CallControlIntf {
         try {
             Method phoneStateChanged = CallControl.getDeclaredMethod("phoneStateChanged", arg);
             phoneStateChanged.invoke(mCallControlObj, numActive, numHeld, callState, number, type, name, isVirtualCall);
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+    }
+
+   public void clccResponse(int index, int direction, int status, int mode, boolean mpty,
+                String number, int type) {
+       if(CallControl == null)
+            return;
+
+        Class[] arg = new Class[7];
+        arg[0] = Integer.class;
+        arg[1] = Integer.class;
+        arg[2] = Integer.class;
+        arg[3] = Integer.class;
+        arg[4] = Boolean.class;
+        arg[5] = String.class;
+        arg[6] = Integer.class;
+
+        try {
+            Method clccResponse = CallControl.getDeclaredMethod("clccResponse", arg);
+            clccResponse.invoke(mCallControlObj, index, direction, status, mode, mpty, number, type);
         } catch(IllegalAccessException e) {
             Log.i(TAG, "Exception" + e);
         } catch(NoSuchMethodException e) {

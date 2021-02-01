@@ -60,6 +60,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.bluetooth.apm.DeviceProfileMapIntf;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.apm.CallAudioIntf;
+import com.android.bluetooth.apm.CallControlIntf;
 import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 
 import java.util.ArrayList;
@@ -118,7 +119,7 @@ public class HeadsetService extends ProfileService {
     // This is also used as a lock for shared data in HeadsetService
     private final HashMap<BluetoothDevice, HeadsetStateMachine> mStateMachines = new HashMap<>();
     private HeadsetNativeInterface mNativeInterface;
-    private HeadsetSystemInterface mSystemInterface;
+    private static HeadsetSystemInterface mSystemInterface;
     private HeadsetA2dpSync mHfpA2dpSyncInterface;
     private boolean mAudioRouteAllowed = true;
     // Indicates whether SCO audio needs to be forced to open regardless ANY OTHER restrictions
@@ -407,6 +408,10 @@ public class HeadsetService extends ProfileService {
                 stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.DEVICE_STATE_CHANGED,
                         deviceState));
         }
+    }
+
+    public  static HeadsetSystemInterface getSystemInterfaceObj() {
+        return mSystemInterface;
     }
 
     /**
@@ -897,6 +902,12 @@ public class HeadsetService extends ProfileService {
         @Override
         public void phoneStateChanged(int numActive, int numHeld, int callState, String number,
                 int type, String name) {
+            if (ApmConstIntf.getLeAudioEnabled()) {
+                Log.d(TAG, "LE Audio enabled: phoneStateChanged");
+                CallControlIntf mCallControl = CallControlIntf.get();
+                mCallControl.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
+            }
+
             HeadsetService service = getService();
             if (service == null) {
                 return;
@@ -907,6 +918,12 @@ public class HeadsetService extends ProfileService {
         @Override
         public void clccResponse(int index, int direction, int status, int mode, boolean mpty,
                 String number, int type) {
+
+            if (ApmConstIntf.getLeAudioEnabled()) {
+               Log.d(TAG, "LE Audio enabled: clccResponse");
+               CallControlIntf mCallControl = CallControlIntf.get();
+               mCallControl.clccResponse(index, direction, status, mode, mpty, number, type);
+            }
             HeadsetService service = getService();
             if (service == null) {
                 return;
