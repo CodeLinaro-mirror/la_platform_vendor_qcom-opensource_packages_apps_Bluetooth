@@ -100,6 +100,15 @@ public class Config {
             mPCServiceClass = null;
         }
     }
+    private static Class mCcServiceClass = null;
+    static {
+        try {
+            mCcServiceClass = Class.forName("com.android.bluetooth.cc.CCService");
+        } catch (ClassNotFoundException ex) {
+            Log.e(TAG, "no CcService: exists");
+            mCcServiceClass = null;
+        }
+    }
 
     /**
      * List of profile services with the profile-supported resource flag and bit mask.
@@ -164,7 +173,9 @@ public class Config {
                          R.bool.profile_supported_broadcast,
                         (1 << BluetoothProfile.BROADCAST)),
                     new ProfileConfig(mPCServiceClass, R.bool.profile_supported_pc,
-                        (1 << BluetoothProfile.PC_PROFILE))
+                        (1 << BluetoothProfile.PC_PROFILE)),
+                    new ProfileConfig(mCcServiceClass, R.bool.profile_supported_cc_server,
+                        (1 << BluetoothProfile.CC_SERVER))
             ));
 
     /* List of Profiles common for Unicast and Broadcast advance audio features */
@@ -229,6 +240,8 @@ public class Config {
 
         adv_audio_feature_mask = SystemProperties.getInt(
                                     "persist.vendor.service.bt.adv_audio_mask", 0);
+        boolean isCCEnabled = SystemProperties.getBoolean(
+                                    "persist.vendor.service.bt.cc", false);
 
         ArrayList<Class> profiles = new ArrayList<>();
 
@@ -260,6 +273,11 @@ public class Config {
             for (ProfileConfig config : broadcastAdvAudioProfiles) {
                 boolean supported = resources.getBoolean(config.mSupported);
                 if (supported && config.mClass != null) {
+                    if (config.mClass.getSimpleName().equals("CCService") &&
+                        isCCEnabled == false) {
+                        Log.d(TAG," isCCEnabled = " + isCCEnabled);
+                        continue;
+                    }
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
                     profiles.add(config.mClass);
                 }
@@ -359,7 +377,6 @@ public class Config {
 
         boolean isBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
         boolean isBCEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bc", true);
-
         // Split A2dp will be enabled by default
         boolean isSplitA2dpEnabled = true;
         AdapterService adapterService = AdapterService.getAdapterService();
@@ -380,6 +397,7 @@ public class Config {
             Log.d(TAG," isBCEnabled = " + isBCEnabled);
             return isBCEnabled;
         }
+
         // always return true for other profiles
         return true;
     }
