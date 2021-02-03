@@ -205,7 +205,7 @@ public class HeadsetA2dpSync {
             } else {
                 mA2dpSuspendTriggered = reason;
                 mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
-                Log.d(TAG," BapBroadcast is in configured state, dont wait for suspend");
+                Log.d(TAG, "Broadcast is in configured state, dont wait for suspend");
                 return false;
             }
         }
