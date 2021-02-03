@@ -1678,7 +1678,11 @@ public class HeadsetClientStateMachine extends StateMachine {
                 case HOLD_CALL:
                     holdCall();
                     break;
-
+                    /* added handling for Connect Audio, as connect Audio message
+                     * is send with delay
+                     */
+                case CONNECT_AUDIO:
+                    break;
                 case StackEvent.STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
                     if (DBG) {
