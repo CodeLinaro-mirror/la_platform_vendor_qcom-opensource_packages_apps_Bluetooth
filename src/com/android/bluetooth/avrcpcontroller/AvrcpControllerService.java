@@ -188,7 +188,6 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onPause() {
             if (DBG) Log.d(TAG, "onPause");
-            onPrepare();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
@@ -257,7 +256,6 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onStop() {
             if (DBG) Log.d(TAG, "onStop");
-            onPrepare();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
@@ -284,7 +282,6 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onRewind() {
             if (DBG) Log.d(TAG, "onRewind");
-            onPrepare();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
@@ -302,7 +299,6 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onFastForward() {
             if (DBG) Log.d(TAG, "onFastForward");
-            onPrepare();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
