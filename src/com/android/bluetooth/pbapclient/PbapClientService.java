@@ -54,6 +54,7 @@ public class PbapClientService extends ProfileService {
     private static PbapClientService sPbapClientService;
     private PbapBroadcastReceiver mPbapBroadcastReceiver = new PbapBroadcastReceiver();
     private PbapClientHandler mHandler = null;
+    private boolean mIsRegistered = false;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -76,6 +77,7 @@ public class PbapClientService extends ProfileService {
         }
         try {
             registerReceiver(mPbapBroadcastReceiver, filter);
+            mIsRegistered = true;
         } catch (Exception e) {
             Log.w(TAG, "Unable to register pbapclient receiver", e);
         }
@@ -86,8 +88,13 @@ public class PbapClientService extends ProfileService {
 
     @Override
     protected boolean stop() {
+        if (!mIsRegistered) {
+            Log.i(TAG, "Avoid unregister when receiver is not registered");
+            return true;
+        }
         try {
             unregisterReceiver(mPbapBroadcastReceiver);
+            mIsRegistered = false;
         } catch (Exception e) {
             Log.w(TAG, "Unable to unregister pbapclient receiver", e);
         }

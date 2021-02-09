@@ -61,6 +61,7 @@ public class HeadsetClientService extends ProfileService {
     private AudioManager mAudioManager = null;
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
+    private boolean mIsRegistered = false;
 
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
     public static final int MAX_HF_LINKS = 2;
@@ -93,7 +94,12 @@ public class HeadsetClientService extends ProfileService {
         mStateMachineMap.clear();
 
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
-        registerReceiver(mBroadcastReceiver, filter);
+        try {
+            registerReceiver(mBroadcastReceiver, filter);
+            mIsRegistered = true;
+        } catch (Exception e) {
+            Log.w(TAG, "Unable to register hfp receiver", e);
+        }
 
         mNativeInterface = new NativeInterface();
 
@@ -117,8 +123,16 @@ public class HeadsetClientService extends ProfileService {
             return false;
         }
         setHeadsetClientService(null);
-
-        unregisterReceiver(mBroadcastReceiver);
+        if (!mIsRegistered) {
+            Log.i(TAG, "Avoid unregister when receiver is not registered");
+            return true;
+        }
+        try {
+            mIsRegistered = false;
+            unregisterReceiver(mBroadcastReceiver);
+        } catch (Exception e) {
+            Log.w(TAG, "Unable to unregister hfp receiver", e);
+        }
 
         for (Iterator<Map.Entry<BluetoothDevice, HeadsetClientStateMachine>> it =
                 mStateMachineMap.entrySet().iterator(); it.hasNext(); ) {
