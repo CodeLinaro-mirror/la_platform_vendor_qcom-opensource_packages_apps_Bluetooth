@@ -121,6 +121,10 @@ class PhonePolicy {
     Method mBCGetConnState = null;
     String mBCId = null;
     //_REF*/
+    Object mBroadcastService = null;
+    Method mBroadcastGetAddr = null;
+    Method mBroadcastIsActive = null;
+    private String broadcastBDA = null;
     private void initBCReferences() {
         if (mAdapterService != null) {
             mBCService = mAdapterService.getBCService();
@@ -485,7 +489,31 @@ class PhonePolicy {
      */
     private void processActiveDeviceChanged(BluetoothDevice device, int profileId) {
         debugLog("processActiveDeviceChanged, device=" + device + ", profile=" + profileId);
-
+        if (mAdapterService != null && mBroadcastService == null) {
+            mBroadcastService = mAdapterService.getBroadcastService();
+            mBroadcastGetAddr = mAdapterService.getBroadcastAddress();
+            mBroadcastIsActive = mAdapterService.getBroadcastActive();
+        }
+        if (mBroadcastService != null && mBroadcastGetAddr != null &&
+            mBroadcastIsActive != null && broadcastBDA == null) {
+            boolean is_broadcast_active = false;
+            try {
+                is_broadcast_active = (boolean) mBroadcastIsActive.invoke(mBroadcastService);
+            } catch(IllegalAccessException | InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:IsActive Illegal Exception");
+            }
+            try {
+                broadcastBDA = (String) mBroadcastGetAddr.invoke(mBroadcastService);
+            } catch(IllegalAccessException | InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:GetAddr Illegal Exception");
+            }
+        }
+        if (device != null && broadcastBDA != null) {
+            if (device.getAddress().equals(broadcastBDA)) {
+                Log.d(TAG," Update from broadcast, bail out");
+                return;
+            }
+        }
         if (device != null) {
             mDatabaseManager.setConnection(device, profileId == BluetoothProfile.A2DP);
 
