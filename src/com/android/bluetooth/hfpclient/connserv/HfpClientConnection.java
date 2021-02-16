@@ -272,6 +272,16 @@ public class HfpClientConnection extends Connection {
     }
 
     @Override
+    public synchronized void onAnswer(int videoState) {
+        if (DBG) {
+            Log.d(TAG, "onAnswer videoState" + mCurrentCall);
+        }
+        if (!mClosed) {
+            mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
+        }
+    }
+
+    @Override
     public synchronized void onReject() {
         if (DBG) {
             Log.d(TAG, "onReject " + mCurrentCall);
