@@ -2211,7 +2211,7 @@ public class A2dpService extends ProfileService {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 return mMediaAudio.connect(device);
             }
-            Log.w(TAG, "gghai: LE Audio not enabled");
+            Log.w(TAG, "LE Audio not enabled");
             A2dpService service = getService();
             if (service == null) {
                 return false;
