@@ -67,7 +67,12 @@ final class BluetoothPbapRequestPullPhoneBookSize extends BluetoothPbapRequest {
         ObexAppParameters oap = ObexAppParameters.fromHeaderSet(headerset);
 
         if (oap.exists(OAP_TAGID_PHONEBOOK_SIZE)) {
-            mPhonebookSize = oap.getShort(OAP_TAGID_PHONEBOOK_SIZE);
+            // Pbap spec: section 6.2.1. Table 6.3
+            // phonebooksize between 0 to 0xFFFF
+            byte[] bval = oap.getByteArray(OAP_TAGID_PHONEBOOK_SIZE);
+            if (bval == null || bval.length < 2)  return;
+            mPhonebookSize = (((bval[0] & 0xff) << 8) | (bval[1] & 0xff));
+            Log.v(TAG, "mPhonebookSize: " + mPhonebookSize);
         } else if (oap.exists(OAP_TAGID_NEW_MISSED_CALLS)) {
             mNewMissedCalls = oap.getByte(OAP_TAGID_NEW_MISSED_CALLS);
         }
