@@ -173,9 +173,7 @@ public class Config {
         Log.d(TAG," addAudioProfiles profile" + serviceName);
         boolean isA2dpSink = SystemProperties.getBoolean(
                 "persist.vendor.service.bt.a2dp.sink", false);
-        boolean isHfpClientEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.hfp.client", false);
         Log.i(TAG, "addAudioProfiles isA2dpSink :" + isA2dpSink);
-        Log.i(TAG, "addAudioProfiles isHfpClientEnabled :" + isHfpClientEnabled);
         /* If property not enabled and request is for A2DPSinkService, don't add */
         if ((serviceName.equals("A2dpSinkService")) && (!isA2dpSink))
             return false;
@@ -200,11 +198,6 @@ public class Config {
                           + " isSplitEnabled " + isSplitA2dpEnabled);
             return isBAEnabled && isSplitA2dpEnabled;
         }
-
-        if((serviceName.equals("HeadsetClientService"))&&(!isHfpClientEnabled))
-            return false;
-        if((serviceName.equals("HeadsetService"))&&(isHfpClientEnabled))
-            return false;
         // always return true for other profiles
         return true;
     }
