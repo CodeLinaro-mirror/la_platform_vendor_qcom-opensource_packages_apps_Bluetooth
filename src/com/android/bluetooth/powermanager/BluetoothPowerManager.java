@@ -44,26 +44,24 @@ public class BluetoothPowerManager implements CarPowerStateListener {
 
     private static BluetoothPowerManager mBluetoothPowerManager = null;
     private final BluetoothAdapter mBluetoothAdapter;
-    private Context mContext;
     private Car mCar;
     private CarPowerManager mCarPowerManager;
 
     public BluetoothPowerManager(Context context) {
-        mContext = context;
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     }
 
     public static BluetoothPowerManager createInstance(Context context) {
         if (mBluetoothPowerManager == null) {
             mBluetoothPowerManager = new BluetoothPowerManager(context);
-            mBluetoothPowerManager.init();
+            mBluetoothPowerManager.init(context);
         }
         return mBluetoothPowerManager;
     }
 
-    public void init() {
+    public void init(Context context) {
         logd("init");
-        initCar();
+        initCar(context);
     }
 
     public void deinit() {
@@ -71,11 +69,11 @@ public class BluetoothPowerManager implements CarPowerStateListener {
         deinitCar();
     }
 
-    private void initCar() {
+    private void initCar(Context context) {
         logd("initCar");
         deinitCar();
 
-        mCar = Car.createCar(mContext, null, Car.CAR_WAIT_TIMEOUT_WAIT_FOREVER,
+        mCar = Car.createCar(context, null, Car.CAR_WAIT_TIMEOUT_WAIT_FOREVER,
                 (Car car, boolean ready) -> {
                     if (ready) {
                         initCarPowerManager(car);
