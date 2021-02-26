@@ -107,6 +107,7 @@ public class HeadsetClientService extends ProfileService {
 
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         filter.addAction(ACTION_QUERY_NETWORK);
+        filter.addAction(ACTION_AUDIO_CONN_DISCONN);
         registerReceiver(mBroadcastReceiver, filter);
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
