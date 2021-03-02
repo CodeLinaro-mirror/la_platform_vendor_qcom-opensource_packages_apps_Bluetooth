@@ -47,6 +47,7 @@ import android.os.Bundle;
 import android.os.Message;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
@@ -81,6 +82,16 @@ public class AvrcpControllerService extends ProfileService {
     private static final byte JNI_PLAY_STATUS_REV_SEEK = 0x04;
     private static final byte JNI_PLAY_STATUS_ERROR = -1;
 
+    /*
+     * AVRCP Error types as defined in spec. Also they should be in sync with btrc_status_t.
+     * NOTE: Not all may be defined.
+     */
+    public static final int JNI_AVRC_STS_INVALID_CMD = 0x00;
+    public static final int JNI_AVRC_STS_INVALID_PARAMETER = 0x01;
+    public static final int JNI_AVRC_STS_NO_ERROR = 0x04;
+    public static final int JNI_AVRC_STS_INVALID_SCOPE = 0x0a;
+    public static final int JNI_AVRC_INV_RANGE = 0x0b;
+
     /* Folder/Media Item scopes.
      * Keep in sync with AVRCP 1.6 sec. 6.10.1
      */
@@ -112,6 +123,9 @@ public class AvrcpControllerService extends ProfileService {
     public static final int KEY_STATE_PRESSED = 0;
     public static final int KEY_STATE_RELEASED = 1;
 
+    // UID size is 8 bytes (AVRCP 1.6 spec)
+    private static final byte[] EMPTY_UID = {0, 0, 0, 0, 0, 0, 0, 0};
+
     /* Active peer device */
     private BluetoothDevice mActiveDevice = null;
 
@@ -131,6 +145,15 @@ public class AvrcpControllerService extends ProfileService {
 
     public static final String EXTRA_METADATA =
             "android.bluetooth.avrcp-controller.profile.extra.METADATA";
+
+    public static final String ACTION_FOLDER_LIST =
+            "android.bluetooth.avrcp-controller.profile.action.FOLDER_LIST";
+
+    public static final String EXTRA_FOLDER_LIST =
+        "android.bluetooth.avrcp-controller.profile.extra.FOLDER_LIST";
+
+    public static final String EXTRA_FOLDER_ID =
+        "android.bluetooth.avrcp-controller.profile.extra.EXTRA_FOLDER_ID";
 
     static BrowseTree sBrowseTree;
     private static AvrcpControllerService sService;
@@ -165,7 +188,6 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onPause() {
             if (DBG) Log.d(TAG, "onPause");
-            onPrepare();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
@@ -234,7 +256,6 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onStop() {
             if (DBG) Log.d(TAG, "onStop");
-            onPrepare();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
@@ -261,7 +282,6 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onRewind() {
             if (DBG) Log.d(TAG, "onRewind");
-            onPrepare();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
@@ -279,7 +299,6 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onFastForward() {
             if (DBG) Log.d(TAG, "onFastForward");
-            onPrepare();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
@@ -318,25 +337,36 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onCustomAction(String action, Bundle extras) {
             if (DBG) Log.d(TAG, "onCustomAction:" + action);
+            if (extras == null) {
+                return;
+            }
+            if (mActiveDevice == null) {
+                Log.w(TAG, "mActiveDevice is null");
+                return;
+            }
+            AvrcpControllerStateMachine activeDeviceStateMachine = mDeviceStateMap.get(mActiveDevice);
+            if (activeDeviceStateMachine == null) {
+                Log.w(TAG, "activeDeviceStateMachine is null");
+                return;
+            }
             if (AvrcpControllerStateMachine.CUSTOM_ACTION_SEND_PASS_THRU_CMD.equals(action)) {
-                if (extras == null) {
-                    return;
-                }
-                if (mActiveDevice == null) {
-                    Log.w(TAG, "mActiveDevice is null");
-                    return;
-                }
-                AvrcpControllerStateMachine activeDeviceStateMachine = mDeviceStateMap.get(mActiveDevice);
-                if (DBG) Log.d(TAG, "Find state machine for active device " + mActiveDevice);
-                if (activeDeviceStateMachine != null) {
-                    int cmd = extras.getInt(AvrcpControllerStateMachine.KEY_CMD);
-                    int state = extras.getInt(AvrcpControllerStateMachine.KEY_STATE);
-                    if (DBG) Log.d(TAG, "Send MSG_AVRCP_PASSTHRU_EXT to device " + mActiveDevice);
-                    activeDeviceStateMachine.sendMessage(AvrcpControllerStateMachine.MSG_AVRCP_PASSTHRU_EXT,
-                            cmd, state);
-                } else {
-                    Log.e(TAG, "Cannot find state machine for active device " + mActiveDevice);
-                }
+                activeDeviceStateMachine.handleCustomActionSendPassThruCmd(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_GET_ITEM_ATTR.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionGetItemAttributes(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_GET_ELEMENT_ATTR.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionGetElementAttributes(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_GET_FOLDER_ITEM.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionGetFolderItems(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_REQUEST_CONTINUING_RESPONSE.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionRequestContinuingResponse(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_ABORT_CONTINUING_RESPONSE.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionAbortContinuingResponse(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_ADD_TO_NOW_PLAYING.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionAddToNowPlaying(extras);
+            } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_SET_ADDRESSED_PLAYER.equals(action)) {
+                activeDeviceStateMachine.handleCustomActionSetAddressedPlayer(extras);
+            } else {
+                Log.w(TAG, "Custom action " + action + " not supported.");
             }
         }
 
@@ -430,6 +460,24 @@ public class AvrcpControllerService extends ProfileService {
             return stateMachine.getRemoteFeatures();
         }
         return 0;
+    }
+
+    public void startFetchingAlbumArt(BluetoothDevice device, String mimeType, int height, int width, long maxSize) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (DBG) {
+            Log.d(TAG,"startFetchingAlbumArt mimeType " + mimeType + " pixel " + height + " * "
+                  + width + " maxSize: " + maxSize);
+        }
+
+        SystemProperties.set("persist.service.bt.avrcpct.imgtype", mimeType);
+        SystemProperties.set("persist.service.bt.avrcpct.imgheight", String.valueOf(height));
+        SystemProperties.set("persist.service.bt.avrcpct.imgwidth", String.valueOf(width));
+        SystemProperties.set("persist.service.bt.avrcpct.imgsize", String.valueOf(maxSize));
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_BIP_CONNECTED);
+        }
     }
 
     /**
@@ -552,6 +600,16 @@ public class AvrcpControllerService extends ProfileService {
                 return BluetoothAvrcpController.BTRC_FEAT_NONE;
             }
             return service.getSupportedFeatures(device);
+        }
+
+        @Override
+        public void startFetchingAlbumArt(BluetoothDevice device, String mimeType, int height, int width, long maxSize) {
+            Log.v(TAG, "Binder Call: startFetchingAlbumArt");
+            AvrcpControllerService service = getService();
+            if (service == null) {
+                return;
+            }
+            service.startFetchingAlbumArt(device, mimeType, height, width, maxSize);
         }
 
         @Override
@@ -1048,6 +1106,19 @@ public class AvrcpControllerService extends ProfileService {
         }
     }
 
+    private void handleAddToNowPlayingRsp(byte[] address, int status) {
+        if (DBG) {
+            Log.d(TAG, "handleAddToNowPlayingRsp status" + status);
+        }
+        BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                    AvrcpControllerStateMachine.MESSAGE_PROCESS_ADD_TO_NOW_PLAYING, status, 0);
+        }
+    }
+
     /* Generic Profile Code */
 
     /**
@@ -1299,9 +1370,63 @@ public class AvrcpControllerService extends ProfileService {
     public native void setAddressedPlayerNative(byte[] address, int playerId);
 
     /**
+     * add folder into now playing list
+     *
+     * @param scope          scope of item to played
+     * @param uid            song unique id
+     * @param uidCounter     counter
+     */
+    native static void addToNowPlayingNative(byte[] address, byte scope, long uid, int uidCounter);
+
+    /**
      * Set a specific device to be the active device
      *
      */
     public native void setActiveDeviceNative(byte[] address);
 
+    /**
+     * Get item attributes with provided uid
+     *
+     * @param scope          scope of item to played
+     * @param uid            song unique id
+     * @param uidCounter     counter
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getItemAttributesNative(byte[] address, byte scope, long uid, int uidCounter,
+            byte numAttributes, int[] attribIds);
+
+    /**
+     * Get element attributes
+     *
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getElementAttributesNative(byte[] address, byte numAttributes, int[] attribIds);
+
+    /**
+     * Get folder items with specified range
+     *
+     * @param scope          scope of item to played
+     * @param start          start of range
+     * @param end            end of range
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getFolderItemsNative(byte[] address, byte scope, byte start, byte end,
+            byte numAttributes, int[] attribIds);
+
+    /**
+     * Request for continuing response
+     *
+     * @param pduId  ID of PDU data packet
+     */
+    native static void requestContinuingResponseNative(byte[] address, byte pduId);
+
+    /**
+     * Abort continuing response
+     *
+     * @param pduId  ID of PDU data packet
+     */
+    native static void abortContinuingResponseNative(byte[] address, byte pduId);
 }

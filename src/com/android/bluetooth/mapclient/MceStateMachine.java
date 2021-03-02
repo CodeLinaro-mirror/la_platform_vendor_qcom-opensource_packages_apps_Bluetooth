@@ -421,7 +421,13 @@ final class MceStateMachine extends StateMachine {
     void setDefaultMessageType(SdpMasRecord sdpMasRecord) {
         int supportedMessageTypes = sdpMasRecord.getSupportedMessageTypes();
         synchronized (mDefaultMessageType) {
-            if ((supportedMessageTypes & SdpMasRecord.MessageType.MMS) > 0) {
+            if (SystemProperties.getBoolean("vendor.bt.pts.mce.gsm", false)) {
+                mDefaultMessageType = Bmessage.Type.SMS_GSM;;
+            } else if (SystemProperties.getBoolean("vendor.bt.pts.mce.cdma", false)) {
+                mDefaultMessageType = Bmessage.Type.SMS_CDMA;
+            } else if (SystemProperties.getBoolean("vendor.bt.pts.mce.mms", false)) {
+                mDefaultMessageType = Bmessage.Type.MMS;
+            } else if ((supportedMessageTypes & SdpMasRecord.MessageType.MMS) > 0) {
                 mDefaultMessageType = Bmessage.Type.MMS;
             } else if ((supportedMessageTypes & SdpMasRecord.MessageType.SMS_CDMA) > 0) {
                 mDefaultMessageType = Bmessage.Type.SMS_CDMA;
