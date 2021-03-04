@@ -57,6 +57,8 @@ public class HeadsetClientService extends ProfileService {
 
     private static final String ACTION_AUDIO_CONN_DISCONN = "android.bluetooth.action.HFP_CLIENT_AUDIO_ACTION";
     private static final String EXTRA_AUDIO_STATE = "android.bluetooth.extra.audio.STATE";
+    private static final String ACTION_CALL_HOLD_RESUME = "android.bluetooth.action.HFP_CLIENT_CALL_ACTION";
+    private static final String EXTRA_CALL_STATE = "android.bluetooth.extra.call.STATE";
     private HashMap<BluetoothDevice, HeadsetClientStateMachine> mStateMachineMap = new HashMap<>();
     private static HeadsetClientService sHeadsetClientService;
     private NativeInterface mNativeInterface = null;
@@ -105,6 +107,7 @@ public class HeadsetClientService extends ProfileService {
 
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         filter.addAction(ACTION_AUDIO_CONN_DISCONN);
+        filter.addAction(ACTION_CALL_HOLD_RESUME);
         registerReceiver(mBroadcastReceiver, filter);
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
@@ -205,6 +208,28 @@ public class HeadsetClientService extends ProfileService {
                         }
                     }
                 }
+            } else if(intent.getAction().equals(ACTION_CALL_HOLD_RESUME)){
+                /*call hold & resume changes to pass pts tests */
+                Log.e(TAG, "HeadsetClientService -  Received ACTION_CALL_HOLD_RESUME");
+                int call_status = intent.getIntExtra( EXTRA_CALL_STATE, 0);
+                Log.d(TAG, " HeadsetClientService call_status" + call_status);
+                for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                    if (sm != null) {
+                        if(call_status == 1) {
+                            Log.d(TAG, " HeadsetClientService HOLD_CALL message to statemachine");
+                            sm.sendMessage(
+                                HeadsetClientStateMachine.HOLD_CALL );
+                        } else if (call_status == 2) {
+                            Log.d(TAG, " HeadsetClientService REJECT_CALL message to statemachine");
+                            sm.sendMessage(
+                                HeadsetClientStateMachine.REJECT_CALL );
+                        } else {
+                            Log.d(TAG, " HeadsetClientService ACCEPT_CALL message to statemachine");
+                            sm.sendMessage(
+                                HeadsetClientStateMachine.ACCEPT_CALL );
+                        }
+                     }
+                 }
             }
         }
     };
