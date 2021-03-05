@@ -1420,7 +1420,7 @@ public class AdapterService extends Service {
         mHearingAidService = HearingAidService.getHearingAidService();
         mGroupService = new ServiceFactory().getGroupService();
         mSapService = SapService.getSapService();
-        if (isAdvBroadcastAudioFeatEnabled()) {
+        if (isAdvBCAAudioFeatEnabled()) {
         ///*_REF
             Class<?> bcClass = null;
             try {
@@ -1496,7 +1496,7 @@ public class AdapterService extends Service {
             }
             //_REF*/
         }
-        if (isAdvBroadcastAudioFeatEnabled()) {
+        if (isAdvBCSAudioFeatEnabled()) {
         //_REF*/
             Class<?> broadcastClass = null;
             try {
@@ -4306,8 +4306,12 @@ public class AdapterService extends Service {
         return (Config.adv_audio_feature_mask & Config.ADV_AUDIO_UNICAST_FEAT_MASK) != 0;
     }
 
-    public boolean isAdvBroadcastAudioFeatEnabled() {
-        return (Config.adv_audio_feature_mask & Config.ADV_AUDIO_BROADCAST_FEAT_MASK) != 0;
+    public boolean isAdvBCAAudioFeatEnabled() {
+        return (Config.adv_audio_feature_mask & Config.ADV_AUDIO_BCA_FEAT_MASK) != 0;
+    }
+
+    public boolean isAdvBCSAudioFeatEnabled() {
+        return (Config.adv_audio_feature_mask & Config.ADV_AUDIO_BCS_FEAT_MASK) != 0;
     }
 
     private BluetoothActivityEnergyInfo reportActivityInfo() {
