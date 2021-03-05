@@ -66,6 +66,7 @@ public class HeadsetClientService extends ProfileService {
     private AudioManager mAudioManager = null;
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
+    private static final int MAX_HFP_CLIENTS_SUPPORTED = 1;
     private static final int CONNECT_AUDIO_DELAY = 5000;
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
 
@@ -503,6 +504,13 @@ public class HeadsetClientService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "connect " + device);
         }
+
+        if (getConnectedDevices().size() >= MAX_HFP_CLIENTS_SUPPORTED) {
+            Log.w(TAG, "HFPCLIENT Max Devices limit = " + MAX_HFP_CLIENTS_SUPPORTED +
+                       "reached, Igonre connect request for " + device);
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
