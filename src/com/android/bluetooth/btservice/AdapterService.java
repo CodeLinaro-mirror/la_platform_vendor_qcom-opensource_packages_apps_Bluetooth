@@ -4249,7 +4249,7 @@ public class AdapterService extends Service {
     }
 
     private boolean isNiapMode() {
-        return SystemProperties.getBoolean("persist.bluetooth.enable.niap", false); //Settings.Global.getInt(getContentResolver(), "niap_mode", 0) == 1;
+        return Settings.Global.getInt(getContentResolver(), "niap_mode", 0) == 1;
     }
 
     /**
