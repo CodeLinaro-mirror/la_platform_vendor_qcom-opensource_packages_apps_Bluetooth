@@ -159,7 +159,9 @@ public class A2dpSinkStreamHandler extends Handler {
                 // Otherwise, pause if we don't have focus
                 // mSentPause is set true when match AUDIOFOCUS_LOSS_TRANSIENT
                 // In this case pause since we don't have focus in fact.
-                if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE || mSentPause) {
+                if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE ||
+                    mAudioFocus == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ||
+                    mSentPause) {
                     sendAvrcpPause();
                 } else {
                     startAvrcpUpdates();
@@ -185,8 +187,9 @@ public class A2dpSinkStreamHandler extends Handler {
                 break;
 
             case AUDIO_FOCUS_CHANGE:
+                mAudioFocus = (int) message.obj;
                 // message.obj is the newly granted audio focus.
-                switch ((int) message.obj) {
+                switch (mAudioFocus) {
                     case AudioManager.AUDIOFOCUS_GAIN:
                         removeMessages(DELAYED_PAUSE);
                         // Begin playing audio, if we paused the remote, send a play now.
