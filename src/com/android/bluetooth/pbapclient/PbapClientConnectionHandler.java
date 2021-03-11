@@ -267,46 +267,27 @@ class PbapClientConnectionHandler extends Handler {
                 break;
 
             case MSG_DOWNLOAD:
-                notifyDownloadInProgress(PB_PATH);
-                try {
-                    mAccountCreated = addAccount(mAccount);
-                    if (!mAccountCreated) {
-                        Log.e(TAG, "Account creation failed.");
-                        notifyDownloadFailed(PB_PATH);
-                        return;
-                    }
-
-                    // Start at contact 1 to exclued Owner Card PBAP 1.1 sec 3.1.5.2
-                    BluetoothPbapRequestPullPhoneBook request =
-                            new BluetoothPbapRequestPullPhoneBook(PB_PATH, mAccount,
-                                    PBAP_REQUESTED_FIELDS, VCARD_TYPE_30, 0, 1);
-                    request.execute(mObexSession);
-                    PhonebookPullRequest processor =
-                            new PhonebookPullRequest(mPbapClientStateMachine.getContext(),
-                                    mAccount);
-                    processor.setResults(request.getList());
-                    processor.onPullComplete();
-
-                    notifyDownloadCompleted(PB_PATH, request);
-
-                    if (isRepositorySupported(SUPPORTED_REPOSITORIES_FAVORITES)) {
-                         downloadContacts(FAV_PATH);
-                    }
-                    if (isRepositorySupported(SUPPORTED_REPOSITORIES_LOCALPHONEBOOK)) {
-                         downloadContacts(PB_PATH);
-                    }
-                    if (isRepositorySupported(SUPPORTED_REPOSITORIES_SIMCARD)) {
-                         downloadContacts(SIM_PB_PATH);
-                    }
-
-                    HashMap<String, Integer> callCounter = new HashMap<>();
-                    downloadCallLog(MCH_PATH, callCounter);
-                    downloadCallLog(ICH_PATH, callCounter);
-                    downloadCallLog(OCH_PATH, callCounter);
-                } catch (IOException e) {
-                    Log.w(TAG, "DOWNLOAD_CONTACTS Failure" + e.toString());
+                mAccountCreated = addAccount(mAccount);
+                if (!mAccountCreated) {
+                    Log.e(TAG, "Account creation failed.");
                     notifyDownloadFailed(PB_PATH);
+                    return;
                 }
+
+                if (isRepositorySupported(SUPPORTED_REPOSITORIES_FAVORITES)) {
+                     downloadContacts(FAV_PATH);
+                }
+                if (isRepositorySupported(SUPPORTED_REPOSITORIES_LOCALPHONEBOOK)) {
+                     downloadContacts(PB_PATH);
+                }
+                if (isRepositorySupported(SUPPORTED_REPOSITORIES_SIMCARD)) {
+                     downloadContacts(SIM_PB_PATH);
+                }
+
+                HashMap<String, Integer> callCounter = new HashMap<>();
+                downloadCallLog(MCH_PATH, callCounter);
+                downloadCallLog(ICH_PATH, callCounter);
+                downloadCallLog(OCH_PATH, callCounter);
                 break;
 
             case MSG_DOWNLOAD_EXT:
@@ -419,6 +400,7 @@ class PbapClientConnectionHandler extends Handler {
     }
 
     void downloadContacts(String path) {
+        notifyDownloadInProgress(path);
         try {
             PhonebookPullRequest processor =
                     new PhonebookPullRequest(mPbapClientStateMachine.getContext(),
@@ -465,9 +447,13 @@ class PbapClientConnectionHandler extends Handler {
             }
             if ((startOffset > UPPER_LIMIT) && (numberOfContactsRemaining > 0)) {
                 Log.w(TAG, "Download contacts incomplete, index exceeded upper limit.");
+                notifyDownloadFailed(path);
+            } else {
+                notifyDownloadCompleted(path, requestPbSize);
             }
         } catch (IOException e) {
             Log.w(TAG, "Download contacts failure" + e.toString());
+            notifyDownloadFailed(path);
         }
     }
 
@@ -699,6 +685,17 @@ class PbapClientConnectionHandler extends Handler {
         mIsDownloading = false;
         notifyPullPhonebookStateChanged(pbName, BluetoothPbapClient.DOWNLOAD_COMPLETED,
                 request.getCount());
+    }
+
+    private void notifyDownloadCompleted(String pbName, BluetoothPbapRequestPullPhoneBookSize request) {
+        if (DBG) {
+            Log.d(TAG, "notifyDownloadCompleted path: " + pbName +
+                    ", phonebook size: " + request.getSize());
+        }
+
+        mIsDownloading = false;
+        notifyPullPhonebookStateChanged(pbName, BluetoothPbapClient.DOWNLOAD_COMPLETED,
+                request.getSize());
     }
 
     private void notifyDownloadFailed(String pbName) {
