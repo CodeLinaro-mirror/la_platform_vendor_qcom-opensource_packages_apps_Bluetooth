@@ -333,6 +333,24 @@ public class AdapterService extends Service {
         return mVendor.isSwbPmEnabled();
     }
 
+    public boolean setClockSyncConfig(boolean enable, int mode, int adv_interval,
+        int channel, int jitter, int offset) {
+        if (!isVendorIntfEnabled())
+            return false;
+
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mVendor.setClockSyncConfig(enable, mode,
+            adv_interval, channel, jitter, offset);
+    }
+
+    public boolean startClockSync() {
+        if (!isVendorIntfEnabled())
+            return false;
+
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mVendor.startClockSync();
+    }
+
     private static final int MESSAGE_PROFILE_SERVICE_STATE_CHANGED = 1;
     private static final int MESSAGE_PROFILE_SERVICE_REGISTERED = 2;
     private static final int MESSAGE_PROFILE_SERVICE_UNREGISTERED = 3;
@@ -511,7 +529,11 @@ public class AdapterService extends Service {
         mAdapterStateMachine =  AdapterState.make(this);
         mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
         mVendorSocket = new VendorSocket(this);
-        initNative(isGuest(), isNiapMode());
+
+        // Android TV doesn't show consent dialogs for just works and encryption only le pairing
+        boolean isAtvDevice = getApplicationContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_LEANBACK_ONLY);
+        initNative(isGuest(), isNiapMode(), isAtvDevice);
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
         mAppOps = getSystemService(AppOpsManager.class);
@@ -1995,6 +2017,23 @@ public class AdapterService extends Service {
             AdapterService service = getService();
             if (service == null) return -1;
             return service.getSocketOpt(type, channel, optionName, optionVal);
+        }
+
+        public boolean setClockSyncConfig(boolean enable, int mode, int adv_interval,
+            int channel, int jitter, int offset) {
+
+            AdapterService service = getService();
+            if (service == null) return false;
+
+            return service.setClockSyncConfig(enable, mode, adv_interval, channel,
+                jitter, offset);
+        }
+
+        public boolean startClockSync() {
+            AdapterService service = getService();
+            if (service == null) return false;
+
+            return service.startClockSync();
         }
 
         @Override
@@ -3648,7 +3687,8 @@ public class AdapterService extends Service {
 
     static native void classInitNative();
 
-    native boolean initNative(boolean startRestricted, boolean isNiapMode);
+    native boolean initNative(boolean startRestricted, boolean isNiapMode,
+            boolean isAtvDevice);
 
     native void cleanupNative();
 
