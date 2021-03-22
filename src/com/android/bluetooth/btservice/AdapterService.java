@@ -3315,6 +3315,10 @@ public class AdapterService extends Service {
 
     int getPhonebookAccessPermission(BluetoothDevice device) {
         enforceBluetoothPermission(this);
+        if (mPbapService == null) {
+            Log.w(TAG, "getPhonebookAccessPermission() - Pbap service not enabled ");
+            return BluetoothDevice.ACCESS_UNKNOWN;
+        }
         SharedPreferences pref = getSharedPreferences(PHONEBOOK_ACCESS_PERMISSION_PREFERENCE_FILE,
                 Context.MODE_PRIVATE);
         if (!pref.contains(device.getAddress())) {
