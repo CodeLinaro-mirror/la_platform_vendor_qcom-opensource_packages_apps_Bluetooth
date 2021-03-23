@@ -73,6 +73,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
+import com.android.bluetooth.hfp.HeadsetService;
 
 public class HeadsetClientStateMachine extends StateMachine {
     private static final String TAG = "HeadsetClientStateMachine";
@@ -80,7 +81,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
     static final int NO_ACTION = 0;
     static final int IN_BAND_RING_ENABLED = 1;
-
+    static final int CONNECT_AUDIO_DELAY = 5000;
     // external actions
     public static final int AT_OK = 0;
     public static final int CONNECT = 1;
@@ -122,6 +123,13 @@ public class HeadsetClientStateMachine extends StateMachine {
     static final int HF_ORIGINATED_CALL_ID = -1;
     private static final long OUTGOING_TIMEOUT_MILLI = 10 * 1000; // 10 seconds
     private static final long QUERY_CURRENT_CALLS_WAIT_MILLIS = 2 * 1000; // 2 seconds
+
+    //Keep track of A2dp play status
+    private boolean mA2dpSuspend = false;
+
+    // Keep track of client call put on hold due to active ag call.
+    private boolean mIsClientIncomingCallHeld = false;
+    private boolean mIsClientActiveCallHeld = false;
 
     // Keep track of audio routing across all devices.
     private static boolean sAudioIsRouted = false;
@@ -260,9 +268,53 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     private void sendCallChangedIntent(BluetoothHeadsetClientCall c) {
-        if (DBG) {
-            Log.d(TAG, "sendCallChangedIntent " + c);
+        Log.d(TAG, "sendCallChangedIntent " + c);
+        HeadsetService headsetService = HeadsetService.getHeadsetService();
+        if (headsetService != null && headsetService.isInCall()) {
+           /* do not inform the client call info to telephony if AG call is present*/
+           /* this is to avoid the blocking of HFP AG call indicator update to remote device*/
+            int mClientCallState = c.getState();
+            switch(mClientCallState) {
+                case BluetoothHeadsetClientCall.CALL_STATE_INCOMING : {
+                    Log.d(TAG, "AG Call is active, hold the incoming client call");
+                    if(!mIsClientIncomingCallHeld ) {
+                        mIsClientIncomingCallHeld = true;
+                        holdCall();
+                    }
+                    break;
+                }
+                case BluetoothHeadsetClientCall.CALL_STATE_ACTIVE : {
+                    Log.d(TAG, "AG Call is active, hold the active client call");
+                    /* AG may take some time to put the call on hold , avoid sending hold again*/
+                    if(!mIsClientActiveCallHeld ) {
+                        mIsClientActiveCallHeld = true;
+                        holdCall();
+                    }
+                    break;
+                }
+                case BluetoothHeadsetClientCall.CALL_STATE_TERMINATED : {
+                    Log.d(TAG, "reset mIsClientCallHeld");
+                    mIsClientActiveCallHeld  = false;
+                    mIsClientIncomingCallHeld = false;
+                     break;
+                }
+                default :
+                    break;
+            }
+            return;
+        } else if (mIsClientActiveCallHeld || mIsClientIncomingCallHeld) {
+            mIsClientIncomingCallHeld = false;
+            mIsClientActiveCallHeld = false;
+            Log.d(TAG, "no Active AG Call is present, resume held client call");
+            if(c.getState() == BluetoothHeadsetClientCall.CALL_STATE_HELD) {
+                acceptCall(BluetoothHeadsetClient.CALL_ACCEPT_HOLD);
+                if(!isAudioOn()) {
+                    Log.d(TAG, "intiate the audio connection for resume call ");
+                    sendMessageDelayed(HeadsetClientStateMachine.CONNECT_AUDIO, CONNECT_AUDIO_DELAY);
+                }
+            }
         }
+
         Intent intent = new Intent(BluetoothHeadsetClient.ACTION_CALL_CHANGED);
         intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         intent.putExtra(BluetoothHeadsetClient.EXTRA_CALL, c);
