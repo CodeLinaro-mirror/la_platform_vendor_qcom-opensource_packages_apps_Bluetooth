@@ -498,7 +498,6 @@ static void read_local_oob_data_callback(bt_status_t status,
 
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("%s: Status %d is incorrect", __func__, status);
-    return;
   }
 
   ScopedLocalRef<jbyteArray> c192(
@@ -544,6 +543,7 @@ static void read_local_oob_data_callback(bt_status_t status,
 
   sCallbackEnv->CallVoidMethod(sJniAdapterServiceObj,
                                method_readLocalOobDataback,
+                               (jint)status,
                                c192.get(), r192.get(),
                                c256.get(), r256.get());
 }
@@ -777,7 +777,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   method_getLinkKeyCallback =
       env->GetMethodID(clazz, "onGetLinkKey", "(Ljava/lang/String;[BZI)V");
   method_readLocalOobDataback =
-      env->GetMethodID(clazz, "readLocalOobDataCallback", "([B[B[B[B)V");
+      env->GetMethodID(clazz, "readLocalOobDataCallback", "(I[B[B[B[B)V");
 
   if (env->GetJavaVM(&vm) != JNI_OK) {
     ALOGE("Could not get JavaVM");
