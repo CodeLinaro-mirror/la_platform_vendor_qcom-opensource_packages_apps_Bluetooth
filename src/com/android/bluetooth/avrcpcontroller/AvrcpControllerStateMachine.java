@@ -726,7 +726,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                             == PlaybackStateCompat.STATE_PLAYING
                             && A2dpSinkService.getFocusState() == AudioManager.AUDIOFOCUS_NONE) {
                         if (shouldRequestFocus()) {
-                            mService.getMediaSessionCallback().onPrepare();
+                            mService.requestAudioFocus();
                         } else {
                         sendMessage(MSG_AVRCP_PASSTHRU,
                                 AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
