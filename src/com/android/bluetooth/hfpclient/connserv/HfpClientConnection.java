@@ -93,9 +93,7 @@ public class HfpClientConnection extends Connection {
         setAddress(number, TelecomManager.PRESENTATION_ALLOWED);
         setConnectionCapabilities(
                 CAPABILITY_SUPPORT_HOLD | CAPABILITY_MUTE | CAPABILITY_SEPARATE_FROM_CONFERENCE
-                        | CAPABILITY_DISCONNECT_FROM_CONFERENCE | (
-                        getState() == STATE_ACTIVE || getState() == STATE_HOLDING ? CAPABILITY_HOLD
-                                : 0));
+                        | CAPABILITY_DISCONNECT_FROM_CONFERENCE | CAPABILITY_HOLD);
     }
 
     public UUID getUUID() {
