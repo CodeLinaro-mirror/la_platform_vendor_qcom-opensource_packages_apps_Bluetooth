@@ -50,6 +50,7 @@ public class HeadsetService extends ProfileService {
     private static final boolean DBG = Log.isLoggable("Handsfree", Log.VERBOSE);
     private static final String TAG = "HeadsetService";
     private static final String MODIFY_PHONE_STATE = android.Manifest.permission.MODIFY_PHONE_STATE;
+    private static final String ACTION_ROAMING_STATE_CHANGED = "android.bluetooth.action.ROAMING_STATE_CHANGED";
 
     private HeadsetStateMachine mStateMachine;
     private static HeadsetService sHeadsetService;
@@ -71,6 +72,7 @@ public class HeadsetService extends ProfileService {
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(TelecomManager.ACTION_CALL_TYPE);
+        filter.addAction(ACTION_ROAMING_STATE_CHANGED);
 
         try {
             registerReceiver(mHeadsetReceiver, filter);
@@ -133,6 +135,9 @@ public class HeadsetService extends ProfileService {
             else if (intent.getAction().equals(TelecomManager.ACTION_CALL_TYPE)) {
                Log.v(TAG, "HeadsetService -  Received BluetoothHeadset.ACTION_CALL_TYPE");
                mStateMachine.sendMessage(HeadsetStateMachine.UPDATE_CALL_TYPE, intent);
+            } else if (intent.getAction().equals(ACTION_ROAMING_STATE_CHANGED)) {
+               Log.e(TAG, "HeadsetService -  Received ACTION_ROAMING_STATE_CHANGED ");
+               mStateMachine.sendMessage(HeadsetStateMachine.UPDATE_ROAMING_STATE, intent);
             }
         }
     };

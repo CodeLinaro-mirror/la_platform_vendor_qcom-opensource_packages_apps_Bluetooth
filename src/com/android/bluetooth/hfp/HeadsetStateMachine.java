@@ -97,6 +97,7 @@ final class HeadsetStateMachine extends StateMachine {
     private static final String HEADSET_WBS = "bt_wbs";
 
     private static String BT_SOC;
+    private static final String EXTRA_ROAMING_STATE = "android.bluetooth.extra.roaming.STATE";
 
     static final int CONNECT = 1;
     static final int DISCONNECT = 2;
@@ -128,6 +129,7 @@ final class HeadsetStateMachine extends StateMachine {
     static final int UPDATE_CALL_TYPE = 22;
     static final int SEND_INCOMING_CALL_IND = 23;
     static final int AUDIO_SERVER_RESTARTED = 24;
+    static final int UPDATE_ROAMING_STATE = 25;
 
     static final int VOIP_CALL_STATE_CHANGED_ALERTING = 51;
     static final int VOIP_CALL_STATE_CHANGED_ACTIVE = 52;
@@ -1348,6 +1350,16 @@ final class HeadsetStateMachine extends StateMachine {
                     phoneStateChangeNative(0, 0, HeadsetHalConstants.CALL_STATE_INCOMING,
                                        mPhoneState.getNumber(), mPhoneState.getType());
                     break;
+                case UPDATE_ROAMING_STATE:
+                    {
+                     Intent intent1 = (Intent) message.obj;
+                     int roaming_status = intent1.getIntExtra(EXTRA_ROAMING_STATE, 0);
+                    //code to send the roaming state to remote
+                    Log.e(TAG, "UPDATE_ROAMING_STATE received " + roaming_status);
+                    notifyDeviceStatusNative(mPhoneState.getService(), roaming_status,
+                                     mPhoneState.getSignal(), mPhoneState.getBatteryCharge());
+                    break;
+                    }
                 case STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
                     Log.d(TAG, "Connected: event type: " + event.type + "event device : " + event.device);
@@ -1935,6 +1947,16 @@ final class HeadsetStateMachine extends StateMachine {
                        Log.e(TAG, Log.getStackTraceString(new Throwable()));
                     }
                     break;
+                case UPDATE_ROAMING_STATE:
+                    {
+                     Intent intent1 = (Intent) message.obj;
+                     int roaming_status = intent1.getIntExtra(EXTRA_ROAMING_STATE, 0);
+                    //code to send the roaming state to remote
+                    Log.e(TAG, "UPDATE_ROAMING_STATE received " + roaming_status);
+                    notifyDeviceStatusNative(mPhoneState.getService(), roaming_status,
+                                     mPhoneState.getSignal(), mPhoneState.getBatteryCharge());
+                    break;
+                    }
                 case STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
                     Log.d(TAG, "AudioOn: event type: " + event.type);
@@ -2451,6 +2473,16 @@ final class HeadsetStateMachine extends StateMachine {
                     Intent intent = (Intent) message.obj;
                     processCpbr(intent);
                     break;
+                case UPDATE_ROAMING_STATE:
+                    {
+                     Intent intent1 = (Intent) message.obj;
+                     int roaming_status = intent1.getIntExtra(EXTRA_ROAMING_STATE, 0);
+                    //code to send the roaming state to remote
+                    Log.e(TAG, "UPDATE_ROAMING_STATE received " + roaming_status);
+                    notifyDeviceStatusNative(mPhoneState.getService(), roaming_status,
+                                     mPhoneState.getSignal(), mPhoneState.getBatteryCharge());
+                    break;
+                    }
                 case STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
                     log("MultiHFPending: event type: " + event.type);
