@@ -682,7 +682,8 @@ final class BondStateMachine extends StateMachine {
             mRemoteDevices.addDeviceProperties(address);
         }
         infoLog("sspRequestCallback: " + address + " name: " + name + " cod: " + cod
-                + " pairingVariant " + pairingVariant + " passkey: " + passkey);
+                + " pairingVariant " + pairingVariant + " passkey: "
+                + (Build.IS_DEBUGGABLE ? passkey : "******"));
         int variant;
         boolean displayPasskey = false;
         switch (pairingVariant) {
