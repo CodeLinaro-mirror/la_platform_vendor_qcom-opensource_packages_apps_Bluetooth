@@ -143,7 +143,7 @@ public class HeadsetService extends ProfileService {
     private Context mContext = null;
     private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
     private static final int AUDIO_CONNECTION_DELAY_DEFAULT = 100;
-
+    private static final String ACTION_ROAMING_STATE_CHANGED = "android.bluetooth.action.ROAMING_STATE_CHANGED";
     @Override
     public IProfileServiceBinder initBinder() {
         return new BluetoothHeadsetBinder(this);
@@ -230,6 +230,7 @@ public class HeadsetService extends ProfileService {
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(ACTION_ROAMING_STATE_CHANGED);
         registerReceiver(mHeadsetReceiver, filter);
         // Step 7: Mark service as started
 
@@ -564,6 +565,13 @@ public class HeadsetService extends ProfileService {
                 case BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED: {
                     logD("Received BluetoothA2dp Connection State changed");
                     mHfpA2dpSyncInterface.updateA2DPConnectionState(intent);
+                    break;
+                }
+                case ACTION_ROAMING_STATE_CHANGED: {
+                    Log.e(TAG, "HeadsetService -  Received ACTION_ROAMING_STATE_CHANGED ");
+                    synchronized (mStateMachines) {
+                        doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.UPDATE_ROAMING_STATE, intent));
+                     }
                     break;
                 }
                 default:
