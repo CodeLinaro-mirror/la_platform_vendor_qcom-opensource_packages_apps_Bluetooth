@@ -183,7 +183,8 @@ public class HeadsetStateMachine extends StateMachine {
     private static final int PROCESS_CPBR = 105;
 
     private static final int CONNECT_TIMEOUT = 201;
-
+    private static final String EXTRA_ROAMING_STATE = "android.bluetooth.extra.roaming.STATE";
+    static final int UPDATE_ROAMING_STATE = 25;
     private static final int CLCC_RSP_TIMEOUT_MS = 5000;
     private static final int QUERY_PHONE_STATE_CHANGED_DELAYED = 100;
     // NOTE: the value is not "final" - it is modified in the unit tests
@@ -1582,6 +1583,15 @@ public class HeadsetStateMachine extends StateMachine {
                      }
                      break;
                 }
+                case UPDATE_ROAMING_STATE:
+                    Intent intent1 = (Intent) message.obj;
+                    int roaming_status = intent1.getIntExtra(EXTRA_ROAMING_STATE, 0);
+                    //code to send the roaming state to remote
+                    Log.e(TAG, "UPDATE_ROAMING_STATE received " + roaming_status);
+                    HeadsetPhoneState phoneState = mSystemInterface.getHeadsetPhoneState();
+                    HeadsetDeviceState deviceState = new HeadsetDeviceState(phoneState.getCindService(), roaming_status, phoneState.getCindSignal(), phoneState.getCindBatteryCharge());
+                    mNativeInterface.notifyDeviceStatus(mDevice, deviceState);
+                    break;
                 default:
                     return super.processMessage(message);
             }
@@ -1834,6 +1844,15 @@ public class HeadsetStateMachine extends StateMachine {
                      stateLogD("SCO_RETRIIAL_NOT_REQ: ");
                      mIsRetrySco = false;
                      break;
+                case UPDATE_ROAMING_STATE:
+                    Intent intent1 = (Intent) message.obj;
+                    int roaming_status = intent1.getIntExtra(EXTRA_ROAMING_STATE, 0);
+                    //code to send the roaming state to remote
+                    Log.e(TAG, "UPDATE_ROAMING_STATE received " + roaming_status);
+                    HeadsetPhoneState phoneState = mSystemInterface.getHeadsetPhoneState();
+                    HeadsetDeviceState deviceState = new HeadsetDeviceState(phoneState.getCindService(), roaming_status, phoneState.getCindSignal(), phoneState.getCindBatteryCharge());
+                    mNativeInterface.notifyDeviceStatus(mDevice, deviceState);
+                    break;
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
                     stateLogD("STACK_EVENT: " + event);
