@@ -73,6 +73,7 @@ public class HeadsetClientService extends ProfileService {
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
 
     public static String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
+    private static final int CONNECT_AUDIO_DELAY = 5000;
 
     static {
         NativeInterface.classInitNative();
@@ -695,7 +696,11 @@ public class HeadsetClientService extends ProfileService {
         if (sm.isAudioOn()) {
             return false;
         }
-        sm.sendMessage(HeadsetClientStateMachine.CONNECT_AUDIO);
+        /* Sending message with a delay, In most cases SCO will be
+         * initiated by AG, In case its not done till 5 sec, DUT
+         * ( HFP-Client ) will send SCO request from here
+         */
+        sm.sendMessageDelayed(HeadsetClientStateMachine.CONNECT_AUDIO, CONNECT_AUDIO_DELAY);
         Log.d(TAG, "Exit connectAudio");
         return true;
     }
