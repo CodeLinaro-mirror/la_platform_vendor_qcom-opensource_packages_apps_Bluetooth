@@ -418,7 +418,7 @@ static jboolean setSilenceDeviceNative(JNIEnv* env, jobject object,
 }
 
 static jboolean setActiveDeviceNative(JNIEnv* env, jobject object,
-                                      jbyteArray address) {
+                                      jbyteArray address, jboolean active) {
   ALOGI("%s: sBluetoothA2dpInterface: %p", __func__, sBluetoothA2dpInterface);
   std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
   if (!sBluetoothA2dpInterface) {
@@ -435,7 +435,7 @@ static jboolean setActiveDeviceNative(JNIEnv* env, jobject object,
   if (bd_addr == RawAddress::kEmpty) {
     return JNI_FALSE;
   }
-  bt_status_t status = sBluetoothA2dpInterface->set_active_device(bd_addr);
+  bt_status_t status = sBluetoothA2dpInterface->set_active_device(bd_addr, active);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("%s: Failed A2DP set_active_device, status: %d", __func__, status);
   }
@@ -481,7 +481,7 @@ static JNINativeMethod sMethods[] = {
     {"connectA2dpNative", "([B)Z", (void*)connectA2dpNative},
     {"disconnectA2dpNative", "([B)Z", (void*)disconnectA2dpNative},
     {"setSilenceDeviceNative", "([BZ)Z", (void*)setSilenceDeviceNative},
-    {"setActiveDeviceNative", "([B)Z", (void*)setActiveDeviceNative},
+    {"setActiveDeviceNative", "([BZ)Z", (void*)setActiveDeviceNative},
     {"setCodecConfigPreferenceNative",
      "([B[Landroid/bluetooth/BluetoothCodecConfig;)Z",
      (void*)setCodecConfigPreferenceNative},

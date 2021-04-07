@@ -512,7 +512,7 @@ public class HearingAidService extends ProfileService {
                     if (DBG) {
                         Log.d(TAG, "earlyNotifyHearingAidActive for " + device);
                     }
-                    a2dpService.earlyNotifyHearingAidActive();
+                    a2dpService.earlyNotifyHearingAidActive(device);
                 }
                 mActiveDeviceHiSyncId = deviceHiSyncId;
                 reportActiveDevice(device);
