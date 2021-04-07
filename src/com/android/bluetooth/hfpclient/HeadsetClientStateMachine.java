@@ -43,6 +43,8 @@ import android.bluetooth.BluetoothUuid;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
 import android.os.Bundle;
 import android.os.Message;
 import android.os.Looper;
@@ -158,6 +160,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     private A2dpService mA2dpService;
 
     private static AudioManager sAudioManager;
+    private AudioFocusRequest mAudioFocusRequest;
     private int mAudioState;
     private boolean mAudioWbs;
     private final BluetoothAdapter mAdapter;
@@ -776,6 +779,11 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     static synchronized void routeHfpAudio(boolean enable) {
+        if (sAudioManager == null) {
+            Log.e(TAG, "AudioManager is null!");
+            return;
+        }
+
         if (DBG) {
             Log.d(TAG, "hfp_enable=" + enable);
         }
@@ -789,10 +797,34 @@ public class HeadsetClientStateMachine extends StateMachine {
         sAudioIsRouted = enable;
     }
 
+    private AudioFocusRequest requestAudioFocus() {
+        AudioAttributes streamAttributes =
+                new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build();
+        AudioFocusRequest focusRequest =
+                new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                        .setAudioAttributes(streamAttributes)
+                        .build();
+        int focusRequestStatus = sAudioManager.requestAudioFocus(focusRequest);
+        String s = (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+                    ? "AudioFocus granted" : "AudioFocus NOT granted";
+        Log.d(TAG, "AudioManager requestAudioFocus returned: " + s);
+        return focusRequest;
+    }
+
+    private void returnAudioFocusIfNecessary() {
+        if (mAudioFocusRequest == null) return;
+        sAudioManager.abandonAudioFocusRequest(mAudioFocusRequest);
+        mAudioFocusRequest = null;
+    }
+
+
     public void doQuit() {
         Log.d(TAG, "doQuit");
         if (sAudioManager != null) {
             routeHfpAudio(false);
+            returnAudioFocusIfNecessary();
         }
         quitNow();
         Log.d(TAG, "Exit doQuit()");
@@ -1594,6 +1626,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                         Log.d(TAG, "hf_volume " + hfVol);
                     }
                     routeHfpAudio(true);
+                    mAudioFocusRequest = requestAudioFocus();
                     sAudioManager.setParameters("hfp_volume=" + hfVol);
                     transitionTo(mAudioOn);
                     break;
@@ -1673,6 +1706,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                      */
                     if (NativeInterface.disconnectAudioNative(getByteAddress(mCurrentDevice))) {
                         routeHfpAudio(false);
+                        returnAudioFocusIfNecessary();
                     }
                     break;
                 case HOLD_CALL:
@@ -1754,6 +1788,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // is not much we can do here since dropping the call without user consent
                     // even if the audio connection snapped may not be a good idea.
                     routeHfpAudio(false);
+                    returnAudioFocusIfNecessary();
                     broadcastAudioState(device, BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED,
                             BluetoothHeadsetClient.STATE_AUDIO_CONNECTED);
                     transitionTo(mConnected);
