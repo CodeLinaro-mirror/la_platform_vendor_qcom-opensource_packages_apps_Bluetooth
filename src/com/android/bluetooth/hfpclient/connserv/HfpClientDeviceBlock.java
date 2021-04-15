@@ -321,6 +321,11 @@ public class HfpClientDeviceBlock {
                             mHeadsetProfile);
                     mConference.setExtras(mScoState);
                 }
+                // In case that conference call is created prior to the HFP SLC establishment
+                // Just keep the call state unchanged
+                if (otherConn.getState() == Connection.STATE_HOLDING) {
+                    mConference.setOnHold();
+                }
                 if (mConference.addConnection(otherConn)) {
                     if (DBG) {
                         Log.d(mTAG, "Adding connection " + otherConn + " to conference.");
