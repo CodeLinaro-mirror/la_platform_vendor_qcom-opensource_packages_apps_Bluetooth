@@ -639,22 +639,34 @@ public class HeadsetClientStateMachine extends StateMachine {
             Log.d(TAG, "terminateCall");
         }
 
-        int action = HeadsetClientHalConstants.CALL_ACTION_CHUP;
+        int action = -1;
 
-        BluetoothHeadsetClientCall c = getCall(BluetoothHeadsetClientCall.CALL_STATE_DIALING,
+        BluetoothHeadsetClientCall c_active = getCall(BluetoothHeadsetClientCall.CALL_STATE_DIALING,
                 BluetoothHeadsetClientCall.CALL_STATE_ALERTING,
                 BluetoothHeadsetClientCall.CALL_STATE_ACTIVE);
-        if (c == null) {
-            // If the call being terminated is currently held, switch the action to CHLD_0
-            c = getCall(BluetoothHeadsetClientCall.CALL_STATE_HELD);
-            action = HeadsetClientHalConstants.CALL_ACTION_CHLD_0;
-        }
-        if (c != null) {
-            if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
-                addQueuedAction(TERMINATE_CALL, action);
+        BluetoothHeadsetClientCall c_held = getCall(BluetoothHeadsetClientCall.CALL_STATE_HELD);
+        if (c_held != null) {
+            if (c_active != null) {
+                // Both active call and held call are not empty
+                // Terminate active call and resume held call, switch the action to CHLD_1
+                action = HeadsetClientHalConstants.CALL_ACTION_CHLD_1;
             } else {
-                Log.e(TAG, "ERROR: Couldn't terminate outgoing call");
+                // If the call being terminated is currently held, switch the action to CHLD_0
+                action = HeadsetClientHalConstants.CALL_ACTION_CHLD_0;
             }
+        } else {
+            if (c_active != null) {
+                // Only active call is valid, swith the action to CHUP
+                action = HeadsetClientHalConstants.CALL_ACTION_CHUP;
+            } else {
+                // No calls to be terminated, return directly
+                return;
+            }
+        }
+        if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
+            addQueuedAction(TERMINATE_CALL, action);
+        } else {
+            Log.e(TAG, "ERROR: Couldn't terminate outgoing call");
         }
     }
 
