@@ -1528,6 +1528,8 @@ public class BluetoothMapContentObserver {
                         }
                     } while (c.moveToNext());
                 }
+            } catch (IllegalStateException e) {
+                Log.w(TAG, e);
             } finally {
                 if (c != null) {
                     c.close();
@@ -1697,6 +1699,8 @@ public class BluetoothMapContentObserver {
                     } while (c.moveToNext());
 
                 }
+            } catch (IllegalStateException e) {
+                Log.w(TAG, e);
             } finally {
                 if (c != null) {
                     c.close();
