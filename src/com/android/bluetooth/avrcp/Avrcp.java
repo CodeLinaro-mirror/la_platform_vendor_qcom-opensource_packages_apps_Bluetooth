@@ -97,6 +97,8 @@ public final class Avrcp {
     private static final String AVRCP_1_5_STRING = "avrcp15";
     private static final String AVRCP_1_6_STRING = "avrcp16";
     private static final String AVRCP_NOTIFICATION_ID = "avrcp_notification";
+    private static final String ACTION_VOLUME_KEY_EVENT = "android.bluetooth.action.VOLUME_KEY_EVENT";
+    private static final String ACTION_VOLUME_DIRECTION = "android.bluetooth.action.VOLUME_DIRECTION";
 
     private Context mContext;
     private final AudioManager mAudioManager;
@@ -477,10 +479,14 @@ public final class Avrcp {
         pkgFilter.addDataScheme("package");
         context.registerReceiver(mAvrcpReceiver, pkgFilter);
 
+        pts_test = SystemProperties.getBoolean("bt.avrcpct-passthrough.pts", false);
+
         IntentFilter bootFilter = new IntentFilter();
         bootFilter.addAction(Intent.ACTION_USER_UNLOCKED);
+        if (pts_test)
+           bootFilter.addAction(ACTION_VOLUME_KEY_EVENT);
+
         context.registerReceiver(mBootReceiver, bootFilter);
-        pts_test = SystemProperties.getBoolean("bt.avrcpct-passthrough.pts", false);
         avrcp_playstatus_blacklist = SystemProperties.getBoolean("persist.bt.avrcp-playstatus.blacklist", false);
 
         // create Notification channel.
@@ -2962,10 +2968,15 @@ public final class Avrcp {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+            if (DEBUG) Log.d(TAG, "AvrcpServiceBootReceiver-> Action: " + action);
             if (action.equals(Intent.ACTION_USER_UNLOCKED)) {
                 if (DEBUG) Log.d(TAG, "User unlocked, initializing player lists");
                 /* initializing media player's list */
                 buildBrowsablePlayerList();
+            } else if (action.equals(ACTION_VOLUME_KEY_EVENT)) {
+                int direction = intent.getIntExtra(ACTION_VOLUME_DIRECTION, -1);
+                if ((direction == 1) || (direction == -1))
+                    adjustVolume(direction);
             }
         }
     }
