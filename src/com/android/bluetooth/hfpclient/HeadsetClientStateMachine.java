@@ -99,7 +99,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
-    private static final int QUERY_OPERATOR_NAME = 51;
+    public static final int QUERY_OPERATOR_NAME = 51;
     private static final int SUBSCRIBER_INFO = 52;
     private static final int CONNECTING_TIMEOUT = 53;
 
@@ -1317,6 +1317,14 @@ public class HeadsetClientStateMachine extends StateMachine {
                         addQueuedAction(SUBSCRIBER_INFO);
                     } else {
                         Log.e(TAG, "ERROR: Couldn't retrieve subscriber info");
+                    }
+                    break;
+                case QUERY_OPERATOR_NAME:
+                    if (mIndicatorNetworkState ==
+                                    HeadsetClientHalConstants.NETWORK_STATE_AVAILABLE) {
+                        Log.e(TAG, "network is available");
+                        NativeInterface.queryCurrentOperatorNameNative(
+                                        getByteAddress(mCurrentDevice));
                     }
                     break;
                 case QUERY_CURRENT_CALLS:
