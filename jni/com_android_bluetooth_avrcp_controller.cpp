@@ -802,7 +802,7 @@ static void btavrcp_error_status_code_callback(const RawAddress& bd_addr,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)&bd_addr);
+								   (jbyte*)&bd_addr);
   sCallbackEnv->CallVoidMethod(sCallbacksObj, method_handleErrorStatusCode,
                                addr.get(), (jint)opcode, (jint)id, (jint)status);
 }
