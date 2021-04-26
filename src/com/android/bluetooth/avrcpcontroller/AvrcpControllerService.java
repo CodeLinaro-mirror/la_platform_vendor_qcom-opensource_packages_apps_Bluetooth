@@ -166,11 +166,18 @@ public class AvrcpControllerService extends ProfileService {
         classInitNative();
     }
 
+    void requestAudioFocus() {
+        A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
+        if (a2dpSinkService != null) {
+            a2dpSinkService.requestAudioFocus(mActiveDevice, true);
+        }
+    }
+
     MediaSessionCompat.Callback mSessionCallbacks = new MediaSessionCompat.Callback() {
         @Override
         public void onPlay() {
             if (DBG) Log.d(TAG, "onPlay");
-            onPrepare();
+            requestAudioFocus();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
@@ -205,7 +212,7 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onSkipToNext() {
             if (DBG) Log.d(TAG, "onSkipToNext");
-            onPrepare();
+            requestAudioFocus();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
@@ -222,7 +229,7 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onSkipToPrevious() {
             if (DBG) Log.d(TAG, "onSkipToPrevious");
-            onPrepare();
+            requestAudioFocus();
             if (mActiveDevice == null) {
                 Log.w(TAG, "mActiveDevice is null");
                 return;
@@ -241,7 +248,7 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onSkipToQueueItem(long id) {
             if (DBG) Log.d(TAG, "onSkipToQueueItem id " + id);
-            onPrepare();
+            requestAudioFocus();
             for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
                 BrowseTree.BrowseNode requestedNode = stateMachine.getTrackFromNowPlayingList((int)id);
                 if (requestedNode != null) {
@@ -273,10 +280,6 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onPrepare() {
             if (DBG) Log.d(TAG, "onPrepare");
-            A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
-            if (a2dpSinkService != null) {
-                a2dpSinkService.requestAudioFocus(mActiveDevice, true);
-            }
         }
 
         @Override
@@ -317,7 +320,7 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void onPlayFromMediaId(String mediaId, Bundle extras) {
             if (DBG) Log.d(TAG, "onPlayFromMediaId");
-            onPrepare();
+            requestAudioFocus();
             BrowseTree.BrowseNode requestedNode = sBrowseTree.findBrowseNodeByID(mediaId);
             if (requestedNode == null) {
                 for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
