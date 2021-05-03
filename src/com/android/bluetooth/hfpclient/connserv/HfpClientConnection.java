@@ -25,7 +25,7 @@ import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.util.Log;
-
+import android.os.SystemProperties;
 import java.util.UUID;
 
 public class HfpClientConnection extends Connection {
@@ -80,8 +80,9 @@ public class HfpClientConnection extends Connection {
             Log.e(TAG, "Failed to create the call, dial failed.");
             return;
         }
-
-        mHeadsetProfile.connectAudio(device);
+        if(!SystemProperties.getBoolean("vendor.bt.pts.certification", false)){
+            mHeadsetProfile.connectAudio(mDevice);
+        }
         setInitializing();
         setDialing();
         finishInitializing();
@@ -278,7 +279,9 @@ public class HfpClientConnection extends Connection {
             mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
         }
 
-        mHeadsetProfile.connectAudio(mDevice);
+        if(!SystemProperties.getBoolean("vendor.bt.pts.certification", false)){
+            mHeadsetProfile.connectAudio(mDevice);
+        }
     }
 
     @Override
