@@ -1167,6 +1167,11 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
 
                 case DISCONNECT_AUDIO:
+                    if (mAudioState == BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED) {
+                       Log.w(TAG, mCurrentDevice + " audio disconnected, ignore DISCONNECT_AUDIO msg");
+                       break;
+                    }
+
                     if (!NativeInterface.disconnectAudioNative(getByteAddress(mCurrentDevice))) {
                         Log.e(TAG, "ERROR: Couldn't disconnect Audio for device " + mCurrentDevice);
                     }

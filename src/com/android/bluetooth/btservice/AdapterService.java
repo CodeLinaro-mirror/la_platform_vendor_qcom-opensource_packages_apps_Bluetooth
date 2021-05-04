@@ -376,7 +376,11 @@ public class AdapterService extends Service {
         mAdapterProperties = new AdapterProperties(this);
         mAdapterStateMachine = AdapterState.make(this);
         mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
-        initNative();
+
+        // Android TV doesn't show consent dialogs for just works and encryption only le pairing
+        boolean isAtvDevice = getApplicationContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_LEANBACK_ONLY);
+        initNative(isAtvDevice);
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
         //Load the name and COD
@@ -1954,6 +1958,18 @@ public class AdapterService extends Service {
         }
     }
 
+    /**
+     * Update device UUID changed to {@link BondStateMachine}
+     *
+     * @param device remote device of interest
+     */
+    public void deviceUuidUpdated(BluetoothDevice device) {
+        // Notify BondStateMachine for SDP complete / UUID changed.
+        Message msg = mBondStateMachine.obtainMessage(BondStateMachine.UUID_UPDATE);
+        msg.obj = device;
+        mBondStateMachine.sendMessage(msg);
+    }
+
     boolean cancelBondProcess(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
         byte[] addr = Utils.getBytesFromAddress(device.getAddress());
@@ -2114,6 +2130,12 @@ public class AdapterService extends Service {
             return false;
         }
 
+        if (pinCode.length != len) {
+            android.util.EventLog.writeEvent(0x534e4554, "139287605", -1,
+                    "PIN code length mismatch");
+            return false;
+        }
+
         byte[] addr = Utils.getBytesFromAddress(device.getAddress());
         return pinReplyNative(addr, accept, len, pinCode);
     }
@@ -2122,6 +2144,12 @@ public class AdapterService extends Service {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null || deviceProp.getBondState() != BluetoothDevice.BOND_BONDING) {
+            return false;
+        }
+
+        if (passkey.length != len) {
+            android.util.EventLog.writeEvent(0x534e4554, "139287605", -1,
+                    "Passkey length mismatch");
             return false;
         }
 
@@ -2654,7 +2682,7 @@ public class AdapterService extends Service {
 
     static native void classInitNative();
 
-    native boolean initNative();
+    native boolean initNative(boolean isAtvDevice);
 
     native void cleanupNative();
 
