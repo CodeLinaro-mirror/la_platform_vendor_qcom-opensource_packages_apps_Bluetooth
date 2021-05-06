@@ -761,6 +761,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case MESSAGE_START_METADATA_BROADCASTS:
                 case MESSAGE_PROCESS_CONNECTION_CHANGE:
                 case MESSAGE_PROCESS_BROWSE_CONNECTION_CHANGE:
+                case MESSAGE_BIP_CONNECTED:
+                case MESSAGE_BIP_DISCONNECTED:
                     // All of these messages should be handled by parent state immediately.
                     return false;
 
@@ -893,6 +895,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case MESSAGE_START_METADATA_BROADCASTS:
                 case MESSAGE_PROCESS_CONNECTION_CHANGE:
                 case MESSAGE_PROCESS_BROWSE_CONNECTION_CHANGE:
+                case MESSAGE_BIP_CONNECTED:
+                case MESSAGE_BIP_DISCONNECTED:
                     // All of these messages should be handled by parent state immediately.
                     return false;
 
