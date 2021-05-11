@@ -2438,24 +2438,30 @@ public class AdapterService extends Service {
         sendGetLinkKeyIntent(linkKey, address, keyFound, keyType);
     }
 
-    void sendLocalOobDataIntent(OobData oobData){
-        debugLog("sendLocalOobDataIntent");
+    void sendLocalOobDataIntent(int status, OobData oobData){
+        debugLog("sendLocalOobDataIntent, status is " + status);
         Intent intent = new Intent(BluetoothAdapter.ACTION_LOCAL_OOB_DATA);
+        intent.putExtra(BluetoothAdapter.EXTRA_OOB_RESULT, status);
         intent.putExtra(BluetoothAdapter.EXTRA_LOCAL_OOB_DATA, oobData);
 
         sendBroadcast(intent, AdapterService.BLUETOOTH_PERM);
     }
 
-    void readLocalOobDataCallback(byte[] c192, byte[] r192, byte[] c256, byte[] r256) {
+    void readLocalOobDataCallback(int status, byte[] c192, byte[] r192, byte[] c256, byte[] r256) {
         debugLog("readLocalOobDataCallback");
-
         OobData oobData = new OobData();
-        oobData.setC192(c192);
-        oobData.setR192(r192);
-        oobData.setC256(c256);
-        oobData.setR256(r256);
 
-        sendLocalOobDataIntent(oobData);
+        if (status == AbstractionLayer.BT_STATUS_SUCCESS) {
+            debugLog("Succeed to get local OOB data");
+            oobData.setC192(c192);
+            oobData.setR192(r192);
+            oobData.setC256(c256);
+            oobData.setR256(r256);
+        } else {
+            Log.e(TAG, "Fail to get local OOB data");
+        }
+
+        sendLocalOobDataIntent(status, oobData);
     }
 
     public boolean isQuietModeEnabled() {
