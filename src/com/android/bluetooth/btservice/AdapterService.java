@@ -61,6 +61,7 @@ import android.app.AlarmManager;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.app.admin.DevicePolicyManager;
 import android.bluetooth.BluetoothActivityEnergyInfo;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAdapter.ActiveDeviceUse;
@@ -3174,7 +3175,11 @@ public class AdapterService extends Service {
             Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting Hearing Aid Profile");
             mHearingAidService.disconnect(device);
         }
-
+        if (mSapService != null && mSapService.getConnectionState(device)
+                == BluetoothProfile.STATE_CONNECTED) {
+            Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting Sap Profile");
+            mSapService.disconnect(device);
+        }
         return true;
     }
 
@@ -4254,7 +4259,8 @@ public class AdapterService extends Service {
     }
 
     private boolean isNiapMode() {
-        return Settings.Global.getInt(getContentResolver(), "niap_mode", 0) == 1;
+        return ((DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE))
+                .isCommonCriteriaModeEnabled(null);
     }
 
     /**
