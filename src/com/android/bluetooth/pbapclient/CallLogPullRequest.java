@@ -85,6 +85,12 @@ public class CallLogPullRequest extends PullRequest {
 
             ArrayList<ContentProviderOperation> ops = new ArrayList<>();
             for (VCardEntry vcard : mEntries) {
+                if (isAborting()) {
+                    if (DBG) {
+                        Log.d(TAG, "Break vcard parse");
+                    }
+                    break;
+                }
                 ContentValues values = new ContentValues();
 
                 values.put(CallLog.Calls.TYPE, type);
