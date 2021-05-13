@@ -431,7 +431,10 @@ class ActiveDeviceManager {
         }
         final A2dpService a2dpService = mFactory.getA2dpService();
         if (a2dpService == null) {
-              a2dpService.setActiveDevice(null);
+           return;
+        }
+        if (!a2dpService.setActiveDevice(device)) {
+            return;
         }
         mA2dpActiveDevices.add(device);
     }

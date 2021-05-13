@@ -163,7 +163,13 @@ public class A2dpService extends ProfileService {
         }
 
         // Step 9: Clear active device and stop playing audio
+        // removeActiveDevice will remove device from mActiveDevices, so
+        // duplicate it
+        List<BluetoothDevice> activeDevices = new LinkedList<>();
         for (BluetoothDevice device : mActiveDevices)  {
+            activeDevices.add(device);
+        }
+        for (BluetoothDevice device : activeDevices)  {
             removeActiveDevice(device, true);
         }
 
@@ -448,6 +454,8 @@ public class A2dpService extends ProfileService {
             // Make sure volume has been store before device been remove from active.
             storeActiveDeviceVolume(device);
 
+            updateAndBroadcastActiveDevice(device, false);
+
             mActiveDevices.remove(device);
 
             // This needs to happen before we inform the audio manager that the device
@@ -534,7 +542,6 @@ public class A2dpService extends ProfileService {
                 // Remove active device and continue playing audio only if necessary.
                 for (BluetoothDevice d : mActiveDevices) {
                     setActiveDevice(device, false);
-                    removeActiveDevice(d, false);
                 }
                 return true;
             }
@@ -570,21 +577,27 @@ public class A2dpService extends ProfileService {
                 return false;
             }
 
+            if (!active) {
+                // Switch from one A2DP to another A2DP device
+                if (DBG) {
+                    Log.d(TAG, "removeActiveDevice " + device);
+                }
+                removeActiveDevice(device, false);
+                return true;
+            }
+
+            if (sm.getConnectionState() != BluetoothProfile.STATE_CONNECTED) {
+                Log.e(TAG, "setActiveDevice(" + device + "): Cannot set as active: "
+                          + "device is not connected");
+                return false;
+            }
             // when audio framework support dual stream, application notify bdaddress/zone to A2DP audio hal.
             // Otherwise do it here just to make single A2DP work
             Boolean support_dual = SystemProperties.getBoolean("vendor.bt.duala2dpsource", false);
             if (!support_dual) {
-              String kvpairs = "bdaddress=" + device + ";zone=1;" + "player=";
+              String kvpairs = "bdaddress=" + device;
               Log.d(TAG, "AudioManager.setParameters(" + kvpairs + ")");
               mAudioManager.setParameters(kvpairs);
-            }
-
-            if (active) {
-                if (sm.getConnectionState() != BluetoothProfile.STATE_CONNECTED) {
-                    Log.e(TAG, "setActiveDevice(" + device + "): Cannot set as active: "
-                              + "device is not connected");
-                    return false;
-                }
             }
 
             if (!mA2dpNativeInterface.setActiveDevice(device, active)) {
@@ -593,48 +606,38 @@ public class A2dpService extends ProfileService {
             }
             codecStatus = sm.getCodecStatus();
 
-            if (!active) {
-                // Switch from one A2DP to another A2DP device
-                if (DBG) {
-                    Log.d(TAG, "storeActiveDeviceVolume " + device);
-                }
-                storeActiveDeviceVolume(device);
-            }
-
             // This needs to happen before we inform the audio manager that the device
             // disconnected. Please see comment in updateAndBroadcastActiveDevice() for why.
-            updateAndBroadcastActiveDevice(device);
-            if (active) {
-                // Send an intent with the active device codec config
-                if (codecStatus != null) {
-                    broadcastCodecConfig(device, codecStatus);
-                }
+            updateAndBroadcastActiveDevice(device, active);
+            // Send an intent with the active device codec config
+            if (codecStatus != null) {
+                broadcastCodecConfig(device, codecStatus);
+            }
 
-                // Make sure the Audio Manager knows the previous Active device is disconnected,
-                // and the new Active device is connected.
-                // Also, mute and unmute the output during the switch to avoid audio glitches.
-                boolean wasMuted = false;
-                int rememberedVolume = -1;
-                if (mFactory.getAvrcpTargetService() != null) {
-                    rememberedVolume = mFactory.getAvrcpTargetService()
-                            .getRememberedVolumeForDevice(device);
-                }
-                if (DBG) {
-                    Log.d(TAG, "rememberedVolume "+ rememberedVolume);
-                }
+            // Make sure the Audio Manager knows the previous Active device is disconnected,
+            // and the new Active device is connected.
+            // Also, mute and unmute the output during the switch to avoid audio glitches.
+            boolean wasMuted = false;
+            int rememberedVolume = -1;
+            if (mFactory.getAvrcpTargetService() != null) {
+                rememberedVolume = mFactory.getAvrcpTargetService()
+                        .getRememberedVolumeForDevice(device);
+            }
+            if (DBG) {
+                Log.d(TAG, "rememberedVolume "+ rememberedVolume);
+            }
 
-                mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
-                        device, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
-                        true, rememberedVolume);
+            mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+                    device, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
+                    true, rememberedVolume);
 
-                // Inform the Audio Service about the codec configuration
-                // change, so the Audio Service can reset accordingly the audio
-                // feeding parameters in the Audio HAL to the Bluetooth stack.
-                mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
-                if (wasMuted) {
-                    mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                                AudioManager.ADJUST_UNMUTE, AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
-                }
+            // Inform the Audio Service about the codec configuration
+            // change, so the Audio Service can reset accordingly the audio
+            // feeding parameters in the Audio HAL to the Bluetooth stack.
+            mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
+            if (wasMuted) {
+                mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                            AudioManager.ADJUST_UNMUTE, AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
             }
         }
         return true;
@@ -990,7 +993,7 @@ public class A2dpService extends ProfileService {
             if (mFactory.getAvrcpTargetService() != null) {
                 mFactory.getAvrcpTargetService().volumeDeviceSwitched(device);
             }
-            if (!mActiveDevices.contains(device)) {
+            if (!mActiveDevices.contains(device) && device != null) {
                 if (DBG) {
                     Log.d(TAG, "Add device " + device + " to active devices");
                 }
@@ -1002,6 +1005,37 @@ public class A2dpService extends ProfileService {
                 mAdapterService.obfuscateAddress(device));
         Intent intent = new Intent(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
+                        | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
+        sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
+    }
+
+    private void updateAndBroadcastActiveDevice(BluetoothDevice device, boolean active) {
+        if (DBG) {
+            Log.d(TAG, "updateAndBroadcastActiveDevice(" + device + "," + active + ")");
+        }
+
+        if (active) {
+            synchronized (mStateMachines) {
+                if (mFactory.getAvrcpTargetService() != null) {
+                    mFactory.getAvrcpTargetService().volumeDeviceSwitched(device);
+                }
+                if (!mActiveDevices.contains(device)) {
+                    if (DBG) {
+                        Log.d(TAG, "Add device " + device + " to active devices");
+                    }
+                    mActiveDevices.add(device);
+                }
+            }
+        }
+        StatsLog.write(StatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED, BluetoothProfile.A2DP,
+                mAdapterService.obfuscateAddress(device));
+        Intent intent = new Intent(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
+
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+
+        intent.putExtra(BluetoothA2dp.EXTRA_ACTIVE, active);
+
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
                         | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
         sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
