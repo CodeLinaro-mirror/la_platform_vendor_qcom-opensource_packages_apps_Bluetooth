@@ -591,15 +591,13 @@ public class A2dpService extends ProfileService {
                           + "device is not connected");
                 return false;
             }
-            // when audio framework support dual stream, application notify bdaddress/zone to A2DP audio hal.
-            // Otherwise do it here just to make single A2DP work
-            Boolean support_dual = SystemProperties.getBoolean("vendor.bt.duala2dpsource", false);
-            if (!support_dual) {
-              String kvpairs = "bdaddress=" + device;
-              Log.d(TAG, "AudioManager.setParameters(" + kvpairs + ")");
-              mAudioManager.setParameters(kvpairs);
-            }
 
+            if (!isSupportDualA2dpSource()) {
+                // Send the bdaddress to a2dp audio hal to make single a2dp source work
+                String kvpairs = "bdaddress=" + device;
+                Log.d(TAG, "AudioManager.setParameters(" + kvpairs + ")");
+                mAudioManager.setParameters(kvpairs);
+            }
             if (!mA2dpNativeInterface.setActiveDevice(device, active)) {
                 Log.e(TAG, "setActiveDevice(" + device + "): Cannot set as active in native layer");
                 return false;
@@ -883,6 +881,13 @@ public class A2dpService extends ProfileService {
         mAdapterService.getDatabase().setA2dpOptionalCodecsEnabled(device, value);
     }
 
+    public void bondPlayerWithDevice(String packagename, BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        if (mFactory.getAvrcpTargetService() != null) {
+            mFactory.getAvrcpTargetService().setActivePlayerExt(packagename, device);
+        }
+    }
+
     // Handle messages from native (JNI) to Java
     void messageFromNative(A2dpStackEvent stackEvent) {
         Objects.requireNonNull(stackEvent.device,
@@ -953,6 +958,10 @@ public class A2dpService extends ProfileService {
         if (isActiveDevice(device) && !sameAudioFeedingParameters) {
             mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
         }
+    }
+
+    public Boolean isSupportDualA2dpSource() {
+        return SystemProperties.getBoolean("vendor.bt.duala2dpsource", true);
     }
 
     private A2dpStateMachine getOrCreateStateMachine(BluetoothDevice device) {
@@ -1420,6 +1429,14 @@ public class A2dpService extends ProfileService {
                 return;
             }
             service.setOptionalCodecsEnabled(device, value);
+        }
+
+        public void bondPlayerWithDevice(String packagename, BluetoothDevice device) {
+            A2dpService service = getService();
+            if (service == null) {
+                return;
+            }
+            service.bondPlayerWithDevice(packagename, device);
         }
     }
 
