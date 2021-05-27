@@ -2668,7 +2668,7 @@ public class AdapterService extends Service {
     }
 
     boolean setScanMode(int mode, int duration) {
-        enforceBluetoothPrivilegedPermission(this);
+        enforceBluetoothPermission(this);
 
         setDiscoverableTimeout(duration);
 
@@ -2751,7 +2751,8 @@ public class AdapterService extends Service {
     }
 
     long getDiscoveryEndMillis() {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+            "Need BLUETOOTH_PRIVILEGED permission");
 
         return mAdapterProperties.discoveryEndMillis();
     }
@@ -3371,7 +3372,7 @@ public class AdapterService extends Service {
     }
 
     int getMessageAccessPermission(BluetoothDevice device) {
-        enforceBluetoothPrivilegedPermission(this);
+        enforceBluetoothPermission(this);
         SharedPreferences pref = getSharedPreferences(MESSAGE_ACCESS_PERMISSION_PREFERENCE_FILE,
                 Context.MODE_PRIVATE);
         if (!pref.contains(device.getAddress())) {
