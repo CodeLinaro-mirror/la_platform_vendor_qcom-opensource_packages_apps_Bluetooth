@@ -1805,6 +1805,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             if (DBG) {
                 Log.d(TAG, "Enter AudioOn: " + getCurrentMessage().what);
             }
+            removeMessages(CONNECT_AUDIO);
             broadcastAudioState(mCurrentDevice, BluetoothHeadsetClient.STATE_AUDIO_CONNECTED,
                     BluetoothHeadsetClient.STATE_AUDIO_CONNECTING);
         }
