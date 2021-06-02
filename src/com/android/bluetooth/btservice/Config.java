@@ -302,11 +302,28 @@ public class Config {
                                     "persist.vendor.service.bt.adv_audio_mask", 0);
         Log.d(TAG, "initAdvAudioConfig: adv_audio_feature_mask = " + adv_audio_feature_mask);
         if (!isLC3CodecSupported(ctx)) {
-            Log.w(TAG, "LC3 Codec is not supported.");
             adv_audio_feature_mask &= ~ADV_AUDIO_UNICAST_FEAT_MASK;
             adv_audio_feature_mask &= ~ADV_AUDIO_BCS_FEAT_MASK;
             SystemProperties.set("persist.vendor.service.bt.adv_audio_mask",
-                String.valueOf(adv_audio_feature_mask));
+                    String.valueOf(adv_audio_feature_mask));
+            SystemProperties.set("persist.vendor.btstack.lc3_reset_adv_audio_mask",
+                    "true");
+            Log.w(TAG, "LC3 Codec is not supported. adv_audio_feature_mask = "
+                    + adv_audio_feature_mask);
+        } else {
+            /* Recovery mechanism to re-enable LC3 based features */
+            boolean isLC3Reenabled = SystemProperties.getBoolean(
+                   "persist.vendor.btstack.lc3_reset_adv_audio_mask", false);
+            if (isLC3Reenabled) {
+                adv_audio_feature_mask |= ADV_AUDIO_UNICAST_FEAT_MASK;
+                adv_audio_feature_mask |= ADV_AUDIO_BCS_FEAT_MASK;
+                SystemProperties.set("persist.vendor.service.bt.adv_audio_mask",
+                        String.valueOf(adv_audio_feature_mask));
+                SystemProperties.set("persist.vendor.btstack.lc3_reset_adv_audio_mask",
+                        "false");
+                Log.i(TAG, "LC3 is reenabled. Updated adv_audio_feature_mask = "
+                        + adv_audio_feature_mask);
+            }
         }
     }
 
