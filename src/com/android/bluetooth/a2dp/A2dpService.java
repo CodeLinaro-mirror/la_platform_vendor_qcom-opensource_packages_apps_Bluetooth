@@ -461,7 +461,7 @@ public class A2dpService extends ProfileService {
             // This needs to happen before we inform the audio manager that the device
             // disconnected. Please see comment in updateAndBroadcastActiveDevice() for why.
             if (mActiveDevices.isEmpty()) {
-                updateAndBroadcastActiveDevice(null);// take care the active device intent !!!!
+                updateAndBroadcastActiveDevice(null);
             }
 
             // Make sure the Audio Manager knows the previous Active device is disconnected.
@@ -612,10 +612,6 @@ public class A2dpService extends ProfileService {
                 broadcastCodecConfig(device, codecStatus);
             }
 
-            // Make sure the Audio Manager knows the previous Active device is disconnected,
-            // and the new Active device is connected.
-            // Also, mute and unmute the output during the switch to avoid audio glitches.
-            boolean wasMuted = false;
             int rememberedVolume = -1;
             if (mFactory.getAvrcpTargetService() != null) {
                 rememberedVolume = mFactory.getAvrcpTargetService()
@@ -633,10 +629,6 @@ public class A2dpService extends ProfileService {
             // change, so the Audio Service can reset accordingly the audio
             // feeding parameters in the Audio HAL to the Bluetooth stack.
             mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
-            if (wasMuted) {
-                mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                            AudioManager.ADJUST_UNMUTE, AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
-            }
         }
         return true;
     }
@@ -960,8 +952,8 @@ public class A2dpService extends ProfileService {
         }
     }
 
-    public Boolean isSupportDualA2dpSource() {
-        return SystemProperties.getBoolean("vendor.bt.duala2dpsource", true);
+    public static Boolean isSupportDualA2dpSource() {
+        return SystemProperties.getBoolean("vendor.bt.dual_a2dp_source", true);
     }
 
     private A2dpStateMachine getOrCreateStateMachine(BluetoothDevice device) {

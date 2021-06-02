@@ -205,6 +205,7 @@ public class AvrcpTargetService extends ProfileService {
         mNativeInterface.init(AvrcpTargetService.this);
 
         mVolumeManager = new AvrcpVolumeManager(this, mAudioManager, mNativeInterface);
+        mVolumeManager.init(AvrcpTargetService.this);
 
         UserManager userManager = UserManager.get(getApplicationContext());
         if (userManager.isUserUnlocked()) {
@@ -322,6 +323,24 @@ public class AvrcpTargetService extends ProfileService {
                 AudioManager.FLAG_SHOW_UI | AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
     }
 
+    void setVolumeExt(BluetoothDevice device, int avrcpVolume) {
+        int maxVolume = getMaxVolume(device);
+        if (maxVolume < 0) {
+            Log.w(TAG, "setVolumeExt(" + device + ") failed");
+            return;
+        }
+        int deviceVolume =
+                (int) Math.floor((double) avrcpVolume * maxVolume / AVRCP_MAX_VOL);
+        if (DEBUG) {
+            Log.d(TAG, "setVolumeExt: " + device
+                    + " avrcpVolume=" + avrcpVolume
+                    + " deviceVolume=" + deviceVolume
+                    + " maxVolume=" + maxVolume);
+        }
+
+        mMediaPlayerList.setStreamVolume(device, deviceVolume);
+    }
+
     /**
      * Set the volume on the remote device. Does nothing if the device doesn't support absolute
      * volume.
@@ -342,6 +361,7 @@ public class AvrcpTargetService extends ProfileService {
             Log.d(TAG, "setActivePlayerExt(" + packagename + "," + device + ")");
         }
         mMediaPlayerList.setActivePlayerExt(packagename, device);
+        mVolumeManager.switchVolumeDevice(device);
     }
 
     Metadata getCurrentSongInfo() {
@@ -434,6 +454,14 @@ public class AvrcpTargetService extends ProfileService {
             Log.wtfStack(TAG, "setActiveDevice: could not find device " + device);
         }
         A2dpService.getA2dpService().setActiveDevice(device);
+    }
+
+    int getMaxVolume(BluetoothDevice device) {
+        return mMediaPlayerList.getMaxVolume(device);
+    }
+
+    int getStreamVolume(BluetoothDevice device) {
+        return mMediaPlayerList.getStreamVolume(device);
     }
 
     /**

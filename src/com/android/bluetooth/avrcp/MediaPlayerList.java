@@ -18,6 +18,9 @@ package com.android.bluetooth.avrcp;
 
 import android.annotation.NonNull;
 import android.bluetooth.BluetoothDevice;
+import android.car.Car;
+import android.car.CarNotConnectedException;
+import android.car.media.CarAudioManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -25,6 +28,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.ServiceConnection;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.AudioPlaybackConfiguration;
@@ -32,10 +36,12 @@ import android.media.session.MediaSession;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
 import android.view.KeyEvent;
 
+import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.Utils;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -88,6 +94,9 @@ public class MediaPlayerList {
     private MediaSessionManager mMediaSessionManager;
     private MediaData mCurrMediaData = null;
     private final AudioManager mAudioManager;
+    private Car mCar;
+    private CarAudioManager mCarAudioManager;
+    private int mVolumeGroupId;
 
     private Map<Integer, MediaPlayerWrapper> mMediaPlayers =
             Collections.synchronizedMap(new HashMap<Integer, MediaPlayerWrapper>());
@@ -140,6 +149,15 @@ public class MediaPlayerList {
 
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
         mAudioManager.registerAudioPlaybackCallback(mAudioPlaybackCallback, new Handler(mLooper));
+
+        if (mCar != null && mCar.isConnected()) {
+            mCar.disconnect();
+            mCar = null;
+        }
+        mCar = Car.createCar(context, mConnection);
+        mCar.connect();
+
+        mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
 
         mMediaSessionManager =
                 (MediaSessionManager) context.getSystemService(Context.MEDIA_SESSION_SERVICE);
@@ -209,6 +227,11 @@ public class MediaPlayerList {
 
         mAudioManager.unregisterAudioPlaybackCallback(mAudioPlaybackCallback);
 
+        if (mCar != null && mCar.isConnected()) {
+            mCar.disconnect();
+            mCar = null;
+        }
+
         mMediaPlayerIds.clear();
 
         for (MediaPlayerWrapper player : mMediaPlayers.values()) {
@@ -250,6 +273,22 @@ public class MediaPlayerList {
             }
         }
         return "";
+    }
+
+    int getZoneId(BluetoothDevice device) {
+        int uid = -1;
+        try {
+            uid = mContext.getApplicationContext()
+                        .getPackageManager()
+                        .getApplicationInfo(getPlayerPackageName(device), 0)
+                        .uid;
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        int zoneid = mCarAudioManager.getZoneIdForUid(uid);
+        d("getZoneId(" + device + ") " + " uid " + uid + " zoneid " + zoneid);
+        return zoneid;
     }
 
     MediaPlayerWrapper getActivePlayer() {
@@ -764,6 +803,63 @@ public class MediaPlayerList {
         //mMediaSessionManager.dispatchMediaKeyEvent(event, getPlayerPackageName(device));
     }
 
+    int getMaxVolume(BluetoothDevice device) {
+        int volumeGroupId = -1;
+        int volume = -1;
+        if (A2dpService.isSupportDualA2dpSource()) {
+            // To check a media player has bonded with bt device
+            if (!getPlayerPackageName(device).equals("")) {
+                volumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(
+                                        getZoneId(device), AudioAttributes.USAGE_MEDIA);
+            } else {
+                d("Bond a media player first");
+            }
+        } else {
+            volumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(
+                                    AudioAttributes.USAGE_MEDIA);
+
+        }
+        if (volumeGroupId != -1) {
+             volume = mCarAudioManager.getGroupMaxVolume(volumeGroupId);
+        }
+        d("getMaxVolume(" + device + "): " + volume);
+        return volume;
+    }
+
+    void setStreamVolume(BluetoothDevice device, int volume) {
+        int volumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(
+                                getZoneId(device), AudioAttributes.USAGE_MEDIA);
+        if (DEBUG) {
+            Log.d(TAG, "volumeGroupId " + volumeGroupId + " volume " + volume);
+        }
+
+        try {
+          mCarAudioManager.setGroupVolume(volumeGroupId, volume, AudioManager.FLAG_SHOW_UI);
+        } catch (CarNotConnectedException e) {
+          Log.e(TAG, "Car is not connected!", e);
+        } catch (NullPointerException e) {
+          Log.e(TAG, "mCarAudioManager is NULL!", e);
+        }
+    }
+
+    int getStreamVolume(BluetoothDevice device) {
+        int volume = -1;;
+        int volumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(
+                                getZoneId(device), AudioAttributes.USAGE_MEDIA);
+
+        try {
+          volume = mCarAudioManager.getGroupVolume(volumeGroupId);
+        } catch (CarNotConnectedException e) {
+          Log.e(TAG, "Car is not connected!", e);
+        } catch (NullPointerException e) {
+          Log.e(TAG, "mCarAudioManager is NULL!", e);
+        }
+        if (DEBUG) {
+            Log.d(TAG, "volumeGroupId " + volumeGroupId + " volume " + volume);
+        }
+        return volume;
+    }
+
     private void sendFolderUpdate(boolean availablePlayers, boolean addressedPlayers,
             boolean uids) {
         d("sendFolderUpdate");
@@ -772,22 +868,6 @@ public class MediaPlayerList {
         }
 
         mCallback.run(availablePlayers, addressedPlayers, uids);
-    }
-
-    private void sendMediaUpdateExt(BluetoothDevice device, MediaData data) {
-        d("sendMediaUpdateExt: " + device);
-        if (mCallback == null) {
-            return;
-        }
-
-        // Always have items in the queue
-        if (data.queue.size() == 0) {
-            Log.i(TAG, "sendMediaUpdateExt: Creating a one item queue for a player with no queue");
-            data.queue.add(data.metadata);
-        }
-
-        d("sendMediaUpdateExt state=" + data.state);
-        mCallback.run(device, data);
     }
 
     private void sendMediaUpdate(MediaData data) {
@@ -805,6 +885,22 @@ public class MediaPlayerList {
         Log.d(TAG, "sendMediaUpdate state=" + data.state);
         mCurrMediaData = data;
         mCallback.run(data);
+    }
+
+    private void sendMediaUpdateExt(BluetoothDevice device, MediaData data) {
+        d("sendMediaUpdateExt: " + device);
+        if (mCallback == null) {
+            return;
+        }
+
+        // Always have items in the queue
+        if (data.queue.size() == 0) {
+            Log.i(TAG, "sendMediaUpdateExt: Creating a one item queue for a player with no queue");
+            data.queue.add(data.metadata);
+        }
+
+        d("sendMediaUpdateExt state=" + data.state);
+        mCallback.run(device, data);
     }
 
     private final MediaSessionManager.OnActiveSessionsChangedListener
@@ -1050,6 +1146,24 @@ public class MediaPlayerList {
                     setActivePlayer(mMediaPlayerIds.get(receiver.getPackageName()));
                 }
             };
+
+    private final ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            try {
+                mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
+            } catch (CarNotConnectedException e) {
+                Log.e(TAG, "Car is not connected!", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.e(TAG, "Car service is disconnected");
+        }
+    };
 
     void dump(StringBuilder sb) {
         sb.append("List of MediaControllers: size=" + mMediaPlayers.size() + "\n");

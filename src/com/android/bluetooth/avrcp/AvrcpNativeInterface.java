@@ -294,6 +294,11 @@ public class AvrcpNativeInterface {
         sendVolumeChangedNative(volume);
     }
 
+    void sendVolumeChangedExt(String bdaddr, int volume) {
+        d("sendVolumeChanged: volume=" + volume);
+        sendVolumeChangedNativeExt(bdaddr, volume);
+    }
+
     void setVolume(int volume) {
         d("setVolume: volume=" + volume);
         if (mAvrcpService == null) {
@@ -302,6 +307,18 @@ public class AvrcpNativeInterface {
         }
 
         mAvrcpService.setVolume(volume);
+    }
+
+    void setVolumeExt(String bdaddress, int volume) {
+        BluetoothDevice device =
+            BluetoothAdapter.getDefaultAdapter().getRemoteDevice(bdaddress.toUpperCase());
+        d("setVolumeExt: device" + device + " volume=" + volume);
+        if (mAvrcpService == null) {
+            Log.w(TAG, "setVolumeExt(): AvrcpTargetService is null");
+            return;
+        }
+
+        mAvrcpService.setVolumeExt(device, volume);
     }
 
     private static native void classInitNative();
@@ -319,6 +336,7 @@ public class AvrcpNativeInterface {
     private native boolean connectDeviceNative(String bdaddr);
     private native boolean disconnectDeviceNative(String bdaddr);
     private native void sendVolumeChangedNative(int volume);
+    private native void sendVolumeChangedNativeExt(String bdaddr, int volume);
 
     private static void d(String msg) {
         if (DEBUG) {

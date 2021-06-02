@@ -410,7 +410,7 @@ class MediaPlayerWrapper {
                 e("The callback playback state doesn't match the current state");
             }
 
-            Log.v(TAG, "onPlaybackStateChanged(): " + mPackageName + " mCurrentData.state: " + mCurrentData.state.toString());
+            Log.v(TAG, "onPlaybackStateChanged(): " + mPackageName);
             if (playstateEquals(state, mCurrentData.state)) {
                 Log.w(TAG, "onPlaybackStateChanged(): " + mPackageName
                         + " tried to update with no new data");

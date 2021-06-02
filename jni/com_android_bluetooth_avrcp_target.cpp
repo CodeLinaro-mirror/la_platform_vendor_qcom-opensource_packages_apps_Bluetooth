@@ -67,6 +67,7 @@ static void volumeDeviceConnected(
     ::bluetooth::avrcp::VolumeInterface::VolumeChangedCb cb);
 static void volumeDeviceDisconnected(const RawAddress& address);
 static void setVolume(int8_t volume);
+static void setVolumeExt(const RawAddress& address, int8_t volume);
 
 // Local Variables
 // TODO (apanicke): Use a map here to store the callback in order to
@@ -175,6 +176,8 @@ class VolumeInterfaceImpl : public VolumeInterface {
   }
 
   void SetVolume(int8_t volume) override { setVolume(volume); }
+
+  void SetVolumeExt(const RawAddress& bdaddr, int8_t volume) override { setVolumeExt(bdaddr, volume); }
 };
 static VolumeInterfaceImpl mVolumeInterface;
 
@@ -204,6 +207,7 @@ static jmethodID method_volumeDeviceConnected;
 static jmethodID method_volumeDeviceDisconnected;
 
 static jmethodID method_setVolume;
+static jmethodID method_setVolumeExt;
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
   method_getCurrentSongInfo = env->GetMethodID(
@@ -261,6 +265,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "deviceDisconnected", "(Ljava/lang/String;)V");
 
   method_setVolume = env->GetMethodID(clazz, "setVolume", "(I)V");
+
+  method_setVolumeExt = env->GetMethodID(clazz, "setVolumeExt", "(Ljava/lang/String;I)V");
 
   ALOGI("%s: AvrcpTargetJni initialized!", __func__);
 }
@@ -967,6 +973,21 @@ static void sendVolumeChangedNative(JNIEnv* env, jobject object, jint volume) {
   }
 }
 
+static void sendVolumeChangedNativeExt(JNIEnv* env, jobject object, jstring address, jint volume) {
+  ALOGD("%s", __func__);
+
+  const char* tmp_addr = env->GetStringUTFChars(address, 0);
+  RawAddress bdaddr;
+  bool success = RawAddress::FromString(tmp_addr, bdaddr);
+  env->ReleaseStringUTFChars(address, tmp_addr);
+
+  if (!success) return;
+
+  if (volumeCallbackMap.find(bdaddr) != volumeCallbackMap.end()) {
+    volumeCallbackMap.find(bdaddr)->second.Run(volume & 0x7F);
+  }
+}
+
 static void setVolume(int8_t volume) {
   ALOGD("%s", __func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
@@ -974,6 +995,17 @@ static void setVolume(int8_t volume) {
   if (!sCallbackEnv.valid() || !mJavaInterface) return;
 
   sCallbackEnv->CallVoidMethod(mJavaInterface, method_setVolume, volume);
+}
+
+static void setVolumeExt(const RawAddress& address, int8_t volume) {
+  ALOGD("%s", __func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid() || !mJavaInterface) return;
+
+  jstring j_bdaddr = sCallbackEnv->NewStringUTF(address.ToString().c_str());
+
+  sCallbackEnv->CallVoidMethod(mJavaInterface, method_setVolumeExt, j_bdaddr, volume);
 }
 
 static JNINativeMethod sMethods[] = {
@@ -992,6 +1024,7 @@ static JNINativeMethod sMethods[] = {
     {"disconnectDeviceNative", "(Ljava/lang/String;)Z",
      (void*)disconnectDeviceNative},
     {"sendVolumeChangedNative", "(I)V", (void*)sendVolumeChangedNative},
+    {"sendVolumeChangedNativeExt", "(Ljava/lang/String;I)V", (void*)sendVolumeChangedNativeExt},
 };
 
 int register_com_android_bluetooth_avrcp_target(JNIEnv* env) {
