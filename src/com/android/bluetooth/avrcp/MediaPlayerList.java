@@ -618,7 +618,7 @@ public class MediaPlayerList {
             mMediaPlayerIds.put(packageName, getFreeMediaPlayerId());
         }
 
-        int playerId = mMediaPlayerIds.get(packageName);
+        Integer playerId = mMediaPlayerIds.get(packageName);
 
         // If we already have a controller for the package, then update it with this new controller
         // as the old controller has probably gone stale.
@@ -719,16 +719,18 @@ public class MediaPlayerList {
 
     void setActivePlayerExt(String packagename, BluetoothDevice device) {
         Log.i(TAG, "setActivePlayerExt(" + packagename + "," + device + ")");
-        int playerid;
+        Integer playerid;
         String key = getPlayerPackageName(device);
         Log.i(TAG, "Current package " + key + " for " + device);
         if (!key.equals("")) {
             if (!packagename.equals(key)) {
                 // if a different media player has been bonded with device, remove it
-                d("Removing media player " + key + " from active players");
+                // and update to the new one
+                d("Removing media player " + key + " from mActiveBluetoothDevices");
                 mActiveBluetoothDevices.remove(key);
                 playerid = mMediaPlayerIds.get(key);
                 if (mActivePlayerIdExt.contains(playerid)) {
+                    d("Removing media player " + key + " from mActivePlayerIdExt");
                     mActivePlayerIdExt.remove(playerid);
                     mMediaPlayers.get(playerid).unregisterCallback();
                 }
@@ -743,7 +745,8 @@ public class MediaPlayerList {
         setActivePlayerExt(playerid);
     }
 
-    void setActivePlayerExt(int playerId) {
+    void setActivePlayerExt(int mediaplayerId) {
+        Integer playerId = mediaplayerId;
         d("setActivePlayerExt(" + playerId + ")");
         if (!mMediaPlayers.containsKey(playerId)) {
             e("Player doesn't exist in list(): " + playerId);
