@@ -683,7 +683,7 @@ final class BondStateMachine extends StateMachine {
         }
         infoLog("sspRequestCallback: " + address + " name: " + name + " cod: " + cod
                 + " pairingVariant " + pairingVariant + " passkey: "
-                + (Build.IS_DEBUGGABLE ? passkey : "******"));
+                + (Build.isDebuggable() ? passkey : "******"));
         int variant;
         boolean displayPasskey = false;
         switch (pairingVariant) {
