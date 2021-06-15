@@ -17,6 +17,7 @@
 package com.android.bluetooth.avrcp;
 
 import android.bluetooth.BluetoothA2dp;
+import android.bluetooth.BluetoothAvrcp;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothAvrcpTarget;
@@ -259,6 +260,8 @@ public class AvrcpTargetService extends ProfileService {
     void deviceDisconnected(BluetoothDevice device) {
         Log.i(TAG, "deviceDisconnected: device=" + device);
         mVolumeManager.deviceDisconnected(device);
+        sendMediaKeyEventExt(device, BluetoothAvrcp.PASSTHROUGH_ID_PAUSE, true);
+        sendMediaKeyEventExt(device, BluetoothAvrcp.PASSTHROUGH_ID_PAUSE, false);
     }
 
     /**

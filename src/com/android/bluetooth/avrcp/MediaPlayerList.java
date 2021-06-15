@@ -792,9 +792,7 @@ public class MediaPlayerList {
         d("sendMediaKeyEvent: key=" + key + " pushed=" + pushed);
         int action = pushed ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP;
         KeyEvent event = new KeyEvent(action, AvrcpPassthrough.toKeyCode(key));
-        /* Send a media key event. The receiver will be selected automaticallys
-         * To be fixed !
-         */
+        // Send a media key event. The receiver will be selected automatically
         mMediaSessionManager.dispatchMediaKeyEvent(event);
     }
 
@@ -802,8 +800,8 @@ public class MediaPlayerList {
         d("sendMediaKeyEventExt: device " + device + " key=" + key + " pushed=" + pushed);
         int action = pushed ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP;
         KeyEvent event = new KeyEvent(action, AvrcpPassthrough.toKeyCode(key));
-        //Send a media key event to a media player
-        //mMediaSessionManager.dispatchMediaKeyEvent(event, getPlayerPackageName(device));
+        // Send a media key event to a media player
+        mMediaSessionManager.dispatchMediaKeyEvent(event, getPlayerPackageName(device));
     }
 
     int getMaxVolume(BluetoothDevice device) {
