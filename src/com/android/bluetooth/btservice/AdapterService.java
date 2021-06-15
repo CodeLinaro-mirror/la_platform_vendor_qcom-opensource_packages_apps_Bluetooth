@@ -302,6 +302,7 @@ public class AdapterService extends Service {
     private HearingAidService mHearingAidService;
     private Object mGroupService;
     private SapService mSapService;
+    private GattService mGattService;
 
     ///*_REF
     Object mBCService = null;
@@ -929,6 +930,14 @@ public class AdapterService extends Service {
         setProfileServiceState(GattService.class, BluetoothAdapter.STATE_OFF);
     }
 
+    void unregGattIds() {
+      if (mGattService != null) {
+          mGattService.clearPendingOperations();
+      } else {
+          debugLog("FAILED to clear All registered Gatt Ids");
+      }
+    }
+
     void updateAdapterState(int prevState, int newState) {
         mAdapterProperties.setState(newState);
         if (mCallbacks != null) {
@@ -1443,6 +1452,7 @@ public class AdapterService extends Service {
         mHearingAidService = HearingAidService.getHearingAidService();
         mGroupService = new ServiceFactory().getGroupService();
         mSapService = SapService.getSapService();
+        mGattService = GattService.getGattService();
         if (isAdvBCAAudioFeatEnabled()) {
         ///*_REF
             Class<?> bcClass = null;
