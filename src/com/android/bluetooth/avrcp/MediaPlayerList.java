@@ -636,17 +636,21 @@ public class MediaPlayerList {
                 }
             }
 
-            return playerId;
+        } else {
+            MediaPlayerWrapper newPlayer = MediaPlayerWrapperFactory.wrap(
+                    controller,
+                    mLooper);
+            d("Adding wrapped media player: " + packageName + " at key: "
+                    + mMediaPlayerIds.get(controller.getPackageName()));
+            mMediaPlayers.put(playerId, newPlayer);
+            // It happens when app calls bondPlayerWithDevice but the player is not in player yet and
+            // cannot set active player at that time. When the player can be added to media player list
+            // set active player here
+            if (mActiveBluetoothDevices.containsKey(packageName)) {
+                setActivePlayerExt(playerId);
+            }
         }
 
-        MediaPlayerWrapper newPlayer = MediaPlayerWrapperFactory.wrap(
-                controller,
-                mLooper);
-
-        d("Adding wrapped media player: " + packageName + " at key: "
-                + mMediaPlayerIds.get(controller.getPackageName()));
-
-        mMediaPlayers.put(playerId, newPlayer);
         return playerId;
     }
 
@@ -722,6 +726,7 @@ public class MediaPlayerList {
         Integer playerid;
         String key = getPlayerPackageName(device);
         Log.i(TAG, "Current package " + key + " for " + device);
+        // If a media player has already bonded with the device
         if (!key.equals("")) {
             if (!packagename.equals(key)) {
                 // if a different media player has been bonded with device, remove it
@@ -741,6 +746,12 @@ public class MediaPlayerList {
         }
         Log.d(TAG, "mActiveBluetoothDevices.put(" + packagename + " , " + device + ")");
         mActiveBluetoothDevices.put(packagename, device);
+        // if the media player is not added into media player yet, set it as active player
+        // in onAddressedPlayerChanged
+        if (!mMediaPlayerIds.containsKey(packagename)) {
+            Log.d(TAG, "packagename " + packagename + " is not in media player list yet");
+            return;
+        }
         playerid = mMediaPlayerIds.get(packagename);
         setActivePlayerExt(playerid);
     }
@@ -1104,9 +1115,11 @@ public class MediaPlayerList {
 
                 @Override
                 public void onAddressedPlayerChanged(MediaSession.Token token) {
+                    String packagename;
                     android.media.session.MediaController controller =
                             new android.media.session.MediaController(mContext, token);
-                    Log.i(TAG, "onAddressedPlayerChanged: token=" + controller.getPackageName());
+                    packagename = controller.getPackageName();
+                    Log.i(TAG, "onAddressedPlayerChanged: token=" + packagename);
 
                     if (mMediaSessionManager == null) {
                         Log.w(TAG, "onAddressedPlayerChanged(Token): Unexpected callback "
@@ -1114,15 +1127,13 @@ public class MediaPlayerList {
                         return;
                     }
 
-                    if (!mMediaPlayerIds.containsKey(controller.getPackageName())) {
+                    if (!mMediaPlayerIds.containsKey(packagename)) {
                         // Since we have a controller, we can try to to recover by adding the
                         // player and then setting it as active.
                         Log.w(TAG, "onAddressedPlayerChanged(Token): Addressed Player "
                                 + "changed to a player we didn't have a session for");
                         addMediaPlayer(controller);
                     }
-                    // For dual A2DP target, the address player is set in application
-
                 }
 
                 @Override
