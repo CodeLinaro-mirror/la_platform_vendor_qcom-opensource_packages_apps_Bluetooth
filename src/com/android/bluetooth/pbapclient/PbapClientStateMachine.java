@@ -262,6 +262,9 @@ final class PbapClientStateMachine extends StateMachine {
             onConnectionStateChanged(mCurrentDevice, mMostRecentState,
                     BluetoothProfile.STATE_DISCONNECTING);
             mMostRecentState = BluetoothProfile.STATE_DISCONNECTING;
+            if (mConnectionHandler.isDownloadInProgress()) {
+                mConnectionHandler.abortRequest();
+            }
             mConnectionHandler.obtainMessage(PbapClientConnectionHandler.MSG_DISCONNECT)
                     .sendToTarget();
             sendMessageDelayed(MSG_DISCONNECT_TIMEOUT, DISCONNECT_TIMEOUT);

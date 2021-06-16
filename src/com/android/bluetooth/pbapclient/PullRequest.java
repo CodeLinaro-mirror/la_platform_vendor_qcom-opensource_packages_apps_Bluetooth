@@ -22,6 +22,7 @@ import java.util.List;
 public abstract class PullRequest {
     public String path;
     protected List<VCardEntry> mEntries;
+    private boolean mAborting;
 
     public abstract void onPullComplete();
 
@@ -32,6 +33,14 @@ public abstract class PullRequest {
 
     public void setResults(List<VCardEntry> results) {
         mEntries = results;
+    }
+
+    public void setAborting(boolean aborting) {
+        mAborting = aborting;
+    }
+
+    public boolean isAborting() {
+        return mAborting;
     }
 }
 
