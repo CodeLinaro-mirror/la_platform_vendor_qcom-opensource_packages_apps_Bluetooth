@@ -439,6 +439,9 @@ final class BondStateMachine extends StateMachine {
     }
 
     void bondStateChangeCallback(int status, byte[] address, int newState) {
+        if (mRemoteDevices == null)
+            return;
+
         BluetoothDevice device = mRemoteDevices.getDevice(address);
 
         if (device == null) {
