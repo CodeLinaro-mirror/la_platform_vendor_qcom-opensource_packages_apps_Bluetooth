@@ -325,7 +325,9 @@ class AvrcpControllerStateMachine extends StateMachine {
 
             // By default, sBrowseTree.mSearchNode is invalid because device is null.
             // So it is necessary to update it when there is a active device.
-            mService.sBrowseTree.updateSearchNode(mBrowseTree.mSearchNode);
+            if (mService.sBrowseTree != null) {
+                mService.sBrowseTree.updateSearchNode(mBrowseTree.mSearchNode);
+            }
 
             A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
             if (a2dpSinkService == null) {
@@ -363,10 +365,12 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     synchronized void onBrowsingConnected() {
         if (mBrowsingConnected) return;
-        mService.sBrowseTree.mRootNode.addChild(mBrowseTree.mRootNode);
-        BluetoothMediaBrowserService.notifyChanged(mService
-                .sBrowseTree.mRootNode);
-        mBrowsingConnected = true;
+        if (mService.sBrowseTree != null && mService.sBrowseTree.mRootNode!= null) {
+            mService.sBrowseTree.mRootNode.addChild(mBrowseTree.mRootNode);
+            BluetoothMediaBrowserService.notifyChanged(mService
+                    .sBrowseTree.mRootNode);
+            mBrowsingConnected = true;
+        }
     }
 
     synchronized void onBrowsingDisconnected() {
@@ -379,13 +383,15 @@ class AvrcpControllerStateMachine extends StateMachine {
         if (isActive()) {
             BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mNowPlayingNode);
         }
-        mService.sBrowseTree.mRootNode.removeChild(
-                mBrowseTree.mRootNode);
-        BluetoothMediaBrowserService.notifyChanged(mService
-                .sBrowseTree.mRootNode);
-        removeUnusedArtwork(previousTrackUuid);
-        removeUnusedArtworkFromBrowseTree();
-        mBrowsingConnected = false;
+        if (mService.sBrowseTree != null && mService.sBrowseTree.mRootNode!= null) {
+            mService.sBrowseTree.mRootNode.removeChild(
+                    mBrowseTree.mRootNode);
+            BluetoothMediaBrowserService.notifyChanged(mService
+                    .sBrowseTree.mRootNode);
+            removeUnusedArtwork(previousTrackUuid);
+            removeUnusedArtworkFromBrowseTree();
+            mBrowsingConnected = false;
+        }
     }
 
     synchronized void connectCoverArt() {
