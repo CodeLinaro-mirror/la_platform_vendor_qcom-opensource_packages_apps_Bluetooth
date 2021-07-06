@@ -17,10 +17,12 @@
 package com.android.bluetooth.gatt;
 
 import android.bluetooth.BluetoothUuid;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.AdvertiseData;
 import android.os.ParcelUuid;
 import android.util.Log;
 
+import java.util.List;
 import java.io.ByteArrayOutputStream;
 
 class AdvertiseHelper {
@@ -167,5 +169,14 @@ class AdvertiseHelper {
         }
 
         return ret.toByteArray();
+    }
+
+    public static String[] advertiseWhiteListAddrToString(List<BluetoothDevice> btDevices) {
+        String ret[] = new String[btDevices.size()];
+        for(int i=0; i< btDevices.size(); i++) {
+            ret[i] = btDevices.get(i).getAddress();
+        }
+
+        return ret;
     }
 }
