@@ -326,6 +326,36 @@ public class HeadsetClientStateMachine extends StateMachine {
         // itself (i.e. removing an element from Set removes it from the Map hence use copy).
         Set<Integer> currCallIdSet = new HashSet<Integer>();
         currCallIdSet.addAll(mCalls.keySet());
+
+        BluetoothHeadsetClientCall cUnassigned = mCalls.get(HF_ORIGINATED_CALL_ID);
+        if ((cUnassigned != null) && (cUnassigned.getNumber() != null)) {
+            boolean needAssociate = false;
+            logD("Unassigned call exsists, number: " + cUnassigned.getNumber());
+
+            for (Integer idx : mCallsUpdate.keySet()) {
+                BluetoothHeadsetClientCall cUpdated = mCallsUpdate.get(idx);
+                if ((cUpdated == null) || (cUpdated.getNumber() == null)) {
+                    logD("Updated call invalid, idx:" + idx);
+                    continue;
+                }
+
+                logD("Updated call idx: " + idx + " number: " + cUpdated.getNumber());
+
+                // Associate out going call to CLCC update call with same number.
+                if (cUnassigned.getNumber().equals(cUpdated.getNumber())) {
+                    needAssociate = true;
+                }
+            }
+
+            if (!needAssociate) {
+                // Terminate out going call.
+                cUnassigned.setState(BluetoothHeadsetClientCall.CALL_STATE_TERMINATED);
+                logD("Cannot find matched call in CLCC, terminate original out going call.");
+                sendCallChangedIntent(cUnassigned);
+                mCalls.remove(HF_ORIGINATED_CALL_ID);
+            }
+        }
+
         // Remove the entry for unassigned call.
         currCallIdSet.remove(HF_ORIGINATED_CALL_ID);
 
