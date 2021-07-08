@@ -152,11 +152,20 @@ class AdapterProperties {
     private boolean mVoiceDualSCO;
     private boolean mVoiceTWSPLUSeSCOAG;
     private boolean mSWBVoicewithAptxAdaptiveAG;
+    private boolean mSplitA2DPSourceAACABR;
+    private boolean mSplitA2DPSourceTxSplitAPTXADAPTIVE;
     private boolean mBroadcastAudioTxwithEC_2_5;
     private boolean mBroadcastAudioTxwithEC_3_9;
     private boolean mBroadcastAudioRxwithEC_2_5;
     private boolean mBroadcastAudioRxwithEC_3_9;
     private boolean mAddonFeaturesSupported;
+    private boolean mHostAdvAudioUnicastFeatureSupported;
+    private boolean mHostAdvAudioBCAFeatureSupported;
+    private boolean mHostAdvAudioBCSFeatureSupported;
+    private boolean mHostAdvAudioStereoRecordingFeatureSupported;
+    private boolean mHostAdvAudioLC3QFeatureSupported;
+    private boolean mHostQHSFeatureSupported;
+    private boolean mHostAddonFeaturesSupported;
 
     private int mIsDynamicAudioBufferSizeSupported;
     private int mDynamicAudioBufferSizeSupportedCodecsGroup1;
@@ -735,6 +744,20 @@ class AdapterProperties {
     }
 
     /**
+     * @return Split A2DP Source AAC ABR status
+     */
+    boolean isSplitA2DPSourceAACABR() {
+        return mSplitA2DPSourceAACABR;
+    }
+
+    /**
+     * @return Split A2DP Source Tx-Split APTX ADAPTIVE status
+     */
+    boolean isSplitA2DPSourceTxSplitAPTXADAPTIVE() {
+        return mSplitA2DPSourceTxSplitAPTXADAPTIVE;
+    }
+
+    /**
      * @return Broadcast Audio Tx with EC_2_5 status
      */
     boolean isBroadcastAudioTxwithEC_2_5() {
@@ -767,6 +790,55 @@ class AdapterProperties {
      */
     boolean isAddonFeaturesCmdSupported() {
         return mAddonFeaturesSupported;
+    }
+
+     /**
+     * @return Host Adv Audio Unicast feature supported
+     */
+    boolean isHostAdvAudioUnicastFeatureSupported() {
+        return mHostAdvAudioUnicastFeatureSupported;
+    }
+
+    /**
+     * @return Host Adv Audio BCA feature supported
+     */
+    boolean isHostAdvAudioBCAFeatureSupported() {
+        return mHostAdvAudioBCAFeatureSupported;
+    }
+
+    /**
+     * @return Host Adv Audio BCS feature supported
+     */
+    boolean isHostAdvAudioBCSFeatureSupported() {
+        return mHostAdvAudioBCSFeatureSupported;
+    }
+
+    /**
+     * @return Host Adv Audio StereoRecording feature supported
+     */
+    boolean isHostAdvAudioStereoRecordingFeatureSupported() {
+        return mHostAdvAudioStereoRecordingFeatureSupported;
+    }
+
+    /**
+     * @return Host Adv Audio LC3Q feature supported
+     */
+    boolean isHostAdvAudioLC3QFeatureSupported() {
+        return mHostAdvAudioLC3QFeatureSupported;
+    }
+
+    /**
+     * @return Host QHS feature supported
+     */
+    boolean isHostQHSFeatureSupported() {
+        return mHostQHSFeatureSupported;
+    }
+
+    /**
+     * @return Host AddonFeatures Support status
+     */
+    boolean isHostAddonFeaturesSupported() {
+        return mHostAddonFeaturesSupported;
     }
 
     /**
@@ -1304,6 +1376,8 @@ class AdapterProperties {
             mVoiceDualSCO = ((0x01 & ((int) val[3])) != 0);
             mVoiceTWSPLUSeSCOAG = ((0x02 & ((int) val[3])) != 0);
             mSWBVoicewithAptxAdaptiveAG = ((0x04 & ((int) val[3])) != 0);
+            mSplitA2DPSourceAACABR =  ((0x40 & ((int) val[3])) != 0);
+            mSplitA2DPSourceTxSplitAPTXADAPTIVE = ((0x80 & ((int) val[3])) != 0);
             mBroadcastAudioTxwithEC_2_5 = ((0x01 & ((int) val[4])) != 0);
             mBroadcastAudioTxwithEC_3_9 = ((0x02 & ((int) val[4])) != 0);
             mBroadcastAudioRxwithEC_2_5 = ((0x04 & ((int) val[4])) != 0);
@@ -1334,7 +1408,9 @@ class AdapterProperties {
                     + "\n mSplitA2DPSinkAPTXTWSPLUS = " + mSplitA2DPSinkAPTXTWSPLUS
                     + "\n mVoiceDualSCO = " + mVoiceDualSCO + "\n mVoiceTWSPLUSeSCOAG = "
                     + mVoiceTWSPLUSeSCOAG + "\n mSWBVoicewithAptxAdaptiveAG = "
-                    + mSWBVoicewithAptxAdaptiveAG + "\n BroadcastAudioTxwithEC_2_5 = "
+                    + mSWBVoicewithAptxAdaptiveAG + "\n SplitA2DPSourceAACABR = "
+                    + mSplitA2DPSourceAACABR + "\n SplitA2DPSourceTxSplitAPTXADAPTIVE = "
+                    + mSplitA2DPSourceTxSplitAPTXADAPTIVE + "\n BroadcastAudioTxwithEC_2_5 = "
                     + mBroadcastAudioTxwithEC_2_5 + "\n mBroadcastAudioTxwithEC_3_9 = "
                     + mBroadcastAudioTxwithEC_3_9 + "\n mBroadcastAudioRxwithEC_2_5 = "
                     + mBroadcastAudioRxwithEC_2_5 + "\n mBroadcastAudioRxwithEC_3_9= "
@@ -1343,7 +1419,37 @@ class AdapterProperties {
     }
 
     public void updateHostFeatureSupport(byte[] val) {
-         Log.d(TAG, " Host Features are not supported currently ");
+         mHostAddonFeaturesSupported = (val.length != 0);
+         if (!mHostAddonFeaturesSupported) {
+             if (DBG) {
+                 Log.d(TAG, "BT_PROPERTY_HOST_ADD_ON_FEATURES: host add-on features not supported");
+             }
+         } else {
+             mHostAdvAudioUnicastFeatureSupported = ((0x01 & ((int) val[0])) != 0);
+             mHostAdvAudioBCAFeatureSupported = ((0x02 & ((int) val[0])) != 0);
+             mHostAdvAudioBCSFeatureSupported = ((0x04 & ((int) val[0])) != 0);
+             mHostAdvAudioStereoRecordingFeatureSupported = ((0x08 & ((int) val[0])) != 0);
+             mHostAdvAudioLC3QFeatureSupported = ((0x10 & ((int) val[0])) != 0);
+             mHostQHSFeatureSupported = ((0x20 & ((int) val[0])) != 0);
+             /* bit 7 and 8 of first byte reserved for future use
+             */
+
+             if (DBG) {
+                 Log.d(TAG, "BT_PROPERTY_HOST_ADD_ON_FEATURES: update from BT HAL"
+                         + "\n mHostAdvAudioUnicastFeatureSupported = "
+                         + mHostAdvAudioUnicastFeatureSupported
+                         + "\n mHostAdvAudioBCAFeatureSupported = "
+                         + mHostAdvAudioBCAFeatureSupported
+                         + "\n mHostAdvAudioBCSFeatureSupported = "
+                         + mHostAdvAudioBCSFeatureSupported
+                         + "\n mHostAdvAudioStereoRecordingFeatureSupported = "
+                         + mHostAdvAudioStereoRecordingFeatureSupported
+                         + "\n mHostAdvAudioLC3QFeatureSupported = "
+                         + mHostAdvAudioLC3QFeatureSupported
+                         + "\n mHostQHSFeatureSupported = "
+                         + mHostQHSFeatureSupported);
+             }
+         }
     }
 
     private void updateDynamicAudioBufferSupport(byte[] val) {

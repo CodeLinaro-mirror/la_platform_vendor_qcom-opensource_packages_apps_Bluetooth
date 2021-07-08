@@ -73,7 +73,6 @@ public class HidHostService extends ProfileService {
     private static final int MESSAGE_GET_REPORT = 8;
     private static final int MESSAGE_ON_GET_REPORT = 9;
     private static final int MESSAGE_SET_REPORT = 10;
-    private static final int MESSAGE_SEND_DATA = 11;
     private static final int MESSAGE_ON_VIRTUAL_UNPLUG = 12;
     private static final int MESSAGE_ON_HANDSHAKE = 13;
     private static final int MESSAGE_GET_IDLE_TIME = 14;
@@ -273,15 +272,6 @@ public class HidHostService extends ProfileService {
                     String report = data.getString(BluetoothHidHost.EXTRA_REPORT);
                     if (!setReportNative(Utils.getByteAddress(device), reportType, report)) {
                         Log.e(TAG, "Error: set report native returns false");
-                    }
-                }
-                break;
-                case MESSAGE_SEND_DATA: {
-                    BluetoothDevice device = (BluetoothDevice) msg.obj;
-                    Bundle data = msg.getData();
-                    String report = data.getString(BluetoothHidHost.EXTRA_REPORT);
-                    if (!sendDataNative(Utils.getByteAddress(device), report)) {
-                        Log.e(TAG, "Error: send data native returns false");
                     }
                 }
                 break;
@@ -496,7 +486,7 @@ public class HidHostService extends ProfileService {
      * Connects the hid host profile for the passed in device
      *
      * @param device is the device with which to connect the hid host profile
-     * @return true if connection is successful, false otherwise
+     * @return true if connection request is passed down to mHandler.
      */
     public boolean connect(BluetoothDevice device) {
         if (DBG) Log.d(TAG, "connect: " + device.getAddress());
@@ -627,8 +617,6 @@ public class HidHostService extends ProfileService {
         Message msg = mHandler.obtainMessage(MESSAGE_GET_PROTOCOL_MODE, device);
         mHandler.sendMessage(msg);
         return true;
-        /* String objectPath = getObjectPathFromAddress(device.getAddress());
-            return getProtocolModeInputDeviceNative(objectPath);*/
     }
 
     boolean virtualUnplug(BluetoothDevice device) {
