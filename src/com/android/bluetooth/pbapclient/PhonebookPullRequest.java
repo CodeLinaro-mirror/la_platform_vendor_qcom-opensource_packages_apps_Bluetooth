@@ -65,6 +65,10 @@ public class PhonebookPullRequest extends PullRequest {
                     Log.e(TAG, "Interrupted durring insert.");
                     break;
                 }
+                if (isAborting()) {
+                    Log.d(TAG, "Break vcard parse");
+                    break;
+                }
                 int numberOfOperations = insertOperations.size();
                 // Append current vcard to list of insert operations.
                 e.constructInsertOperations(contactsProvider, insertOperations);

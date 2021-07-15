@@ -70,7 +70,9 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <!-- This permission is required to monitor car power state. -->
     <uses-permission android:name="android.car.permission.CAR_POWER" />
+    <!-- This permission is required to control car audio. -->
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME" />
+    <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS" />
 
     <uses-sdk android:minSdkVersion="14"/>
 

@@ -95,6 +95,7 @@ abstract class BluetoothPbapRequest {
         } catch (IOException e) {
             Log.e(TAG, "IOException occured when processing request", e);
             mResponseCode = ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
+            mOp.close();
 
             throw e;
         }

@@ -1587,6 +1587,9 @@ class AvrcpControllerStateMachine extends StateMachine {
             if (!isAvrcpVersion1_0()) {
                 notifyTrackChanged(mAddressedPlayer.getCurrentTrack().getMetadata());
             }
+            // Update media session repeat / shuffle status
+            mAddressedPlayer.setCurrentPlayerApplicationSettings(
+                    mAddressedPlayer.getCurrentPlayerApplicationSettings());
         }
         broadcastActiveDeviceChanged(result);
     }

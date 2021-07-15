@@ -142,10 +142,21 @@ class AvrcpPlayer {
         Log.d(TAG, "Settings changed");
         mCurrentPlayerApplicationSettings = playerApplicationSettings;
         MediaSessionCompat session = BluetoothMediaBrowserService.getSession();
-        session.setRepeatMode(mCurrentPlayerApplicationSettings.getSetting(
-                PlayerApplicationSettings.REPEAT_STATUS));
-        session.setShuffleMode(mCurrentPlayerApplicationSettings.getSetting(
-                PlayerApplicationSettings.SHUFFLE_STATUS));
+        if (mCurrentPlayerApplicationSettings == null) {
+            session.setRepeatMode(PlaybackStateCompat.REPEAT_MODE_NONE);
+            session.setShuffleMode(PlaybackStateCompat.SHUFFLE_MODE_NONE);
+        } else {
+            session.setRepeatMode(mCurrentPlayerApplicationSettings.getSetting(
+                    PlayerApplicationSettings.REPEAT_STATUS));
+            session.setShuffleMode(mCurrentPlayerApplicationSettings.getSetting(
+                    PlayerApplicationSettings.SHUFFLE_STATUS));
+        }
+    }
+
+
+    public PlayerApplicationSettings getCurrentPlayerApplicationSettings() {
+        Log.d(TAG, "getCurrentPlayerApplicationSettings");
+        return mCurrentPlayerApplicationSettings;
     }
 
     public int getPlayStatus() {

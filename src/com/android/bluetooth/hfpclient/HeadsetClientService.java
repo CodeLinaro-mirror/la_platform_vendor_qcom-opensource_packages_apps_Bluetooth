@@ -722,6 +722,26 @@ public class HeadsetClientService extends ProfileService {
 
     BluetoothHeadsetClientCall dial(BluetoothDevice device, String number) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        /* Phonecalls from a single device are supported, hang up any calls on the other phone */
+        synchronized (this) {
+            for (Map.Entry<BluetoothDevice, HeadsetClientStateMachine> entry : mStateMachineMap
+                    .entrySet()) {
+                if (entry.getValue() == null || entry.getKey().equals(device)) {
+                    continue;
+                }
+                int connectionState = entry.getValue().getConnectionState(entry.getKey());
+                if (DBG) {
+                    Log.d(TAG,
+                            "Dail a call on Raido " + device + ". Possibly disconnecting on "
+                                    + entry.getValue());
+                }
+                if (connectionState == BluetoothProfile.STATE_CONNECTED) {
+                    entry.getValue()
+                            .obtainMessage(HeadsetClientStateMachine.TERMINATE_CALL)
+                            .sendToTarget();
+                }
+            }
+        }
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
