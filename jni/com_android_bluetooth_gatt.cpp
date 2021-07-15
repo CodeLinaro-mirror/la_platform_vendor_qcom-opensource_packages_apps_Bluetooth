@@ -176,6 +176,7 @@ static jmethodID method_onAdvertisingParametersUpdated;
 static jmethodID method_onPeriodicAdvertisingParametersUpdated;
 static jmethodID method_onPeriodicAdvertisingDataSet;
 static jmethodID method_onPeriodicAdvertisingEnabled;
+static jmethodID method_onAdvertisingWhiteListUpdated;
 
 /**
  * Periodic scanner callback methods
@@ -1681,6 +1682,8 @@ static void advertiseClassInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "onPeriodicAdvertisingDataSet", "(II)V");
   method_onPeriodicAdvertisingEnabled =
       env->GetMethodID(clazz, "onPeriodicAdvertisingEnabled", "(IZI)V");
+  method_onAdvertisingWhiteListUpdated = env->GetMethodID(
+        clazz, "onAdvertisingWhiteListUpdated", "(II)V");
 }
 
 static void advertiseInitializeNative(JNIEnv* env, jobject object) {
@@ -1800,7 +1803,8 @@ static void startAdvertisingSetNative(JNIEnv* env, jobject object,
                                       jbyteArray scan_resp,
                                       jobject periodic_parameters,
                                       jbyteArray periodic_data, jint duration,
-                                      jint maxExtAdvEvents, jint reg_id) {
+                                      jint maxExtAdvEvents, jint reg_id,
+                                      jobjectArray btDevices) {
   if (!sGattIf) return;
 
   jbyte* scan_resp_data = env->GetByteArrayElements(scan_resp, NULL);
@@ -1824,10 +1828,22 @@ static void startAdvertisingSetNative(JNIEnv* env, jobject object,
       periodic_data_data, periodic_data_data + periodic_data_len);
   env->ReleaseByteArrayElements(periodic_data, periodic_data_data, JNI_ABORT);
 
+  std::vector<RawAddress> bd_addr_list;
+  if(btDevices != NULL) {
+    int btDevCount = env->GetArrayLength(btDevices);
+    RawAddress bda[btDevCount];
+    for (int i=0; i<btDevCount; i++) {
+      jstring bdAddr = (jstring) (env->GetObjectArrayElement(btDevices, i));
+      bda[i] = str2addr(env, bdAddr);
+    }
+    std::vector<RawAddress> bd_list(bda, bda + btDevCount);
+    bd_addr_list = bd_list;
+  }
+
   sGattIf->advertiser->StartAdvertisingSet(
       base::Bind(&ble_advertising_set_started_cb, reg_id), params, data_vec,
       scan_resp_vec, periodicParams, periodic_data_vec, duration,
-      maxExtAdvEvents, base::Bind(ble_advertising_set_timeout_cb));
+      maxExtAdvEvents, bd_addr_list, base::Bind(ble_advertising_set_timeout_cb));
 }
 
 static void stopAdvertisingSetNative(JNIEnv* env, jobject object,
@@ -1964,6 +1980,19 @@ static void setPeriodicAdvertisingEnableNative(JNIEnv* env, jobject object,
       base::Bind(&enablePeriodicSetCb, advertiser_id, enable));
 }
 
+static void updateAdvertisingWhiteListNative(
+    JNIEnv* env, jobject object, jint advertiser_id,
+    jstring bd_addr, jboolean to_add) {
+  if (!sGattIf) return;
+
+  RawAddress bt_dev_addr = str2addr(env, bd_addr);
+  sGattIf->advertiser->UpdateAdvertisingWhiteList(
+      advertiser_id, bt_dev_addr, to_add,
+      base::Bind(&callJniCallback,
+                 method_onAdvertisingWhiteListUpdated, advertiser_id));
+}
+
+
 static void periodicScanClassInitNative(JNIEnv* env, jclass clazz) {
   method_onSyncStarted =
       env->GetMethodID(clazz, "onSyncStarted", "(IIIILjava/lang/String;III)V");
@@ -2070,7 +2099,7 @@ static JNINativeMethod sAdvertiseMethods[] = {
     {"cleanupNative", "()V", (void*)advertiseCleanupNative},
     {"startAdvertisingSetNative",
      "(Landroid/bluetooth/le/AdvertisingSetParameters;[B[BLandroid/bluetooth/"
-     "le/PeriodicAdvertisingParameters;[BIII)V",
+     "le/PeriodicAdvertisingParameters;[BIII[Ljava/lang/String;)V",
      (void*)startAdvertisingSetNative},
     {"getOwnAddressNative", "(I)V", (void*)getOwnAddressNative},
     {"stopAdvertisingSetNative", "(I)V", (void*)stopAdvertisingSetNative},
@@ -2088,6 +2117,8 @@ static JNINativeMethod sAdvertiseMethods[] = {
      (void*)setPeriodicAdvertisingDataNative},
     {"setPeriodicAdvertisingEnableNative", "(IZ)V",
      (void*)setPeriodicAdvertisingEnableNative},
+     {"updateAdvertisingWhiteListNative", "(ILjava/lang/String;Z)V",
+     (void*)updateAdvertisingWhiteListNative},
 };
 
 // JNI functions defined in PeriodicScanManager class.

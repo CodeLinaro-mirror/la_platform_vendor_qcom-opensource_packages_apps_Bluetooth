@@ -16,6 +16,7 @@
 
 package com.android.bluetooth.gatt;
 
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertisingSetParameters;
 import android.bluetooth.le.IAdvertisingSetCallback;
@@ -33,6 +34,7 @@ import com.android.bluetooth.btservice.AdapterService;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 /**
  * Manages Bluetooth LE advertising operations and interacts with bluedroid stack. TODO: add tests.
@@ -185,9 +187,10 @@ class AdvertiseManager {
     void startAdvertisingSet(AdvertisingSetParameters parameters, AdvertiseData advertiseData,
             AdvertiseData scanResponse, PeriodicAdvertisingParameters periodicParameters,
             AdvertiseData periodicData, int duration, int maxExtAdvEvents,
-            IAdvertisingSetCallback callback) {
+            IAdvertisingSetCallback callback, List<BluetoothDevice> btDevices) {
         AdvertisingSetDeathRecipient deathRecipient = new AdvertisingSetDeathRecipient(callback);
         IBinder binder = toBinder(callback);
+        String[] bdAddrList = null;
         try {
             binder.linkToDeath(deathRecipient, 0);
         } catch (RemoteException e) {
@@ -198,6 +201,8 @@ class AdvertiseManager {
         byte[] advDataBytes = AdvertiseHelper.advertiseDataToBytes(advertiseData, deviceName);
         byte[] scanResponseBytes = AdvertiseHelper.advertiseDataToBytes(scanResponse, deviceName);
         byte[] periodicDataBytes = AdvertiseHelper.advertiseDataToBytes(periodicData, deviceName);
+        if(btDevices != null)
+            bdAddrList = AdvertiseHelper.advertiseWhiteListAddrToString(btDevices);
 
         int cbId = --sTempRegistrationId;
         mAdvertisers.put(binder, new AdvertiserInfo(cbId, deathRecipient, callback));
@@ -206,7 +211,7 @@ class AdvertiseManager {
             Log.d(TAG, "startAdvertisingSet() - reg_id=" + cbId + ", callback: " + binder);
         }
         startAdvertisingSetNative(parameters, advDataBytes, scanResponseBytes, periodicParameters,
-                periodicDataBytes, duration, maxExtAdvEvents, cbId);
+                periodicDataBytes, duration, maxExtAdvEvents, cbId, bdAddrList);
     }
 
     void onOwnAddressRead(int advertiserId, int addressType, String address)
@@ -334,6 +339,11 @@ class AdvertiseManager {
         setPeriodicAdvertisingEnableNative(advertiserId, enable);
     }
 
+    void updateAdvertisingWhiteList(int advertiserId, BluetoothDevice btDevice, boolean toAdd) {
+        String bdAddr = btDevice.getAddress();
+        updateAdvertisingWhiteListNative(advertiserId, bdAddr, toAdd);
+    }
+
     void onAdvertisingDataSet(int advertiserId, int status) throws Exception {
         if (DBG) {
             Log.d(TAG,
@@ -434,6 +444,23 @@ class AdvertiseManager {
         callback.onPeriodicAdvertisingEnabled(advertiserId, enable, status);
     }
 
+    void onAdvertisingWhiteListUpdated(int advertiser_id, int status) throws Exception {
+        if (DBG) {
+            Log.d(TAG, "onAdvertisingWhiteListUpdated() advertiser_id=" + advertiser_id
+                            + ", status=" + status);
+        }
+
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiser_id);
+        if (entry == null) {
+            Log.i(TAG, "onAdvertisingWhiteListUpdated() - bad advertiser_id "
+                            + advertiser_id);
+            return;
+        }
+
+        IAdvertisingSetCallback callback = entry.getValue().callback;
+        callback.onAdvertisingWhiteListUpdated(advertiser_id, status);
+    }
+
     static {
         classInitNative();
     }
@@ -447,7 +474,7 @@ class AdvertiseManager {
     private native void startAdvertisingSetNative(AdvertisingSetParameters parameters,
             byte[] advertiseData, byte[] scanResponse,
             PeriodicAdvertisingParameters periodicParameters, byte[] periodicData, int duration,
-            int maxExtAdvEvents, int regId);
+            int maxExtAdvEvents, int regId, String[] bdAddrList);
 
     private native void getOwnAddressNative(int advertiserId);
 
@@ -469,4 +496,6 @@ class AdvertiseManager {
     private native void setPeriodicAdvertisingDataNative(int advertiserId, byte[] data);
 
     private native void setPeriodicAdvertisingEnableNative(int advertiserId, boolean enable);
+    private native void updateAdvertisingWhiteListNative(
+            int advertiserId, String bdAddr, boolean toAdd);
 }
