@@ -272,7 +272,7 @@ static void current_calls_cb(const RawAddress* bd_addr, int index,
   if (!addr.get()) return;
 
   const char null_str[] = "";
-  if (!sCallbackEnv.isValidUtf(number)) {
+  if (!number || !sCallbackEnv.isValidUtf(number)) {
     android_errorWriteLog(0x534e4554, "109838537");
     ALOGE("%s: number is not a valid UTF string.", __func__);
     number = null_str;

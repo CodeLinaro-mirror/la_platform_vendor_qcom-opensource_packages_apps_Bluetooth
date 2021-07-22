@@ -55,6 +55,9 @@ public class HeadsetClientService extends ProfileService {
     private static final boolean DBG = false;
     private static final String TAG = "HeadsetClientService";
 
+    private static final String ACTION_AUDIO_CONN_DISCONN = "android.bluetooth.action.HFP_CLIENT_AUDIO_ACTION";
+    private static final String EXTRA_AUDIO_STATE = "android.bluetooth.extra.audio.STATE";
+    private static final String ACTION_QUERY_NETWORK = "android.bluetooth.action.HFP_CLIENT_NETWORK_NAME";
     private HashMap<BluetoothDevice, HeadsetClientStateMachine> mStateMachineMap = new HashMap<>();
     private static HeadsetClientService sHeadsetClientService;
     private NativeInterface mNativeInterface = null;
@@ -64,7 +67,8 @@ public class HeadsetClientService extends ProfileService {
     private AudioManager mAudioManager = null;
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
-
+    private static final int MAX_HFP_CLIENTS_SUPPORTED = 1;
+    private static final int CONNECT_AUDIO_DELAY = 5000;
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
 
     @Override
@@ -101,6 +105,8 @@ public class HeadsetClientService extends ProfileService {
         mStateMachineMap.clear();
 
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
+        filter.addAction(ACTION_AUDIO_CONN_DISCONN);
+        filter.addAction(ACTION_QUERY_NETWORK);
         registerReceiver(mBroadcastReceiver, filter);
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
@@ -183,7 +189,33 @@ public class HeadsetClientService extends ProfileService {
                         }
                     }
                 }
-            }
+            } else if (intent.getAction().equals(ACTION_AUDIO_CONN_DISCONN)) {
+                /*Audio connect changes to pass pts tests ATAH/BV-01-1, ORR/BV-02-1 */
+                Log.e(TAG, "HeadsetClientService -  Received ACTION_AUDIO_CONN_DISCONN");
+                int con_status = intent.getIntExtra( EXTRA_AUDIO_STATE, 0);
+                Log.d(TAG, " HeadsetClientService con_status" + con_status);
+                for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                    if (sm != null) {
+                        if(con_status == 1){
+                            Log.d(TAG, " HeadsetClientService AUDIO_CONNECT message to statemachine");
+                            sm.sendMessage(
+                                HeadsetClientStateMachine.CONNECT_AUDIO );
+                        } else {
+                            Log.d(TAG, " HeadsetClientService AUDIO_DISCONNECT message to statemachine");
+                            sm.sendMessage(
+                                HeadsetClientStateMachine.DISCONNECT_AUDIO );
+                        }
+                    }
+                }
+            } else if (action.equals(ACTION_QUERY_NETWORK)) {
+              Log.d(TAG, "Received HFP_CLIENT_NETWORK_NAME action");
+              for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                  if (sm != null) {
+                      sm.sendMessage(
+                              HeadsetClientStateMachine.QUERY_OPERATOR_NAME);
+                  }
+              }
+           }
         }
     };
 
@@ -482,6 +514,13 @@ public class HeadsetClientService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "connect " + device);
         }
+
+        if (getConnectedDevices().size() >= MAX_HFP_CLIENTS_SUPPORTED) {
+            Log.w(TAG, "HFPCLIENT Max Devices limit = " + MAX_HFP_CLIENTS_SUPPORTED +
+                       "reached, Igonre connect request for " + device);
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -672,7 +711,11 @@ public class HeadsetClientService extends ProfileService {
         if (sm.isAudioOn()) {
             return false;
         }
-        sm.sendMessage(HeadsetClientStateMachine.CONNECT_AUDIO);
+        /* Sending message with a delay, In most cases SCO will be
+         * initiated by AG, In case its not done till 5 sec, DUT
+         * ( HFP-Client ) will send SCO request from here
+         */
+        sm.sendMessageDelayed(HeadsetClientStateMachine.CONNECT_AUDIO, CONNECT_AUDIO_DELAY);
         return true;
     }
 
