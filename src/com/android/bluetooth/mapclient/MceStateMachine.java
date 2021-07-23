@@ -54,6 +54,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Message;
 import android.provider.Telephony;
+import android.os.SystemProperties;
 import android.telecom.PhoneAccount;
 import android.telephony.SmsManager;
 import android.util.Log;
@@ -71,8 +72,11 @@ import com.android.vcard.VCardConstants;
 import com.android.vcard.VCardEntry;
 import com.android.vcard.VCardProperty;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -121,6 +125,31 @@ class MceStateMachine extends StateMachine {
     private static final String FOLDER_SENT = "sent";
     private static final String INBOX_PATH = "telecom/msg/inbox";
 
+    /* Properties for MAP filter */
+    private final static String BLUETOOTH_MAP_FILTER_USE_PROPERTY = "vendor.bt.pts.mce.useproperty";
+    private final static String BLUETOOTH_MAP_FILTER_MESSAGE_TYPE = "vendor.bt.pts.mce.messagetype";
+    private final static String BLUETOOTH_MAP_FILTER_READ_STATUS = "vendor.bt.pts.mce.readstatus";
+    private final static String BLUETOOTH_MAP_FILTER_PERIODBEGIN = "vendor.bt.pts.mce.periodbegin";
+    private final static String BLUETOOTH_MAP_FILTER_PERIODEND = "vendor.bt.pts.mce.periodend";
+    private final static String BLUETOOTH_MAP_FILTER_RECIPIENT = "vendor.bt.pts.mce.recipient";
+    private final static String BLUETOOTH_MAP_FILTER_ORIGINATOR = "vendor.bt.pts.mce.originator";
+    private final static String BLUETOOTH_MAP_FILTER_PRIORITY = "vendor.bt.pts.mce.priority";
+
+    /* Properties for MAP PTS test */
+    // Set "vendor.bt.mce.test.upload" to true to test PTS upload feature case
+    // MAP/MCE/MMU/BV-01-I
+    // When test upload feature with PTS, NotificationRegistration and UpdateInbox
+    // should be disabled during enter connected status, or PTS takes the 2 requests
+    // as under test requests and reports failure.
+    private final static String BLUETOOTH_MAP_TEST_UPLOAD = "vendor.bt.pts.mce.test.upload";
+    private final static String BLUETOOTH_MAP_AUTO_GET_NEW_MESSAGE = "vendor.bt.pts.mce.autogetnewmessage";
+
+    private final static String MESSAGES_FILTER_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+
+    // Instance id under pts test
+    private final static String BLUETOOTH_MAP_INSTANCE_UNDER_TEST = "vendor.bt.pts.mce.instance";
+
+    private static final int UNSET = -1;
 
     // Connectivity States
     private int mPreviousState = BluetoothProfile.STATE_DISCONNECTED;
@@ -472,8 +501,10 @@ class MceStateMachine extends StateMachine {
                                     + Utils.getName(mDevice));
                             return NOT_HANDLED;
                         }
-                        mMasClient = new MasClient(mDevice, MceStateMachine.this, record);
-                        setDefaultMessageType(record);
+                        if (isValidInstance(record.getMasInstanceId())) {
+                            mMasClient = new MasClient(mDevice, MceStateMachine.this, record);
+                            setDefaultMessageType(record);
+                        }
                     }
                     break;
 
@@ -510,6 +541,33 @@ class MceStateMachine extends StateMachine {
             mPreviousState = BluetoothProfile.STATE_CONNECTING;
             removeMessages(MSG_CONNECTING_TIMEOUT);
         }
+
+        // Return true is not in PTS test or it is the specified instance under pts test
+        private boolean isValidInstance(int instance) {
+            if (DBG) {
+                Log.d(TAG, "instance " + instance + ", getUnderTestInstance() " + getUnderTestInstance());
+            }
+            if (getUnderTestInstance() == UNSET || isInstanceUnderTest(instance)) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        // For pts test
+        // Set the property to the value prompted on PTS
+        private int getUnderTestInstance() {
+            return SystemProperties.getInt(BLUETOOTH_MAP_INSTANCE_UNDER_TEST, UNSET);
+        }
+
+        // For pts test
+        private boolean isInstanceUnderTest(int instance) {
+            if (getUnderTestInstance() == instance) {
+                return true;
+            } else {
+                return false;
+            }
+        }
     }
 
     class Connected extends State {
@@ -527,16 +585,17 @@ class MceStateMachine extends StateMachine {
             };
             mDatabase = new MapClientContent(mService, callbacks, mDevice);
             onConnectionStateChanged(mPreviousState, BluetoothProfile.STATE_CONNECTED);
-            if (Utils.isPtsTestMode()) return;
 
             mMasClient.makeRequest(new RequestSetPath(FOLDER_TELECOM));
             mMasClient.makeRequest(new RequestSetPath(FOLDER_MSG));
             mMasClient.makeRequest(new RequestSetPath(FOLDER_INBOX));
             mMasClient.makeRequest(new RequestGetFolderListing(0, 0));
             mMasClient.makeRequest(new RequestSetPath(false));
-            mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
-            sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_SENT);
-            sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_INBOX);
+            if (!isTestUpload()) {
+                // SetNotificationRegistration and UpdateInbox
+                mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
+                mMasClient.makeRequest(new RequestUpdateInbox());
+            }
         }
 
         @Override
@@ -576,10 +635,14 @@ class MceStateMachine extends StateMachine {
                 case MSG_GET_MESSAGE_LISTING:
                     // Get latest 50 Unread messages in the last week
                     MessagesFilter filter = new MessagesFilter();
-                    filter.setMessageType(MapUtils.fetchMessageType());
-                    Calendar calendar = Calendar.getInstance();
-                    calendar.add(Calendar.DATE, -7);
-                    filter.setPeriod(calendar.getTime(), null);
+                    if (!isFilterPropUsed()) {
+                        filter.setMessageType(MapUtils.fetchMessageType());
+                        Calendar calendar = Calendar.getInstance();
+                        calendar.add(Calendar.DATE, -7);
+                        filter.setPeriod(calendar.getTime(), null);
+                    } else {
+                        setFilterFromProperties(filter);
+                    }
                     mMasClient.makeRequest(new RequestGetMessagesListing(
                             (String) message.obj, 0, filter, 0, 50, 0));
                     break;
@@ -617,6 +680,8 @@ class MceStateMachine extends StateMachine {
                         processMessageListing((RequestGetMessagesListing) message.obj);
                     } else if (message.obj instanceof RequestSetMessageStatus) {
                         processSetMessageStatus((RequestSetMessageStatus) message.obj);
+                    } else if (message.obj instanceof RequestUpdateInbox) {
+                        processUpdateInbox((RequestUpdateInbox) message.obj);
                     }
                     break;
 
@@ -668,16 +733,19 @@ class MceStateMachine extends StateMachine {
                     }
                     switch (ev.getType()) {
                         case NEW_MESSAGE:
-                            // Infer the timestamp for this message as 'now' and read status false
-                            // instead of getting the message listing data for it
-                            if (!mMessages.contains(ev.getHandle())) {
-                                Calendar calendar = Calendar.getInstance();
-                                MessageMetadata metadata = new MessageMetadata(ev.getHandle(),
-                                        calendar.getTime().getTime(), false);
-                                mMessages.put(ev.getHandle(), metadata);
+                            // To work around PTS test case "MAP/MCE/MMN/BV-03-I", don't send request to get message
+                            if (isAutoGetNewMessage()) {
+                                // Infer the timestamp for this message as 'now' and read status false
+                                // instead of getting the message listing data for it
+                                if (!mMessages.contains(ev.getHandle())) {
+                                    Calendar calendar = Calendar.getInstance();
+                                    MessageMetadata metadata = new MessageMetadata(ev.getHandle(),
+                                            calendar.getTime().getTime(), false);
+                                    mMessages.put(ev.getHandle(), metadata);
+                                }
+                                mMasClient.makeRequest(new RequestGetMessage(ev.getHandle(),
+                                        MasClient.CharsetType.UTF_8, false));
                             }
-                            mMasClient.makeRequest(new RequestGetMessage(ev.getHandle(),
-                                    MasClient.CharsetType.UTF_8, false));
                             break;
                         case DELIVERY_SUCCESS:
                         case SENDING_SUCCESS:
@@ -691,6 +759,54 @@ class MceStateMachine extends StateMachine {
                             break;
                     }
             }
+        }
+
+        /**
+         * Auto get the new message when new message event report received.
+         */
+        private boolean isAutoGetNewMessage() {
+            return SystemProperties.getBoolean(BLUETOOTH_MAP_AUTO_GET_NEW_MESSAGE, true);
+        }
+
+        private boolean isFilterPropUsed() {
+            return SystemProperties.getBoolean(BLUETOOTH_MAP_FILTER_USE_PROPERTY, false);
+        }
+
+        private boolean isTestUpload() {
+            return SystemProperties.getBoolean(BLUETOOTH_MAP_TEST_UPLOAD, false);
+        }
+
+        private void setFilterFromProperties(MessagesFilter filter) {
+            filter.setMessageType((byte)SystemProperties.getInt(
+                    BLUETOOTH_MAP_FILTER_MESSAGE_TYPE,
+                    MessagesFilter.MESSAGE_TYPE_ALL));
+            filter.setReadStatus((byte)SystemProperties.getInt(
+                    BLUETOOTH_MAP_FILTER_READ_STATUS,
+                    MessagesFilter.READ_STATUS_UNREAD));
+
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(MESSAGES_FILTER_DATE_FORMAT);
+
+            Date filterBegin, filterEnd;
+            try {
+                filterBegin = simpleDateFormat.parse(SystemProperties.get(BLUETOOTH_MAP_FILTER_PERIODBEGIN));
+            } catch (ParseException e) {
+                filterBegin = null;
+                Log.e(TAG, "Exception during parse begin period " + SystemProperties.get(BLUETOOTH_MAP_FILTER_PERIODBEGIN));
+            }
+            try {
+                filterEnd = simpleDateFormat.parse(SystemProperties.get(BLUETOOTH_MAP_FILTER_PERIODEND));
+            } catch (ParseException e) {
+                filterEnd = null;
+                Log.e(TAG, "Exception during parse end period " + SystemProperties.get(BLUETOOTH_MAP_FILTER_PERIODEND));
+            }
+            filter.setPeriod(filterBegin, filterEnd);
+
+            filter.setRecipient(SystemProperties.get(BLUETOOTH_MAP_FILTER_RECIPIENT));
+            filter.setOriginator(SystemProperties.get(BLUETOOTH_MAP_FILTER_ORIGINATOR));
+            filter.setPriority((byte)SystemProperties.getInt(
+                    BLUETOOTH_MAP_FILTER_PRIORITY,
+                    MessagesFilter.PRIORITY_ANY));
+            if (DBG) Log.d(TAG, "filter " + filter);
         }
 
         // Sets the specified message status to "read" (from "unread" status, mostly)
@@ -774,6 +890,16 @@ class MceStateMachine extends StateMachine {
             }
         }
 
+        private void processUpdateInbox(RequestUpdateInbox request) {
+            if (request.isSuccess()) {
+                if (DBG) {
+                    Log.d(TAG, "UpdateInbox success");
+                }
+            } else {
+                Log.e(TAG, "UpdateInbox failed");
+            }
+        }
+
         /**
          * Given the response of a GetMessage request, will broadcast the bMessage contents on to
          * all registered applications.
@@ -818,6 +944,7 @@ class MceStateMachine extends StateMachine {
                     // Grab the message metadata and update the cached read status from the bMessage
                     MessageMetadata metadata = mMessages.get(request.getHandle());
                     metadata.setRead(request.getMessage().getStatus() == Bmessage.Status.READ);
+                    Log.d(TAG, "MessageMetadata" + metadata);
 
                     Intent intent = new Intent();
                     intent.setAction(BluetoothMapClient.ACTION_MESSAGE_RECEIVED);
