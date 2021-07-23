@@ -42,7 +42,7 @@ public class HfpClientConnection extends Connection {
     private boolean mClosed;
     private boolean mClosing = false;
     private boolean mLocalDisconnect;
-    private boolean mClientHasEcc;
+    private boolean mClientHas3WayCalling;
     private boolean mAdded;
 
     // Constructor to be used when there's an existing call (such as that created on the AG or
@@ -87,15 +87,16 @@ public class HfpClientConnection extends Connection {
     }
 
     void finishInitializing() {
-        mClientHasEcc = HfpClientConnectionService.hasHfpClientEcc(mHeadsetProfile, mDevice);
+        mClientHas3WayCalling = HfpClientConnectionService.hasHfpClient3Way(mHeadsetProfile, mDevice);
+        Log.d(TAG, "finishInitializing mClientHas3WayCalling " + mClientHas3WayCalling);
+
         setAudioModeIsVoip(false);
         Uri number = Uri.fromParts(PhoneAccount.SCHEME_TEL, mCurrentCall.getNumber(), null);
         setAddress(number, TelecomManager.PRESENTATION_ALLOWED);
         setConnectionCapabilities(
                 CAPABILITY_SUPPORT_HOLD | CAPABILITY_MUTE | CAPABILITY_SEPARATE_FROM_CONFERENCE
-                        | CAPABILITY_DISCONNECT_FROM_CONFERENCE | (
-                        getState() == STATE_ACTIVE || getState() == STATE_HOLDING ? CAPABILITY_HOLD
-                                : 0));
+                        | CAPABILITY_DISCONNECT_FROM_CONFERENCE
+                        | (mClientHas3WayCalling ? CAPABILITY_HOLD : 0));
     }
 
     public UUID getUUID() {
@@ -261,6 +262,16 @@ public class HfpClientConnection extends Connection {
     public synchronized void onAnswer() {
         if (DBG) {
             Log.d(TAG, "onAnswer " + mCurrentCall);
+        }
+        if (!mClosed) {
+            mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
+        }
+    }
+
+    @Override
+    public synchronized void onAnswer(int videoState) {
+        if (DBG) {
+            Log.d(TAG, "onAnswer videoState" + mCurrentCall);
         }
         if (!mClosed) {
             mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);

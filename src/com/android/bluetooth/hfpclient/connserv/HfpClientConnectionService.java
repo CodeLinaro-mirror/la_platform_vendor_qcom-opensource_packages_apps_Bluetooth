@@ -358,8 +358,14 @@ public class HfpClientConnectionService extends ConnectionService {
     }
 
     public static boolean hasHfpClientEcc(BluetoothHeadsetClient client, BluetoothDevice device) {
-        Bundle features = client.getCurrentAgEvents(device);
+        Bundle features = client.getCurrentAgFeatures(device);
         return features != null && features.getBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_ECC,
                 false);
+    }
+
+    public static boolean hasHfpClient3Way(BluetoothHeadsetClient client, BluetoothDevice device) {
+        Bundle features = client.getCurrentAgFeatures(device);
+        return features != null && features.getBoolean(BluetoothHeadsetClient.
+                EXTRA_AG_FEATURE_3WAY_CALLING, false);
     }
 }

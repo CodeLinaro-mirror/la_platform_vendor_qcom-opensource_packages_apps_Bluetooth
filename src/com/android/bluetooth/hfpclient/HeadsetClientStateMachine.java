@@ -1616,6 +1616,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             if (DBG) {
                 Log.d(TAG, "Enter AudioOn: " + getCurrentMessage().what);
             }
+            removeMessages(CONNECT_AUDIO);
             broadcastAudioState(mCurrentDevice, BluetoothHeadsetClient.STATE_AUDIO_CONNECTED,
                     BluetoothHeadsetClient.STATE_AUDIO_CONNECTING);
         }
@@ -1658,7 +1659,11 @@ public class HeadsetClientStateMachine extends StateMachine {
                 case HOLD_CALL:
                     holdCall();
                     break;
-
+                    /* added handling for Connect Audio, as connect Audio message
+                     * is send with delay
+                     */
+                case CONNECT_AUDIO:
+                    break;
                 case StackEvent.STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
                     if (DBG) {
