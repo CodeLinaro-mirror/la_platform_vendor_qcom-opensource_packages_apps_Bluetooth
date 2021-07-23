@@ -91,6 +91,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_AVAILABLE_PLAYER_CHANGED = 219;
     static final int MESSAGE_PROCESS_RECEIVED_COVER_ART_PSM = 220;
     static final int MESSAGE_PROCESS_SEARCH_RESP = 221;  // vendor extension base
+    static final int MESSAGE_PROCESS_UIDS_CHANGED = 222;
 
     //300->399 Events for Browsing
     //Internal
@@ -143,6 +144,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     final BrowseTree mBrowseTree;
     private AvrcpPlayer mAddressedPlayer = new AvrcpPlayer();
     private int mAddressedPlayerId = -1;
+    private int mUidCounter = 0;
     private SparseArray<AvrcpPlayer> mAvailablePlayerList = new SparseArray<AvrcpPlayer>();
     private int mVolumeChangedNotificationsToIgnore = 0;
     private int mVolumeNotificationLabel = -1;
@@ -601,6 +603,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                     processSearchReq((String) msg.obj);
                     return true;
 
+                case MESSAGE_PROCESS_UIDS_CHANGED:
+                    processUIDSChange(msg);
+                    return true;
+
                 case MSG_AVRCP_SET_REPEAT:
                     setRepeat(msg.arg1);
                     return true;
@@ -761,7 +767,7 @@ class AvrcpControllerStateMachine extends StateMachine {
             } else {
                 mService.playItemNative(
                         mDeviceAddress, node.getScope(),
-                        node.getBluetoothID(), 0);
+                        node.getBluetoothID(), mUidCounter);
             }
         }
 
@@ -1099,14 +1105,14 @@ class AvrcpControllerStateMachine extends StateMachine {
                 mBrowseTree.getCurrentBrowsedFolder().setCached(false);
                 removeUnusedArtworkFromBrowseTree();
                 mService.changeFolderPathNative(
-                        mDeviceAddress,
+                        mDeviceAddress, mUidCounter,
                         AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_UP,
                         0);
 
             } else {
                 logD("NAVIGATING DOWN " + mNextStep.toString());
                 mService.changeFolderPathNative(
-                        mDeviceAddress,
+                        mDeviceAddress, mUidCounter,
                         AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_DOWN,
                         mNextStep.getBluetoothID());
             }
@@ -1283,6 +1289,23 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
 
         return newIndex;
+    }
+
+    private void processUIDSChange(Message msg) {
+        BluetoothDevice device = (BluetoothDevice) msg.obj;
+        int uidCounter = msg.arg1;
+        if (DBG) {
+            Log.d(TAG, " processUIDSChange device: " + device + ", uidCounter: " + uidCounter);
+        }
+        mUidCounter = uidCounter;
+
+        if (Utils.isPtsTestMode()) {
+            refreshCoverArt();
+        }
+
+        Intent intent_uids = new Intent(BluetoothAvrcpController.ACTION_UIDS_EVENT);
+        intent_uids.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+        mService.sendBroadcast(intent_uids, ProfileService.BLUETOOTH_PERM);
     }
 
     private boolean shouldDownloadBrowsedImages() {
