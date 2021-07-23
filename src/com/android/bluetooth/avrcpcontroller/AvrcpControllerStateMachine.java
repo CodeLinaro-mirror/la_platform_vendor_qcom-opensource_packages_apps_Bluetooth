@@ -92,6 +92,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_RECEIVED_COVER_ART_PSM = 220;
     static final int MESSAGE_PROCESS_SEARCH_RESP = 221;  // vendor extension base
     static final int MESSAGE_PROCESS_UIDS_CHANGED = 222;
+    static final int MESSAGE_PROCESS_RC_FEATURES = 223;
 
     //300->399 Events for Browsing
     //Internal
@@ -148,6 +149,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     private SparseArray<AvrcpPlayer> mAvailablePlayerList = new SparseArray<AvrcpPlayer>();
     private int mVolumeChangedNotificationsToIgnore = 0;
     private int mVolumeNotificationLabel = -1;
+    private int mRemoteFeatures;
 
     /**
      * Custom action to search.
@@ -201,6 +203,7 @@ class AvrcpControllerStateMachine extends StateMachine {
         mDevice = device;
         mDeviceAddress = Utils.getByteAddress(mDevice);
         mService = service;
+        mRemoteFeatures = BluetoothAvrcpController.BTRC_FEAT_NONE;
         mCoverArtPsm = 0;
         mCoverArtManager = service.getCoverArtManager();
         logD(device.toString());
@@ -258,6 +261,14 @@ class AvrcpControllerStateMachine extends StateMachine {
      */
     public synchronized BluetoothDevice getDevice() {
         return mDevice;
+    }
+
+    public synchronized void setRemoteFeatures(int remoteFeatures) {
+        mRemoteFeatures = remoteFeatures;
+    }
+
+    public synchronized int getRemoteFeatures() {
+        return mRemoteFeatures;
     }
 
     /**
@@ -605,6 +616,10 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                 case MESSAGE_PROCESS_UIDS_CHANGED:
                     processUIDSChange(msg);
+                    return true;
+
+                case MESSAGE_PROCESS_RC_FEATURES:
+                    setRemoteFeatures(msg.arg1);
                     return true;
 
                 case MSG_AVRCP_SET_REPEAT:
