@@ -52,6 +52,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Message;
 import android.os.SystemProperties;
+import android.provider.Telephony;
 import android.telecom.PhoneAccount;
 import android.telephony.SmsManager;
 import android.util.Log;
@@ -1421,7 +1422,12 @@ final class MceStateMachine extends StateMachine {
                                     recipient.getDisplayName());
                         }
                     }
-                    mService.sendBroadcast(intent);
+                    // Only send to the current default SMS app if one exists
+                    String defaultMessagingPackage = Telephony.Sms.getDefaultSmsPackage(mService);
+                    if (defaultMessagingPackage != null) {
+                        intent.setPackage(defaultMessagingPackage);
+                    }
+                    mService.sendBroadcast(intent, android.Manifest.permission.RECEIVE_SMS);
                     break;
                 case MMS:
                 default:
