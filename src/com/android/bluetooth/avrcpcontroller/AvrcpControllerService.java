@@ -27,6 +27,7 @@ import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.media.session.PlaybackState;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -366,6 +367,17 @@ public class AvrcpControllerService extends ProfileService {
                 return BluetoothAvrcpController.BTRC_FEAT_NONE;
             }
             return service.getSupportedFeatures(device);
+        }
+
+        @Override
+        public void startFetchingAlbumArt(BluetoothDevice device, String type, String scheme,
+            String mimeType, int height, int width, int maxSize) {
+            Log.v(TAG, "Binder Call: startFetchingAlbumArt");
+            AvrcpControllerService service = getService();
+            if (service == null) {
+                return;
+            }
+            service.startFetchingAlbumArt(device, type, scheme, mimeType, height, width, maxSize);
         }
     }
 
@@ -894,6 +906,32 @@ public class AvrcpControllerService extends ProfileService {
         return 0;
     }
 
+    public synchronized void startFetchingAlbumArt(BluetoothDevice device, String type, String scheme,
+            String mimeType, int height, int width, int maxSize) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (DBG) {
+            Log.d(TAG,"startFetchingAlbumArt mimeType " + mimeType + " pixel " + height + " * "
+                  + width + " maxSize: " + maxSize);
+        }
+
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGTYPE,
+                type);
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_SCHEME,
+                scheme);
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_MIMETYPE,
+                mimeType);
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGHEIGHT,
+                String.valueOf(height));
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGWIDTH,
+                String.valueOf(width));
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGMAXSIZE,
+                String.valueOf(maxSize));
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(AvrcpControllerStateMachine.MSG_AVRCP_FETCH_COVER_ART);
+        }
+    }
 
     @Override
     public void dump(StringBuilder sb) {

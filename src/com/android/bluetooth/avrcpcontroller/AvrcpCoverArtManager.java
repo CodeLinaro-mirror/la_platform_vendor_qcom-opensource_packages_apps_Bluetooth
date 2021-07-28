@@ -42,17 +42,43 @@ public class AvrcpCoverArtManager {
     private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
 
     // Image Download Schemes for cover art
+    public static final String AVRCP_CONTROLLER_COVER_ART_IMGTYPE =
+            "persist.bluetooth.avrcpcontroller.BIP_DOWNLOAD_TYPE";
     public static final String AVRCP_CONTROLLER_COVER_ART_SCHEME =
             "persist.bluetooth.avrcpcontroller.BIP_DOWNLOAD_SCHEME";
+    public static final String AVRCP_CONTROLLER_COVER_ART_MIMETYPE =
+            "persist.bluetooth.avrcpcontroller.BIP_DOWNLOAD_MIMETYPE";
+    public static final String AVRCP_CONTROLLER_COVER_ART_IMGHEIGHT =
+            "persist.bluetooth.avrcpcontroller.BIP_DOWNLOAD_HEIGHT";
+    public static final String AVRCP_CONTROLLER_COVER_ART_IMGWIDTH =
+            "persist.bluetooth.avrcpcontroller.BIP_DOWNLOAD_WIDTH";
+    public static final String AVRCP_CONTROLLER_COVER_ART_IMGMAXSIZE =
+            "persist.bluetooth.avrcpcontroller.BIP_DOWNLOAD_MAXSIZE";
+
+    // Image type, Image/ThumbnailImage/ThumbnailLinked
+    public static final String TYPE_IMAGE = "Image";
+    public static final String TYPE_THUMBNAIL = "Thumbnail";
+    public static final String TYPE_THUMBNAILLINKED = "ThumbnailLinked";
+    public static final String IMAGE_TYPE_DEFAULT = TYPE_IMAGE;
+
     public static final String SCHEME_NATIVE = "native";
     public static final String SCHEME_THUMBNAIL = "thumbnail";
+    public static final String SCHEME_DEFUALT = SCHEME_THUMBNAIL;
+
+    // More types refer to class BipEncoding
+    public static final String MIMETYPE_DEFAULT = "JPEG";
+
+    public static final int IMAGE_HEIGHT_DEFAULT = 500;
+    public static final int IMAGE_WIDTH_DEFAULT = 500;
+    public static final int IMAGE_MAXSIZE_DEFAULT = 200000;
 
     private final AvrcpControllerService mService;
     protected final Map<BluetoothDevice, AvrcpBipClient> mClients = new ConcurrentHashMap<>(1);
     private Map<BluetoothDevice, AvrcpBipSession> mBipSessions = new ConcurrentHashMap<>(1);
     private final AvrcpCoverArtStorage mCoverArtStorage;
     private final Callback mCallback;
-    private final String mDownloadScheme;
+    private String mType, mDownloadScheme;
+    private int mHeight, mWidth, mMaxSize, mMimeType;
 
     /**
      * An object representing an image download event. Contains the information necessary to
@@ -143,8 +169,7 @@ public class AvrcpCoverArtManager {
         mService = service;
         mCoverArtStorage = new AvrcpCoverArtStorage(mService);
         mCallback = callback;
-        mDownloadScheme =
-                SystemProperties.get(AVRCP_CONTROLLER_COVER_ART_SCHEME, SCHEME_THUMBNAIL);
+        updateImageProperties();
         mCoverArtStorage.clear();
     }
 
@@ -298,6 +323,26 @@ public class AvrcpCoverArtManager {
      * @return A Uri that will be assign to the image once the download is complete
      */
     public Uri downloadImage(BluetoothDevice device, String imageUuid) {
+        return downloadImage(device, imageUuid, false);
+    }
+
+    /**
+     * Download an image from a remote device and make it findable via the given uri
+     *
+     * Downloading happens in three steps:
+     *   1) Get the available image formats by requesting the Image Properties
+     *   2) Determine the specific format we want the image in and turn it into an image descriptor
+     *   3) Get the image using the chosen descriptor
+     *
+     * Getting image properties and the image are both asynchronous in nature.
+     *
+     * @param device The remote Bluetooth device you wish to download from
+     * @param imageUuid The UUID associated with the image you wish to download. This will be
+     *                  translated into an image handle.
+     * @param forced Always download image no matter the image is already there or not.
+     * @return A Uri that will be assign to the image once the download is complete
+     */
+    public Uri downloadImage(BluetoothDevice device, String imageUuid, boolean forced) {
         debug("Download Image - device: " + device.getAddress() + ", Handle: " + imageUuid);
         AvrcpBipClient client = getClient(device);
         if (client == null) {
@@ -307,8 +352,13 @@ public class AvrcpCoverArtManager {
 
         // Check to see if we have the image already. No need to download it if we do have it.
         if (mCoverArtStorage.doesImageExist(device, imageUuid)) {
-            debug("Image is already downloaded");
-            return AvrcpCoverArtProvider.getImageUri(device, imageUuid);
+            if (forced) {
+                debug("Image is already downloaded, remove it in forced mode!");
+                mCoverArtStorage.removeImage(device, imageUuid);
+            } else {
+                debug("Image is already downloaded, return directly in normal mode!");
+                return AvrcpCoverArtProvider.getImageUri(device, imageUuid);
+            }
         }
 
         // Getting image properties will return via the callback created when connecting, which
@@ -319,7 +369,13 @@ public class AvrcpCoverArtManager {
             warn("No handle for UUID");
             return null;
         }
-        boolean status = client.getImageProperties(imageHandle);
+
+        boolean status = true;
+        if (TYPE_THUMBNAILLINKED.equalsIgnoreCase(mType)) {
+            status = client.getLinkedThumbnail(imageHandle);
+        } else {
+            status = client.getImageProperties(imageHandle);
+        }
         if (!status) return null;
 
         // Return the Uri that the caller should use to retrieve the image
@@ -344,6 +400,21 @@ public class AvrcpCoverArtManager {
      */
     public void removeImage(BluetoothDevice device, String imageUuid) {
         mCoverArtStorage.removeImage(device, imageUuid);
+    }
+
+    public synchronized void updateImageProperties() {
+        mType =
+            SystemProperties.get(AVRCP_CONTROLLER_COVER_ART_IMGTYPE, IMAGE_TYPE_DEFAULT);
+        mDownloadScheme =
+            SystemProperties.get(AVRCP_CONTROLLER_COVER_ART_SCHEME, SCHEME_DEFUALT);
+        mMimeType = BipEncoding.getEncodingTypeFromString(
+            SystemProperties.get(AVRCP_CONTROLLER_COVER_ART_MIMETYPE, MIMETYPE_DEFAULT));
+        mHeight =
+            SystemProperties.getInt(AVRCP_CONTROLLER_COVER_ART_IMGHEIGHT, IMAGE_HEIGHT_DEFAULT);
+        mWidth =
+            SystemProperties.getInt(AVRCP_CONTROLLER_COVER_ART_IMGWIDTH, IMAGE_WIDTH_DEFAULT);
+        mMaxSize =
+            SystemProperties.getInt(AVRCP_CONTROLLER_COVER_ART_IMGMAXSIZE, IMAGE_MAXSIZE_DEFAULT);
     }
 
     /**
@@ -388,11 +459,15 @@ public class AvrcpCoverArtManager {
             // AVRCP 1.6.2 defined "thumbnail" size is guaranteed so we'll do that for now
             case SCHEME_THUMBNAIL:
             default:
-                builder.setEncoding(BipEncoding.JPEG);
-                builder.setFixedDimensions(200, 200);
                 break;
         }
-        return builder.build();
+
+        builder.setEncoding(mMimeType);
+        builder.setFixedDimensions(mWidth, mHeight);
+        BipImageDescriptor bipImageDescriptor = builder.build();
+        debug("determineImageDescriptor->bipImageDescriptor:" + bipImageDescriptor);
+
+        return bipImageDescriptor;
     }
 
     /**
