@@ -228,6 +228,19 @@ public class AvrcpBipClient {
     }
 
     /**
+     * Download the thumbnail version of the image object associated with the given imageHandle
+     */
+    public boolean getLinkedThumbnail(String imageHandle) {
+        RequestGetLinkedThumbnail request =  new RequestGetLinkedThumbnail(imageHandle);
+        boolean status = mHandler.sendMessage(mHandler.obtainMessage(REQUEST, request));
+        if (!status) {
+            error("Adding messages failed, connection state: " + isConnected());
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Update our client's connection state and notify of the new status
      */
     private void setConnectionState(int state) {
@@ -370,6 +383,7 @@ public class AvrcpBipClient {
         int type = request.getType();
         int responseCode = request.getResponseCode();
         String imageHandle = null;
+        BipImage image = null;
 
         debug("Notifying caller of request complete - " + request.toString());
         switch (type) {
@@ -381,7 +395,12 @@ public class AvrcpBipClient {
                 break;
             case BipRequest.TYPE_GET_IMAGE:
                 imageHandle = ((RequestGetImage) request).getImageHandle();
-                BipImage image = ((RequestGetImage) request).getImage();
+                image = ((RequestGetImage) request).getImage();
+                mCallback.onGetImageComplete(responseCode, imageHandle, image);
+                break;
+            case BipRequest.TYPE_GET_LINKED_THUMBNAIL:
+                imageHandle = ((RequestGetLinkedThumbnail) request).getImageHandle();
+                image = ((RequestGetLinkedThumbnail) request).getImage();
                 mCallback.onGetImageComplete(responseCode, imageHandle, image);
                 break;
         }
