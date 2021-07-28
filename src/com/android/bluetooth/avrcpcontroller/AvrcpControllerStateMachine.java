@@ -118,7 +118,10 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MSG_AVRCP_ABORT_CONTINUING_RESPONSE = 359;
 
     //400->499 Events for Cover Artwork
+    //Internal
     static final int MESSAGE_PROCESS_IMAGE_DOWNLOADED = 400;
+    //External
+    static final int MSG_AVRCP_FETCH_COVER_ART = 450;
 
     /*
      * Base value for absolute volume from JNI
@@ -816,7 +819,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                     AbortContinuingResponse(msg.arg1);
                     return true;
 
-                case MESSAGE_PROCESS_TRACK_CHANGED:
+                case MESSAGE_PROCESS_TRACK_CHANGED: {
                     AvrcpItem track = (AvrcpItem) msg.obj;
                     AvrcpItem previousTrack = mAddressedPlayer.getCurrentTrack();
                     downloadImageIfNeeded(track);
@@ -829,6 +832,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                         removeUnusedArtworkFromBrowseTree();
                     }
                     return true;
+                }
 
                 case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
                     mAddressedPlayer.setPlayStatus(msg.arg1);
@@ -971,6 +975,15 @@ class AvrcpControllerStateMachine extends StateMachine {
                     }
 
                     return true;
+
+                case MSG_AVRCP_FETCH_COVER_ART: {
+                    // New scheme is retrieved through property
+                    // AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_SCHEME
+                    mCoverArtManager.updateImageProperties();
+                    AvrcpItem track = mAddressedPlayer.getCurrentTrack();
+                    downloadImageIfNeeded(track, true);
+                    return true;
+                }
 
                 case DISCONNECT:
                     transitionTo(mDisconnecting);
@@ -1200,7 +1213,11 @@ class AvrcpControllerStateMachine extends StateMachine {
                     // Only do this if the feature is enabled.
                     for (AvrcpItem track : folderList) {
                         if (shouldDownloadBrowsedImages()) {
-                            downloadImageIfNeeded(track);
+                            if (Utils.isPtsTestMode()) {
+                              downloadImageIfNeeded(track, true);
+                            } else {
+                              downloadImageIfNeeded(track);
+                            }
                         } else {
                             track.setCoverArtUuid(null);
                         }
@@ -1714,15 +1731,27 @@ class AvrcpControllerStateMachine extends StateMachine {
     }
 
     private void downloadImageIfNeeded(AvrcpItem track) {
+        downloadImageIfNeeded(track, false);
+    }
+
+    private void downloadImageIfNeeded(AvrcpItem track, boolean forced) {
         if (mCoverArtManager == null) return;
         String uuid = track.getCoverArtUuid();
         Uri imageUri = null;
         if (uuid != null) {
-            imageUri = mCoverArtManager.getImageUri(mDevice, uuid);
-            if (imageUri != null) {
-                track.setCoverArtLocation(imageUri);
+            if (forced) {
+                if (mCoverArtManager.getHandleForUuid(mDevice, uuid) != null) {
+                    mCoverArtManager.downloadImage(mDevice, uuid, forced);
+                } else {
+                    mService.getElementAttributesNative(mDeviceAddress, (byte)0, null);
+                }
             } else {
-                mCoverArtManager.downloadImage(mDevice, uuid);
+                imageUri = mCoverArtManager.getImageUri(mDevice, uuid);
+                if (imageUri != null) {
+                    track.setCoverArtLocation(imageUri);
+                } else {
+                    mCoverArtManager.downloadImage(mDevice, uuid);
+                }
             }
         }
     }
