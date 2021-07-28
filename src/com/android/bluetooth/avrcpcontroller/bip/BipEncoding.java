@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.avrcpcontroller;
@@ -161,6 +166,34 @@ public class BipEncoding {
     public boolean isAndroidSupported() {
         return mType == BipEncoding.JPEG || mType == BipEncoding.PNG || mType == BipEncoding.BMP
                 || mType == BipEncoding.GIF;
+    }
+
+    /**
+     * Returns the encoding type with given type name
+     *
+     * @return Integer type ID of the encoding
+     */
+    public static int getEncodingTypeFromString(String StringType) {
+        if (StringType == null) {
+            return -1;
+        }
+
+        switch (StringType.toUpperCase()) {
+            case "JPEG":
+                return JPEG;
+            case "PNG":
+                return PNG;
+            case "BMP":
+                return BMP;
+            case "GIF":
+                return GIF;
+            case "JPEG2000":
+                return JPEG2000;
+            case "WBMP":
+                return WBMP;
+            default:
+                return UNKNOWN;
+        }
     }
 
     /**
