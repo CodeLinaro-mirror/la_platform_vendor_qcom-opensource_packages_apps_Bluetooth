@@ -93,13 +93,14 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_SEARCH_RESP = 221;  // vendor extension base
 
     //300->399 Events for Browsing
+    //Internal
     static final int MESSAGE_GET_FOLDER_ITEMS = 300;
     static final int MESSAGE_PLAY_ITEM = 301;
-    static final int MSG_AVRCP_PASSTHRU = 302;
-    static final int MSG_AVRCP_SET_SHUFFLE = 303;
-    static final int MSG_AVRCP_SET_REPEAT = 304;
-    // Internal message to trigger a search command to remote.
-    static final int MESSAGE_SEARCH = 305;
+    //External
+    static final int MSG_AVRCP_PASSTHRU = 350;
+    static final int MSG_AVRCP_SET_SHUFFLE = 351;
+    static final int MSG_AVRCP_SET_REPEAT = 352;
+    static final int MSG_AVRCP_SEARCH = 353;
 
     //400->499 Events for Cover Artwork
     static final int MESSAGE_PROCESS_IMAGE_DOWNLOADED = 400;
@@ -593,7 +594,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                     passThru(msg.arg1);
                     return true;
 
-                case MESSAGE_SEARCH:
+                case MSG_AVRCP_SEARCH:
                     // Reset search node before processing new search request.
                     refreshSearchNode(false);
 
@@ -999,7 +1000,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                     }
                     break;
 
-                case MESSAGE_SEARCH:
+                case MSG_AVRCP_SEARCH:
                     mAbort = true;
                     deferMessage(msg);
                     break;
@@ -1436,7 +1437,7 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
 
         String searchQuery = extras.getString(KEY_SEARCH);
-        sendMessage(MESSAGE_SEARCH, searchQuery);
+        sendMessage(MSG_AVRCP_SEARCH, searchQuery);
     }
 
     private void broadcastNumOfItems(String cmd, int status, int items) {
