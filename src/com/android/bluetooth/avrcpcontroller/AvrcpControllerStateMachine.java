@@ -165,19 +165,19 @@ class AvrcpControllerStateMachine extends StateMachine {
      *      {@link com.android.bluetooth.avrcpcontroller.AvrcpControllerService}
      */
     public static final String CUSTOM_ACTION_SEARCH =
-        "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_SEARCH";
+        "android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_SEARCH";
     public static final String KEY_SEARCH = "search";
 
     // Intent used to broadcast A2DP/AVRCP custom action result
     // Requires {@link android.Manifest.permission#BLUETOOTH} permission to receive
     public static final String ACTION_CUSTOM_ACTION_RESULT =
-        "com.android.bluetooth.avrcpcontroller.action.CUSTOM_ACTION_RESULT";
+        "android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_RESULT";
     public static final String EXTRA_CUSTOM_ACTION =
-        "com.android.bluetooth.avrcpcontroller.extra.CUSTOM_ACTION";
+        "android.bluetooth.avrcp-controller.profile.extra.CUSTOM_ACTION";
     public static final String EXTRA_CUSTOM_ACTION_RESULT =
-        "com.android.bluetooth.avrcpcontroller.extra.CUSTOM_ACTION_RESULT";
+        "android.bluetooth.avrcp-controller.profile.extra.CUSTOM_ACTION_RESULT";
     public static final String EXTRA_NUM_OF_ITEMS =
-        "com.android.bluetooth.avrcpcontroller.extra.NUM_OF_ITEMS";
+        "android.bluetooth.avrcp-controller.profile.extra.NUM_OF_ITEMS";
 
     // Result code
     public static final int RESULT_SUCCESS = 0;
