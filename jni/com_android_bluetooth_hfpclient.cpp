@@ -23,10 +23,13 @@
 #include "hardware/bt_hf_client.h"
 #include "utils/Log.h"
 
+#include <shared_mutex>
+
 namespace android {
 
 static bthf_client_interface_t* sBluetoothHfpClientInterface = NULL;
 static jobject mCallbacksObj = NULL;
+static std::shared_timed_mutex sCallbacks_mutex;
 
 static jmethodID method_onConnectionStateChanged;
 static jmethodID method_onAudioStateChanged;
@@ -68,11 +71,13 @@ static void connection_state_cb(const RawAddress* bd_addr,
                                 bthf_client_connection_state_t state,
                                 unsigned int peer_feat,
                                 unsigned int chld_feat) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   ALOGD("%s: state %d peer_feat %d chld_feat %d", __func__, state, peer_feat, chld_feat);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConnectionStateChanged,
@@ -82,22 +87,26 @@ static void connection_state_cb(const RawAddress* bd_addr,
 
 static void audio_state_cb(const RawAddress* bd_addr,
                            bthf_client_audio_state_t state) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAudioStateChanged,
                                (jint)state, addr.get());
 }
 
 static void vr_cmd_cb(const RawAddress* bd_addr, bthf_client_vr_state_t state) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onVrStateChanged,
                                (jint)state, addr.get());
@@ -105,11 +114,13 @@ static void vr_cmd_cb(const RawAddress* bd_addr, bthf_client_vr_state_t state) {
 
 static void network_state_cb(const RawAddress* bd_addr,
                              bthf_client_network_state_t state) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onNetworkState,
                                (jint)state, addr.get());
@@ -117,43 +128,51 @@ static void network_state_cb(const RawAddress* bd_addr,
 
 static void network_roaming_cb(const RawAddress* bd_addr,
                                bthf_client_service_type_t type) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onNetworkRoaming,
                                (jint)type, addr.get());
 }
 
 static void network_signal_cb(const RawAddress* bd_addr, int signal) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onNetworkSignal,
                                (jint)signal, addr.get());
 }
 
 static void battery_level_cb(const RawAddress* bd_addr, int level) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onBatteryLevel,
                                (jint)level, addr.get());
 }
 
 static void current_operator_cb(const RawAddress* bd_addr, const char* name) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   ScopedLocalRef<jstring> js_name(sCallbackEnv.get(),
                                   sCallbackEnv->NewStringUTF(name));
@@ -162,11 +181,13 @@ static void current_operator_cb(const RawAddress* bd_addr, const char* name) {
 }
 
 static void call_cb(const RawAddress* bd_addr, bthf_client_call_t call) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCall, (jint)call,
                                addr.get());
@@ -174,11 +195,13 @@ static void call_cb(const RawAddress* bd_addr, bthf_client_call_t call) {
 
 static void callsetup_cb(const RawAddress* bd_addr,
                          bthf_client_callsetup_t callsetup) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   ALOGD("callsetup_cb bdaddr %02x:%02x:%02x:%02x:%02x:%02x",
         bd_addr->address[0], bd_addr->address[1], bd_addr->address[2],
@@ -190,11 +213,13 @@ static void callsetup_cb(const RawAddress* bd_addr,
 
 static void callheld_cb(const RawAddress* bd_addr,
                         bthf_client_callheld_t callheld) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCallHeld, (jint)callheld,
                                addr.get());
@@ -202,22 +227,26 @@ static void callheld_cb(const RawAddress* bd_addr,
 
 static void resp_and_hold_cb(const RawAddress* bd_addr,
                              bthf_client_resp_and_hold_t resp_and_hold) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onRespAndHold,
                                (jint)resp_and_hold, addr.get());
 }
 
 static void clip_cb(const RawAddress* bd_addr, const char* number) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
 
   ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                     sCallbackEnv->NewStringUTF(number));
@@ -226,11 +255,13 @@ static void clip_cb(const RawAddress* bd_addr, const char* number) {
 }
 
 static void call_waiting_cb(const RawAddress* bd_addr, const char* number) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
   ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                     sCallbackEnv->NewStringUTF(number));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCallWaiting,
@@ -242,11 +273,13 @@ static void current_calls_cb(const RawAddress* bd_addr, int index,
                              bthf_client_call_state_t state,
                              bthf_client_call_mpty_type_t mpty,
                              const char* number) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
   ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                     sCallbackEnv->NewStringUTF(number));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCurrentCalls, index, dir,
@@ -255,33 +288,39 @@ static void current_calls_cb(const RawAddress* bd_addr, int index,
 
 static void volume_change_cb(const RawAddress* bd_addr,
                              bthf_client_volume_type_t type, int volume) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onVolumeChange, (jint)type,
                                (jint)volume, addr.get());
 }
 
 static void cmd_complete_cb(const RawAddress* bd_addr,
                             bthf_client_cmd_complete_t type, int cme) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCmdResult, (jint)type,
                                (jint)cme, addr.get());
 }
 
 static void subscriber_info_cb(const RawAddress* bd_addr, const char* name,
                                bthf_client_subscriber_service_type_t type) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
   ScopedLocalRef<jstring> js_name(sCallbackEnv.get(),
                                   sCallbackEnv->NewStringUTF(name));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onSubscriberInfo,
@@ -290,22 +329,26 @@ static void subscriber_info_cb(const RawAddress* bd_addr, const char* name,
 
 static void in_band_ring_cb(const RawAddress* bd_addr,
                             bthf_client_in_band_ring_state_t in_band) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onInBandRing,
                                (jint)in_band, addr.get());
 }
 
 static void last_voice_tag_number_cb(const RawAddress* bd_addr,
                                      const char* number) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
   ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                     sCallbackEnv->NewStringUTF(number));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onLastVoiceTagNumber,
@@ -313,11 +356,13 @@ static void last_voice_tag_number_cb(const RawAddress* bd_addr,
 }
 
 static void ring_indication_cb(const RawAddress* bd_addr) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+  if (!mCallbacksObj) return;
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onRingIndication,
                                addr.get());
 }
@@ -383,6 +428,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
 static void initializeNative(JNIEnv* env, jobject object) {
   ALOGD("%s: HfpClient", __func__);
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   const bt_interface_t* btInf = getBluetoothInterface();
   if (btInf == NULL) {
     ALOGE("Bluetooth module is not loaded");
@@ -421,6 +467,7 @@ static void initializeNative(JNIEnv* env, jobject object) {
 }
 
 static void cleanupNative(JNIEnv* env, jobject object) {
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   const bt_interface_t* btInf = getBluetoothInterface();
   if (btInf == NULL) {
     ALOGE("Bluetooth module is not loaded");

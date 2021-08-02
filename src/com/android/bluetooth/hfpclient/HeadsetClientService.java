@@ -476,7 +476,7 @@ public class HeadsetClientService extends ProfileService {
         sHeadsetClientService = instance;
     }
 
-    public boolean connect(BluetoothDevice device) {
+    public synchronized boolean connect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
         if (DBG) {
             Log.d(TAG, "connect " + device);

@@ -213,14 +213,11 @@ final class BondStateMachine extends StateMachine {
                     int reason = getUnbondReasonFromHALCode(msg.arg2);
                     sendIntent(dev, newState, reason);
                     if (newState != BluetoothDevice.BOND_BONDING) {
-                        /* this is either none/bonded, remove and transition */
-                        result = !mDevices.remove(dev);
+                        // This is either none/bonded, remove and transition, and also set
+                        // result=false to avoid adding the device to mDevices.
+                        mDevices.remove(dev);
+                        result = false;
                         if (mDevices.isEmpty()) {
-                            // Whenever mDevices is empty, then we need to
-                            // set result=false. Else, we will end up adding
-                            // the device to the list again. This prevents us
-                            // from pairing with a device that we just unpaired
-                            result = false;
                             transitionTo(mStableState);
                         }
                         if (newState == BluetoothDevice.BOND_NONE) {
@@ -296,7 +293,8 @@ final class BondStateMachine extends StateMachine {
     }
 
     private boolean removeBond(BluetoothDevice dev, boolean transition) {
-        if (dev.getBondState() == BluetoothDevice.BOND_BONDED) {
+        DeviceProperties devProp = mRemoteDevices.getDeviceProperties(dev);
+        if (devProp != null && devProp.getBondState() == BluetoothDevice.BOND_BONDED) {
             byte[] addr = Utils.getBytesFromAddress(dev.getAddress());
             if (!mAdapterService.removeBondNative(addr)) {
                 Log.e(TAG, "Unexpected error while removing bond:");
@@ -354,18 +352,18 @@ final class BondStateMachine extends StateMachine {
         if (dev.getBondState() == BluetoothDevice.BOND_NONE) {
             byte[] addr = Utils.getBytesFromAddress(dev.getAddress());
             byte[] key = getByteFromLinkkey(linkKey);
-
-            boolean result = mAdapterService.addOutOfBandBondDeviceNative(addr, key, linkKeyType, pinLen);
-
-            if (!result) {
-                sendIntent(dev, BluetoothDevice.BOND_NONE,
-                           BluetoothDevice.UNBOND_REASON_REMOVED);
-                return false;
-            } else if (transition) {
-                transitionTo(mPendingCommandState);
+            if (key == null) {
+                errorLog("non-numerical characters are not allowed in linkkey");
+            } else {
+                boolean result = mAdapterService.addOutOfBandBondDeviceNative(addr, key, linkKeyType, pinLen);
+                if (result) {
+                    if (transition) transitionTo(mPendingCommandState);
+                    infoLog("LinkKey " + linkKey + "keytype " + linkKeyType);
+                    return true;
+                }
             }
-            return true;
         }
+        sendIntent(dev, BluetoothDevice.BOND_NONE, BluetoothDevice.UNBOND_REASON_REMOVED);
         return false;
     }
 
@@ -441,6 +439,9 @@ final class BondStateMachine extends StateMachine {
     }
 
     void bondStateChangeCallback(int status, byte[] address, int newState) {
+        if (mRemoteDevices == null)
+            return;
+
         BluetoothDevice device = mRemoteDevices.getDevice(address);
 
         if (device == null) {
@@ -611,7 +612,12 @@ final class BondStateMachine extends StateMachine {
         int linkKeyLen = Math.min(linkKey.length(), 16);
         byte[] output = new byte[16];
         for (i = 0; i < linkKey.length(); i++) {
-            output[j] = (byte) Integer.parseInt(linkKey.substring(i, i + 2), 16);
+            try {
+                output[j] = (byte) Integer.parseInt(linkKey.substring(i, i + 2), 16);
+            } catch (NumberFormatException e) {
+               Log.e(TAG, "getByteFromLinkkey Exception: NumberFormatException");
+               return null;
+            }
             j++;
             i++;
         }
