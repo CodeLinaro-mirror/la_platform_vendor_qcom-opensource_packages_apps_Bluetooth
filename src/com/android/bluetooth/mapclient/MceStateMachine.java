@@ -102,6 +102,10 @@ class MceStateMachine extends StateMachine {
 
     private static final String TAG = "MceStateMachine";
     private static final Boolean DBG = MapClientService.DBG;
+    // SAVE_OUTBOUND_MESSAGES defaults to true to place the responsibility of managing content on
+    // Bluetooth, to work with the default Car Messenger.  This may need to be set to false if the
+    // messaging app takes that responsibility.
+    private static final Boolean SAVE_OUTBOUND_MESSAGES = true;
     private static final int DISCONNECT_TIMEOUT = 3000;
     private static final int CONNECT_TIMEOUT = 10000;
     private static final int MAX_MESSAGES = 20;
@@ -128,7 +132,7 @@ class MceStateMachine extends StateMachine {
     private final BluetoothDevice mDevice;
     private MapClientService mService;
     private MasClient mMasClient;
-    private final MapClientContent mDatabase;
+    private MapClientContent mDatabase;
     private HashMap<String, Bmessage> mSentMessageLog = new HashMap<>(MAX_MESSAGES);
     private HashMap<Bmessage, PendingIntent> mSentReceiptRequested = new HashMap<>(MAX_MESSAGES);
     private HashMap<Bmessage, PendingIntent> mDeliveryReceiptRequested =
@@ -195,13 +199,6 @@ class MceStateMachine extends StateMachine {
         mDisconnecting = new Disconnecting();
         mConnected = new Connected();
 
-        MapClientContent.Callbacks callbacks = new MapClientContent.Callbacks(){
-            @Override
-            public void onMessageStatusChanged(String handle, int status) {
-                setMessageStatus(handle, status);
-            }
-        };
-        mDatabase = new MapClientContent(mService, callbacks, mDevice);
 
         addState(mDisconnected);
         addState(mConnecting);
@@ -521,6 +518,14 @@ class MceStateMachine extends StateMachine {
             if (DBG) {
                 Log.d(TAG, "Enter Connected: " + getCurrentMessage().what);
             }
+
+            MapClientContent.Callbacks callbacks = new MapClientContent.Callbacks(){
+                @Override
+                public void onMessageStatusChanged(String handle, int status) {
+                    setMessageStatus(handle, status);
+                }
+            };
+            mDatabase = new MapClientContent(mService, callbacks, mDevice);
             onConnectionStateChanged(mPreviousState, BluetoothProfile.STATE_CONNECTED);
             if (Utils.isPtsTestMode()) return;
 
@@ -592,7 +597,8 @@ class MceStateMachine extends StateMachine {
                     if (message.obj instanceof RequestGetMessage) {
                         processInboundMessage((RequestGetMessage) message.obj);
                     } else if (message.obj instanceof RequestPushMessage) {
-                        String messageHandle = ((RequestPushMessage) message.obj).getMsgHandle();
+                        RequestPushMessage requestPushMessage = (RequestPushMessage) message.obj;
+                        String messageHandle = requestPushMessage.getMsgHandle();
                         if (DBG) {
                             Log.d(TAG, "Message Sent......." + messageHandle);
                         }
@@ -600,8 +606,12 @@ class MceStateMachine extends StateMachine {
                         // some test devices don't populate messageHandle field.
                         // in such cases, no need to wait up for response for such messages.
                         if (messageHandle != null && messageHandle.length() > 2) {
+                            if (SAVE_OUTBOUND_MESSAGES) {
+                                mDatabase.storeMessage(requestPushMessage.getBMsg(), messageHandle,
+                                        System.currentTimeMillis());
+                            }
                             mSentMessageLog.put(messageHandle.substring(2),
-                                    ((RequestPushMessage) message.obj).getBMsg());
+                                    requestPushMessage.getBMsg());
                         }
                     } else if (message.obj instanceof RequestGetMessagesListing) {
                         processMessageListing((RequestGetMessagesListing) message.obj);

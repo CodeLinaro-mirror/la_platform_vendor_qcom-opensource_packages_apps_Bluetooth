@@ -207,7 +207,6 @@ public class GattService extends ProfileService {
      */
     private final Map<Integer, Set<Integer>> mRestrictedHandles = new HashMap<>();
 
-    private BluetoothAdapter mAdapter;
     private AdapterService mAdapterService;
     private AdvertiseManager mAdvertiseManager;
     private PeriodicScanManager mPeriodicScanManager;
@@ -261,7 +260,6 @@ public class GattService extends ProfileService {
                 getContentResolver(), "bluetooth_sanitized_exposure_notification_supported", 1);
 
         initializeNative();
-        mAdapter = BluetoothAdapter.getDefaultAdapter();
         mAdapterService = AdapterService.getAdapterService();
         mCompanionManager = ICompanionDeviceManager.Stub.asInterface(
                 ServiceManager.getService(Context.COMPANION_DEVICE_SERVICE));
@@ -1181,7 +1179,7 @@ public class GattService extends ProfileService {
                 continue;
             }
 
-            BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
+            BluetoothDevice device = getAnonymousDevice(address);
 
             ScanSettings settings = client.settings;
             byte[] scanRecordData;
@@ -1954,7 +1952,7 @@ public class GattService extends ProfileService {
                     extractBytes(batchRecord, i * TRUNCATED_RESULT_SIZE, TRUNCATED_RESULT_SIZE);
             byte[] address = extractBytes(record, 0, 6);
             reverse(address);
-            BluetoothDevice device = mAdapter.getRemoteDevice(address);
+            BluetoothDevice device = getAnonymousDevice(address);
             int rssi = record[8];
             long timestampNanos = now - parseTimestampNanos(extractBytes(record, 9, 2));
             results.add(new ScanResult(device, ScanRecord.parseFromBytes(new byte[0]), rssi,
@@ -1981,7 +1979,7 @@ public class GattService extends ProfileService {
             byte[] address = extractBytes(batchRecord, position, 6);
             // TODO: remove temp hack.
             reverse(address);
-            BluetoothDevice device = mAdapter.getRemoteDevice(address);
+            BluetoothDevice device = getAnonymousDevice(address);
             position += 6;
             // Skip address type.
             position++;
@@ -2059,8 +2057,7 @@ public class GattService extends ProfileService {
             return;
         }
 
-        BluetoothDevice device =
-                BluetoothAdapter.getDefaultAdapter().getRemoteDevice(trackingInfo.getAddress());
+        BluetoothDevice device = getAnonymousDevice(trackingInfo.getAddress());
         int advertiserState = trackingInfo.getAdvState();
         ScanResult result =
                 new ScanResult(device, ScanRecord.parseFromBytes(trackingInfo.getResult()),
@@ -2178,7 +2175,7 @@ public class GattService extends ProfileService {
 
         // Add paired LE devices
 
-        Set<BluetoothDevice> bondedDevices = mAdapter.getBondedDevices();
+        BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
         for (BluetoothDevice device : bondedDevices) {
             if (getDeviceType(device) != AbstractionLayer.BT_DEVICE_TYPE_BREDR) {
                 deviceStates.put(device, BluetoothProfile.STATE_DISCONNECTED);
@@ -2192,7 +2189,7 @@ public class GattService extends ProfileService {
         connectedDevices.addAll(mServerMap.getConnectedDevices());
 
         for (String address : connectedDevices) {
-            BluetoothDevice device = mAdapter.getRemoteDevice(address);
+            BluetoothDevice device = getAnonymousDevice(address);
             if (device != null) {
                 deviceStates.put(device, BluetoothProfile.STATE_CONNECTED);
             }
@@ -2289,6 +2286,7 @@ public class GattService extends ProfileService {
         enforcePrivilegedPermissionIfNeeded(settings);
         String callingPackage = attributionSource.getPackageName();
         settings = enforceReportDelayFloor(settings);
+        enforcePrivilegedPermissionIfNeeded(filters);
         final ScanClient scanClient = new ScanClient(scannerId, settings, filters, storages);
         scanClient.userHandle = UserHandle.of(UserHandle.getCallingUserId());
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
@@ -2296,8 +2294,7 @@ public class GattService extends ProfileService {
                 callingPackage.equals(mExposureNotificationPackage);
 
         scanClient.hasDisavowedLocation =
-                Utils.hasDisavowedLocationForScan(this, callingPackage, attributionSource,
-                        isTestModeEnabled());
+                Utils.hasDisavowedLocationForScan(this, attributionSource, isTestModeEnabled());
 
         scanClient.isQApp = Utils.isQApp(this, callingPackage);
         if (!scanClient.hasDisavowedLocation) {
@@ -2345,7 +2342,7 @@ public class GattService extends ProfileService {
         }
         enforcePrivilegedPermissionIfNeeded(settings);
         settings = enforceReportDelayFloor(settings);
-
+        enforcePrivilegedPermissionIfNeeded(filters);
         UUID uuid = UUID.randomUUID();
         if (DBG) {
             Log.d(TAG, "startScan(PI) - UUID=" + uuid);
@@ -2370,8 +2367,7 @@ public class GattService extends ProfileService {
                 callingPackage.equals(mExposureNotificationPackage);
 
         app.mHasDisavowedLocation =
-                Utils.hasDisavowedLocationForScan(this, callingPackage, attributionSource,
-                        isTestModeEnabled());
+                Utils.hasDisavowedLocationForScan(this, attributionSource, isTestModeEnabled());
 
         app.mIsQApp = Utils.isQApp(this, callingPackage);
         if (!app.mHasDisavowedLocation) {
@@ -3681,9 +3677,8 @@ public class GattService extends ProfileService {
     }
 
     private boolean needsPrivilegedPermissionForScan(ScanSettings settings) {
-        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         // BLE scan only mode needs special permission.
-        if (adapter.getState() != BluetoothAdapter.STATE_ON) {
+        if (mAdapterService.getState() != BluetoothAdapter.STATE_ON) {
             return true;
         }
 
@@ -3704,6 +3699,39 @@ public class GattService extends ProfileService {
 
         // Batch scan, truncated mode needs permission.
         return settings.getScanResultType() == ScanSettings.SCAN_RESULT_TYPE_ABBREVIATED;
+    }
+
+    /*
+     * The {@link ScanFilter#setDeviceAddress} API overloads are @SystemApi access methods.  This
+     * requires that the permissions be BLUETOOTH_PRIVILEGED.
+     */
+    @SuppressLint("AndroidFrameworkRequiresPermission")
+    private void enforcePrivilegedPermissionIfNeeded(List<ScanFilter> filters) {
+        if (DBG) {
+            Log.d(TAG, "enforcePrivilegedPermissionIfNeeded(" + filters + ")");
+        }
+        // Some 3p API cases may have null filters, need to allow
+        if (filters != null) {
+            for (ScanFilter filter : filters) {
+                // The only case to enforce here is if there is an address
+                // If there is an address, enforce if the correct combination criteria is met.
+                if (filter.getDeviceAddress() != null) {
+                    // At this point we have an address, that means a caller used the
+                    // setDeviceAddress(address) public API for the ScanFilter
+                    // We don't want to enforce if the type is PUBLIC and the IRK is null
+                    // However, if we have a different type that means the caller used a new
+                    // @SystemApi such as setDeviceAddress(address, type) or
+                    // setDeviceAddress(address, type, irk) which are both @SystemApi and require
+                    // permissions to be enforced
+                    if (filter.getAddressType()
+                            == BluetoothDevice.ADDRESS_TYPE_PUBLIC && filter.getIrk() == null) {
+                        // Do not enforce
+                    } else {
+                        enforcePrivilegedPermission();
+                    }
+                }
+            }
+        }
     }
 
     // Enforce caller has BLUETOOTH_PRIVILEGED permission. A {@link SecurityException} will be
