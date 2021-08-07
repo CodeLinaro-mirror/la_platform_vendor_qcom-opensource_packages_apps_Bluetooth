@@ -1087,4 +1087,19 @@ public class AvrcpControllerService extends ProfileService {
      */
     native static void getFolderItemsNative(byte[] address, byte scope, byte start, byte end,
             byte numAttributes, int[] attribIds);
+
+    /**
+     * Request for continuing response
+     *
+     * @param pduId  ID of PDU data packet
+     */
+    native static void requestContinuingResponseNative(byte[] address, byte pduId);
+
+    /**
+     * Abort continuing response
+     *
+     * @param pduId  ID of PDU data packet
+     */
+    native static void abortContinuingResponseNative(byte[] address, byte pduId);
+
 }
