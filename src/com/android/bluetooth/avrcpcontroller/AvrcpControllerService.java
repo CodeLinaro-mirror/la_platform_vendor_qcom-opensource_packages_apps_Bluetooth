@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.avrcpcontroller;
@@ -1125,4 +1130,16 @@ public class AvrcpControllerService extends ProfileService {
      * @param playerId player number
      */
     public native void setAddressedPlayerNative(byte[] address, int playerId);
+
+    /**
+     * Get item attributes with provided uid
+     *
+     * @param scope          scope of item to played
+     * @param uid            song unique id
+     * @param uidCounter     counter
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getItemAttributesNative(byte[] address, byte scope, long uid, int uidCounter,
+            byte numAttributes, int[] attribIds);
 }
