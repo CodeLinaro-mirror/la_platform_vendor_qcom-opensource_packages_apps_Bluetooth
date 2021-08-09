@@ -1474,6 +1474,45 @@ static void getElementAttributesNative(JNIEnv *env, jobject object, jbyteArray a
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 
+static void getFolderItemsNative(JNIEnv* env, jobject object, jbyteArray address,
+                           jbyte scope, jbyte start, jbyte end, jbyte numAttr,
+                           jintArray attrIds) {
+  if (!sBluetoothAvrcpInterface) return;
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (!addr) {
+    jniThrowIOException(env, EINVAL);
+    return;
+  }
+
+  RawAddress rawAddress;
+  rawAddress.FromOctets((uint8_t*)addr);
+
+  if (numAttr > BTRC_MAX_ELEM_ATTR_SIZE) {
+    ALOGE("getFolderItemsNative: number of attributes exceed maximum");
+    return;
+  }
+
+  jint* attr = NULL;
+  if ((numAttr > 0) && (attrIds != NULL)) {
+    attr = env->GetIntArrayElements(attrIds, NULL);
+    if (!attr) {
+      jniThrowIOException(env, EINVAL);
+      return;
+    }
+  }
+
+  ALOGI("%s: sBluetoothAvrcpInterface: %p", __func__, sBluetoothAvrcpInterface);
+  bt_status_t status = sBluetoothAvrcpInterface->get_folder_items_vendor_cmd(
+      rawAddress, (uint8_t)scope, (uint8_t)start, (uint8_t)end, (uint8_t)numAttr, (uint32_t*)attr);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed sending getFolderItemsNative command, status: %d", status);
+  }
+
+  if (attr) env->ReleaseIntArrayElements(attrIds, attr, 0);
+  env->ReleaseByteArrayElements(address, addr, 0);
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void*)classInitNative},
     {"initNative", "()V", (void*)initNative},
@@ -1500,6 +1539,7 @@ static JNINativeMethod sMethods[] = {
     {"getSearchListNative", "([BII)V", (void*)getSearchListNative},
     {"getItemAttributesNative", "([BBJIB[I)V",(void *) getItemAttributesNative},
     {"getElementAttributesNative", "([BB[I)V",(void *) getElementAttributesNative},
+    {"getFolderItemsNative", "([BBBBB[I)V", (void *) getFolderItemsNative},
 };
 
 int register_com_android_bluetooth_avrcp_controller(JNIEnv* env) {
