@@ -17,6 +17,7 @@
 package com.android.bluetooth.avrcp;
 
 import android.annotation.NonNull;
+import android.bluetooth.BluetoothAvrcp;
 import android.bluetooth.BluetoothDevice;
 import android.car.Car;
 import android.car.CarNotConnectedException;
@@ -220,7 +221,10 @@ public class MediaPlayerList {
 
     void cleanup() {
         mContext.unregisterReceiver(mPackageChangedBroadcastReceiver);
-
+        for (BluetoothDevice device : mActiveBluetoothDevices.values()) {
+            sendMediaKeyEventExt(device, BluetoothAvrcp.PASSTHROUGH_ID_PAUSE, true);
+            sendMediaKeyEventExt(device, BluetoothAvrcp.PASSTHROUGH_ID_PAUSE, false);
+        }
         mMediaSessionManager.removeOnActiveSessionsChangedListener(mActiveSessionsChangedListener);
         mMediaSessionManager.setCallback(null, null);
         mMediaSessionManager = null;
@@ -812,7 +816,9 @@ public class MediaPlayerList {
         int action = pushed ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP;
         KeyEvent event = new KeyEvent(action, AvrcpPassthrough.toKeyCode(key));
         // Send a media key event to a media player
-        mMediaSessionManager.dispatchMediaKeyEvent(event, getPlayerPackageName(device));
+        if(mMediaSessionManager != null) {
+            mMediaSessionManager.dispatchMediaKeyEvent(event, getPlayerPackageName(device));
+        }
     }
 
     int getMaxVolume(BluetoothDevice device) {
