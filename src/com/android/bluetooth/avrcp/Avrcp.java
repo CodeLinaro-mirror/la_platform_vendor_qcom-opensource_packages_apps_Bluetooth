@@ -138,7 +138,6 @@ public final class Avrcp {
     private HashMap<Integer, Integer> mVolumeMapping;
 
     private int mLastDirection;
-    private final int mVolumeStep;
     private final int mAudioStreamMax;
     private boolean mVolCmdSetInProgress;
     private int mAbsVolRetryTimes;
@@ -313,7 +312,6 @@ public final class Avrcp {
                 (MediaSessionManager) context.getSystemService(Context.MEDIA_SESSION_SERVICE);
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
         mAudioStreamMax = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        mVolumeStep = Math.max(AVRCP_BASE_VOLUME_STEP, AVRCP_MAX_VOL / mAudioStreamMax);
 
         Resources resources = context.getResources();
         if (resources != null) {
@@ -2799,7 +2797,6 @@ public final class Avrcp {
         ProfileService.println(sb, "mRemoteVolume: " + mRemoteVolume);
         ProfileService.println(sb, "mLastRemoteVolume: " + mLastRemoteVolume);
         ProfileService.println(sb, "mLastDirection: " + mLastDirection);
-        ProfileService.println(sb, "mVolumeStep: " + mVolumeStep);
         ProfileService.println(sb, "mAudioStreamMax: " + mAudioStreamMax);
         ProfileService.println(sb, "mVolCmdSetInProgress: " + mVolCmdSetInProgress);
         ProfileService.println(sb, "mAbsVolRetryTimes: " + mAbsVolRetryTimes);
