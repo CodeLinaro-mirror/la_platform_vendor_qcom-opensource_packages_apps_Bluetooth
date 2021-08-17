@@ -42,6 +42,7 @@ import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.annotations.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -61,7 +62,11 @@ public class HeadsetClientService extends ProfileService {
     private static final boolean DBG = false;
     private static final String TAG = "HeadsetClientService";
 
-    private HashMap<BluetoothDevice, HeadsetClientStateMachine> mStateMachineMap = new HashMap<>();
+    // This is also used as a lock for shared data in {@link HeadsetClientService}
+    @GuardedBy("mStateMachineMap")
+    private final HashMap<BluetoothDevice, HeadsetClientStateMachine> mStateMachineMap =
+            new HashMap<>();
+
     private static HeadsetClientService sHeadsetClientService;
     private NativeInterface mNativeInterface = null;
     private HandlerThread mSmThread = null;
@@ -73,6 +78,8 @@ public class HeadsetClientService extends ProfileService {
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
 
+    private final Object mStartStopLock = new Object();
+
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
 
     @Override
@@ -81,86 +88,96 @@ public class HeadsetClientService extends ProfileService {
     }
 
     @Override
-    protected synchronized boolean start() {
-        if (DBG) {
-            Log.d(TAG, "start()");
+    protected boolean start() {
+        synchronized (mStartStopLock) {
+            if (DBG) {
+                Log.d(TAG, "start()");
+            }
+            if (getHeadsetClientService() != null) {
+                Log.w(TAG, "start(): start called without stop");
+                return false;
+            }
+
+            mDatabaseManager = Objects.requireNonNull(AdapterService.getAdapterService().getDatabase(),
+                    "DatabaseManager cannot be null when HeadsetClientService starts");
+
+            // Setup the JNI service
+            mNativeInterface = NativeInterface.getInstance();
+            mNativeInterface.initialize();
+
+            mBatteryManager = getSystemService(BatteryManager.class);
+
+            mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            if (mAudioManager == null) {
+                Log.e(TAG, "AudioManager service doesn't exist?");
+            } else {
+                // start AudioManager in a known state
+                mAudioManager.setParameters("hfp_enable=false");
+            }
+
+            mSmFactory = new HeadsetClientStateMachineFactory();
+            synchronized (mStateMachineMap) {
+                mStateMachineMap.clear();
+            }
+
+            IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+            // For automotive device use CarAudioManager callback to handle the volume change
+            if (!isAutomotive()) {
+                filter.addAction(AudioManager.VOLUME_CHANGED_ACTION);
+            }
+            registerReceiver(mBroadcastReceiver, filter);
+
+            // Start the HfpClientConnectionService to create connection with telecom when HFP
+            // connection is available.
+            Intent startIntent = new Intent(this, HfpClientConnectionService.class);
+            startService(startIntent);
+
+            // Create the thread on which all State Machines will run
+            mSmThread = new HandlerThread("HeadsetClient.SM");
+            mSmThread.start();
+
+            setHeadsetClientService(this);
+            return true;
         }
-        if (sHeadsetClientService != null) {
-            Log.w(TAG, "start(): start called without stop");
-            return false;
-        }
-
-        mDatabaseManager = Objects.requireNonNull(AdapterService.getAdapterService().getDatabase(),
-                "DatabaseManager cannot be null when HeadsetClientService starts");
-
-        // Setup the JNI service
-        mNativeInterface = NativeInterface.getInstance();
-        mNativeInterface.initialize();
-
-        mBatteryManager = getSystemService(BatteryManager.class);
-
-        mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        if (mAudioManager == null) {
-            Log.e(TAG, "AudioManager service doesn't exist?");
-        } else {
-            // start AudioManager in a known state
-            mAudioManager.setParameters("hfp_enable=false");
-        }
-
-        mSmFactory = new HeadsetClientStateMachineFactory();
-        mStateMachineMap.clear();
-
-        IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-        // For automotive device use CarAudioManager callback to handle the volume change
-        if (!isAutomotive()) {
-            filter.addAction(AudioManager.VOLUME_CHANGED_ACTION);
-        }
-        registerReceiver(mBroadcastReceiver, filter);
-
-        // Start the HfpClientConnectionService to create connection with telecom when HFP
-        // connection is available.
-        Intent startIntent = new Intent(this, HfpClientConnectionService.class);
-        startService(startIntent);
-
-        // Create the thread on which all State Machines will run
-        mSmThread = new HandlerThread("HeadsetClient.SM");
-        mSmThread.start();
-
-        setHeadsetClientService(this);
-        return true;
     }
 
     @Override
-    protected synchronized boolean stop() {
-        if (sHeadsetClientService == null) {
-            Log.w(TAG, "stop() called without start()");
-            return false;
+    protected boolean stop() {
+        synchronized (mStartStopLock) {
+            synchronized (HeadsetClientService.class) {
+                if (sHeadsetClientService == null) {
+                    Log.w(TAG, "stop() called without start()");
+                    return false;
+                }
+
+                // Stop the HfpClientConnectionService.
+                Intent stopIntent = new Intent(this, HfpClientConnectionService.class);
+                sHeadsetClientService.stopService(stopIntent);
+            }
+
+            setHeadsetClientService(null);
+
+            unregisterReceiver(mBroadcastReceiver);
+
+            synchronized (mStateMachineMap) {
+                for (Iterator<Map.Entry<BluetoothDevice, HeadsetClientStateMachine>> it =
+                        mStateMachineMap.entrySet().iterator(); it.hasNext(); ) {
+                    HeadsetClientStateMachine sm =
+                            mStateMachineMap.get((BluetoothDevice) it.next().getKey());
+                    sm.doQuit();
+                    it.remove();
+                }
+            }
+
+            // Stop the handler thread
+            mSmThread.quit();
+            mSmThread = null;
+
+            mNativeInterface.cleanup();
+            mNativeInterface = null;
+
+            return true;
         }
-
-        // Stop the HfpClientConnectionService.
-        Intent stopIntent = new Intent(this, HfpClientConnectionService.class);
-        sHeadsetClientService.stopService(stopIntent);
-
-        setHeadsetClientService(null);
-
-        unregisterReceiver(mBroadcastReceiver);
-
-        for (Iterator<Map.Entry<BluetoothDevice, HeadsetClientStateMachine>> it =
-                mStateMachineMap.entrySet().iterator(); it.hasNext(); ) {
-            HeadsetClientStateMachine sm =
-                    mStateMachineMap.get((BluetoothDevice) it.next().getKey());
-            sm.doQuit();
-            it.remove();
-        }
-
-        // Stop the handler thread
-        mSmThread.quit();
-        mSmThread = null;
-
-        mNativeInterface.cleanup();
-        mNativeInterface = null;
-
-        return true;
     }
 
     private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
@@ -557,15 +574,14 @@ public class HeadsetClientService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "connect " + device);
         }
-        HeadsetClientStateMachine sm = getStateMachine(device);
-        if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
-            return false;
-        }
-
         if (getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             Log.w(TAG, "Connection not allowed: <" + device.getAddress()
                     + "> is CONNECTION_POLICY_FORBIDDEN");
+            return false;
+        }
+        HeadsetClientStateMachine sm = getStateMachine(device, true);
+        if (sm == null) {
+            Log.e(TAG, "Cannot allocate SM for device " + device);
             return false;
         }
 
@@ -582,7 +598,7 @@ public class HeadsetClientService extends ProfileService {
     public boolean disconnect(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -596,24 +612,31 @@ public class HeadsetClientService extends ProfileService {
         return true;
     }
 
-    public synchronized List<BluetoothDevice> getConnectedDevices() {
+    /**
+     * @return A list of connected {@link BluetoothDevice}.
+     */
+    public List<BluetoothDevice> getConnectedDevices() {
         ArrayList<BluetoothDevice> connectedDevices = new ArrayList<>();
-        for (BluetoothDevice bd : mStateMachineMap.keySet()) {
-            HeadsetClientStateMachine sm = mStateMachineMap.get(bd);
-            if (sm != null && sm.getConnectionState(bd) == BluetoothProfile.STATE_CONNECTED) {
-                connectedDevices.add(bd);
+        synchronized (mStateMachineMap) {
+            for (BluetoothDevice bd : mStateMachineMap.keySet()) {
+                HeadsetClientStateMachine sm = mStateMachineMap.get(bd);
+                if (sm != null && sm.getConnectionState(bd) == BluetoothProfile.STATE_CONNECTED) {
+                    connectedDevices.add(bd);
+                }
             }
         }
         return connectedDevices;
     }
 
-    private synchronized List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+    private List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
         List<BluetoothDevice> devices = new ArrayList<BluetoothDevice>();
-        for (BluetoothDevice bd : mStateMachineMap.keySet()) {
-            for (int state : states) {
-                HeadsetClientStateMachine sm = mStateMachineMap.get(bd);
-                if (sm != null && sm.getConnectionState(bd) == state) {
-                    devices.add(bd);
+        synchronized (mStateMachineMap) {
+            for (BluetoothDevice bd : mStateMachineMap.keySet()) {
+                for (int state : states) {
+                    HeadsetClientStateMachine sm = mStateMachineMap.get(bd);
+                    if (sm != null && sm.getConnectionState(bd) == state) {
+                        devices.add(bd);
+                    }
                 }
             }
         }
@@ -629,11 +652,12 @@ public class HeadsetClientService extends ProfileService {
      * {@link BluetoothProfile#STATE_CONNECTED} if this profile is connected, or
      * {@link BluetoothProfile#STATE_DISCONNECTING} if this profile is being disconnected
      */
-    public synchronized int getConnectionState(BluetoothDevice device) {
-        HeadsetClientStateMachine sm = mStateMachineMap.get(device);
+    public int getConnectionState(BluetoothDevice device) {
+        HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm != null) {
             return sm.getConnectionState(device);
         }
+
         return BluetoothProfile.STATE_DISCONNECTED;
     }
 
@@ -689,7 +713,7 @@ public class HeadsetClientService extends ProfileService {
     boolean startVoiceRecognition(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
         int connectionState = sm.getConnectionState(device);
@@ -703,7 +727,7 @@ public class HeadsetClientService extends ProfileService {
     boolean stopVoiceRecognition(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
         int connectionState = sm.getConnectionState(device);
@@ -723,7 +747,7 @@ public class HeadsetClientService extends ProfileService {
     public int getAudioState(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return -1;
         }
 
@@ -733,7 +757,7 @@ public class HeadsetClientService extends ProfileService {
     boolean connectAudio(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -750,7 +774,7 @@ public class HeadsetClientService extends ProfileService {
     boolean disconnectAudio(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -764,7 +788,7 @@ public class HeadsetClientService extends ProfileService {
     boolean holdCall(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -780,7 +804,7 @@ public class HeadsetClientService extends ProfileService {
 
     boolean acceptCall(BluetoothDevice device, int flag) {
         /* Phonecalls from a single device are supported, hang up any calls on the other phone */
-        synchronized (this) {
+        synchronized (mStateMachineMap) {
             for (Map.Entry<BluetoothDevice, HeadsetClientStateMachine> entry : mStateMachineMap
                     .entrySet()) {
                 if (entry.getValue() == null || entry.getKey().equals(device)) {
@@ -801,7 +825,7 @@ public class HeadsetClientService extends ProfileService {
         }
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -818,7 +842,7 @@ public class HeadsetClientService extends ProfileService {
     boolean rejectCall(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -836,7 +860,7 @@ public class HeadsetClientService extends ProfileService {
     boolean terminateCall(BluetoothDevice device, UUID uuid) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -855,7 +879,7 @@ public class HeadsetClientService extends ProfileService {
     boolean enterPrivateMode(BluetoothDevice device, int index) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -874,7 +898,7 @@ public class HeadsetClientService extends ProfileService {
     BluetoothHeadsetClientCall dial(BluetoothDevice device, String number) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return null;
         }
 
@@ -897,7 +921,7 @@ public class HeadsetClientService extends ProfileService {
     public boolean sendDTMF(BluetoothDevice device, byte code) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -919,7 +943,7 @@ public class HeadsetClientService extends ProfileService {
     public List<BluetoothHeadsetClientCall> getCurrentCalls(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return null;
         }
 
@@ -933,7 +957,7 @@ public class HeadsetClientService extends ProfileService {
     public boolean explicitCallTransfer(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -951,7 +975,7 @@ public class HeadsetClientService extends ProfileService {
     public boolean sendVendorAtCommand(BluetoothDevice device, int vendorId, String atCommand) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return false;
         }
 
@@ -969,7 +993,7 @@ public class HeadsetClientService extends ProfileService {
     public Bundle getCurrentAgEvents(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return null;
         }
 
@@ -983,7 +1007,7 @@ public class HeadsetClientService extends ProfileService {
     public Bundle getCurrentAgFeatures(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
-            Log.e(TAG, "Cannot allocate SM for device " + device);
+            Log.e(TAG, "SM does not exist for device " + device);
             return null;
         }
         int connectionState = sm.getConnectionState(device);
@@ -995,57 +1019,115 @@ public class HeadsetClientService extends ProfileService {
 
     // Handle messages from native (JNI) to java
     public void messageFromNative(StackEvent stackEvent) {
-        HeadsetClientStateMachine sm = getStateMachine(stackEvent.device);
-        if (sm == null) {
-            Log.w(TAG, "No SM found for event " + stackEvent);
-        }
+        Objects.requireNonNull(stackEvent.device,
+                "Device should never be null, event: " + stackEvent);
 
+        HeadsetClientStateMachine sm = getStateMachine(stackEvent.device,
+                isConnectionEvent(stackEvent));
+        if (sm == null) {
+            throw new IllegalStateException(
+                    "State machine not found for stack event: " + stackEvent);
+        }
         sm.sendMessage(StackEvent.STACK_EVENT, stackEvent);
     }
 
-    // State machine management
-    private synchronized HeadsetClientStateMachine getStateMachine(BluetoothDevice device) {
+    private boolean isConnectionEvent(StackEvent stackEvent) {
+        if (stackEvent.type == StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED) {
+            if ((stackEvent.valueInt == HeadsetClientHalConstants.CONNECTION_STATE_CONNECTING)
+                    || (stackEvent.valueInt
+                    == HeadsetClientHalConstants.CONNECTION_STATE_CONNECTED)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private HeadsetClientStateMachine getStateMachine(BluetoothDevice device) {
+        return getStateMachine(device, false);
+    }
+
+    private HeadsetClientStateMachine getStateMachine(BluetoothDevice device,
+            boolean isConnectionEvent) {
         if (device == null) {
             Log.e(TAG, "getStateMachine failed: Device cannot be null");
             return null;
         }
 
-        HeadsetClientStateMachine sm = mStateMachineMap.get(device);
+        HeadsetClientStateMachine sm;
+        synchronized (mStateMachineMap) {
+            sm = mStateMachineMap.get(device);
+        }
+
         if (sm != null) {
             if (DBG) {
                 Log.d(TAG, "Found SM for device " + device);
             }
-            return sm;
+        } else if (isConnectionEvent) {
+            // The only time a new state machine should be created when none was found is for
+            // connection events.
+            sm = allocateStateMachine(device);
+            if (sm == null) {
+                Log.e(TAG, "SM could not be allocated for device " + device);
+            }
         }
-
-        // There is a possibility of a DOS attack if someone populates here with a lot of fake
-        // BluetoothAddresses. If it so happens instead of blowing up we can atleast put a limit on
-        // how long the attack would survive
-        if (mStateMachineMap.keySet().size() > MAX_STATE_MACHINES_POSSIBLE) {
-            Log.e(TAG, "Max state machines reached, possible DOS attack "
-                    + MAX_STATE_MACHINES_POSSIBLE);
-            return null;
-        }
-
-        // Allocate a new SM
-        Log.d(TAG, "Creating a new state machine");
-        sm = mSmFactory.make(this, mSmThread, mNativeInterface);
-        mStateMachineMap.put(device, sm);
         return sm;
     }
 
+    private HeadsetClientStateMachine allocateStateMachine(BluetoothDevice device) {
+        if (device == null) {
+            Log.e(TAG, "allocateStateMachine failed: Device cannot be null");
+            return null;
+        }
+
+        if (getHeadsetClientService() == null) {
+            // Preconditions: {@code setHeadsetClientService(this)} is the last thing {@code start}
+            // does, and {@code setHeadsetClientService(null)} is (one of) the first thing
+            // {@code stop does}.
+            Log.e(TAG, "Cannot allocate SM if service has begun stopping or has not completed"
+                    + " startup.");
+            return null;
+        }
+
+        synchronized (mStateMachineMap) {
+            HeadsetClientStateMachine sm = mStateMachineMap.get(device);
+            if (sm != null) {
+                if (DBG) {
+                    Log.d(TAG, "allocateStateMachine: SM already exists for device " + device);
+                }
+                return sm;
+            }
+
+            // There is a possibility of a DOS attack if someone populates here with a lot of fake
+            // BluetoothAddresses. If it so happens instead of blowing up we can at least put a
+            // limit on how long the attack would survive
+            if (mStateMachineMap.keySet().size() > MAX_STATE_MACHINES_POSSIBLE) {
+                Log.e(TAG, "Max state machines reached, possible DOS attack "
+                        + MAX_STATE_MACHINES_POSSIBLE);
+                return null;
+            }
+
+            // Allocate a new SM
+            Log.d(TAG, "Creating a new state machine");
+            sm = mSmFactory.make(this, mSmThread, mNativeInterface);
+            mStateMachineMap.put(device, sm);
+            return sm;
+        }
+    }
+
     // Check if any of the state machines have routed the SCO audio stream.
-    synchronized boolean isScoRouted() {
-        for (Map.Entry<BluetoothDevice, HeadsetClientStateMachine> entry : mStateMachineMap
-                .entrySet()) {
-            if (entry.getValue() != null) {
-                int audioState = entry.getValue().getAudioState(entry.getKey());
-                if (audioState == BluetoothHeadsetClient.STATE_AUDIO_CONNECTED) {
-                    if (DBG) {
-                        Log.d(TAG, "Device " + entry.getKey() + " audio state " + audioState
-                                + " Connected");
+    boolean isScoRouted() {
+        synchronized (mStateMachineMap) {
+            for (Map.Entry<BluetoothDevice, HeadsetClientStateMachine> entry : mStateMachineMap
+                    .entrySet()) {
+                if (entry.getValue() != null) {
+                    int audioState = entry.getValue().getAudioState(entry.getKey());
+                    if (audioState == BluetoothHeadsetClient.STATE_AUDIO_CONNECTED) {
+                        if (DBG) {
+                            Log.d(TAG, "Device " + entry.getKey() + " audio state " + audioState
+                                    + " Connected");
+                        }
+                        return true;
                     }
-                    return true;
                 }
             }
         }
@@ -1053,18 +1135,22 @@ public class HeadsetClientService extends ProfileService {
     }
 
     @Override
-    public synchronized void dump(StringBuilder sb) {
+    public void dump(StringBuilder sb) {
         super.dump(sb);
-        for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
-            if (sm != null) {
-                sm.dump(sb);
+        synchronized (mStateMachineMap) {
+            for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                if (sm != null) {
+                    sm.dump(sb);
+                }
             }
         }
     }
 
     // For testing
-    protected synchronized Map<BluetoothDevice, HeadsetClientStateMachine> getStateMachineMap() {
-        return mStateMachineMap;
+    protected Map<BluetoothDevice, HeadsetClientStateMachine> getStateMachineMap() {
+        synchronized (mStateMachineMap) {
+            return mStateMachineMap;
+        }
     }
 
     protected void setSMFactory(HeadsetClientStateMachineFactory factory) {
