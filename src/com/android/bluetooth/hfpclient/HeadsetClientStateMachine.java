@@ -1208,6 +1208,12 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         private void processOnCallEvent(int call, BluetoothDevice device) {
             Log.d(TAG, "Enter Connecting processOnCallEvent() Device: "+ device);
+
+            if(mA2dpService == null) {
+                Log.e(TAG, "A2dpService is null");
+                return;
+            }
+
             BluetoothDevice a2dpActivedevice = mA2dpService.getActiveDevice();
             boolean misA2dpPlaying = false;
             if(a2dpActivedevice != null)
@@ -1226,6 +1232,12 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         private void processOnCallSetupEvent(int callsetup, BluetoothDevice device) {
             Log.d(TAG, "Enter Connecting processOnCallSetupEvent() device:" + device);
+
+            if(mA2dpService == null) {
+                Log.e(TAG, "A2dpService is null");
+                return;
+            }
+
             BluetoothDevice a2dpActivedevice = mA2dpService.getActiveDevice();
             boolean misA2dpPlaying = false;
             if(a2dpActivedevice != null)
@@ -1679,6 +1691,12 @@ public class HeadsetClientStateMachine extends StateMachine {
         // In Connected state
         private void processOnCallEvent(int call, BluetoothDevice device) {
             Log.d(TAG, "Enter Connected processOnCallEvent() device:" + device);
+
+            if(mA2dpService == null) {
+                Log.e(TAG, "A2dpService is null");
+                return;
+            }
+
             BluetoothDevice a2dpActivedevice = mA2dpService.getActiveDevice();
             boolean misA2dpPlaying = false;
             if(a2dpActivedevice != null)
@@ -1697,6 +1715,12 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         private void processOnCallSetupEvent(int callsetup, BluetoothDevice device) {
             Log.d(TAG, "Enter Connected processOnCallSetupEvent() device:" + device);
+
+            if(mA2dpService == null) {
+                Log.e(TAG, "A2dpService is null");
+                return;
+            }
+
             BluetoothDevice a2dpActivedevice = mA2dpService.getActiveDevice();
             boolean misA2dpPlaying = false;
             if(a2dpActivedevice != null)
