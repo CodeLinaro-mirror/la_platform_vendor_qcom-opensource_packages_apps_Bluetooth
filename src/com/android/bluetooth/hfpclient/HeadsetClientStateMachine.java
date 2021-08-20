@@ -126,9 +126,6 @@ public class HeadsetClientStateMachine extends StateMachine {
     private static final long OUTGOING_TIMEOUT_MILLI = 10 * 1000; // 10 seconds
     private static final long QUERY_CURRENT_CALLS_WAIT_MILLIS = 2 * 1000; // 2 seconds
 
-    //Keep track of A2dp play status
-    private boolean mA2dpSuspend = false;
-
     // Keep track of client call put on hold due to active ag call.
     private boolean mIsClientIncomingCallHeld = false;
     private boolean mIsClientActiveCallHeld = false;
