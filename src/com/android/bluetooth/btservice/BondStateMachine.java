@@ -23,6 +23,7 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothProtoEnums;
 import android.bluetooth.OobData;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Message;
 import android.os.UserHandle;
 import android.util.Log;
@@ -372,16 +373,18 @@ final class BondStateMachine extends StateMachine {
         if (dev.getBondState() == BluetoothDevice.BOND_NONE) {
             byte[] addr = Utils.getBytesFromAddress(dev.getAddress());
             byte[] key = getByteFromLinkkey(linkKey);
-            boolean result = mAdapterService.addOutOfBandBondDeviceNative(addr, key, linkKeyType, pinLen);
-            if (!result) {
-                sendIntent(dev, BluetoothDevice.BOND_NONE,
-                           BluetoothDevice.UNBOND_REASON_REMOVED);
-                return false;
-            } else if (transition) {
-                transitionTo(mPendingCommandState);
+            if (key == null) {
+                errorLog("non-numerical characters are not allowed in linkkey");
+            } else {
+                boolean result = mAdapterService.addOutOfBandBondDeviceNative(addr, key, linkKeyType, pinLen);
+                if (result) {
+                    if (transition) transitionTo(mPendingCommandState);
+                    infoLog("LinkKey " + linkKey + "keytype " + linkKeyType);
+                    return true;
+                }
             }
-            return true;
         }
+        sendIntent(dev, BluetoothDevice.BOND_NONE, BluetoothDevice.UNBOND_REASON_REMOVED);
         return false;
     }
 
@@ -403,12 +406,18 @@ final class BondStateMachine extends StateMachine {
         int linkKeyLen = Math.min(linkKey.length(), 16);
         byte[] output = new byte[16];
         for (i = 0; i < linkKey.length(); i++) {
-            output[j] = (byte) Integer.parseInt(linkKey.substring(i, i + 2), 16);
+            try {
+                output[j] = (byte) Integer.parseInt(linkKey.substring(i, i + 2), 16);
+            } catch (NumberFormatException e) {
+               Log.e(TAG, "getByteFromLinkkey Exception: NumberFormatException");
+               return null;
+            }
             j++;
             i++;
         }
         return output;
     }
+
 
     @VisibleForTesting
     void sendIntent(BluetoothDevice device, int newState, int reason) {
@@ -511,7 +520,7 @@ final class BondStateMachine extends StateMachine {
             mRemoteDevices.addDeviceProperties(address);
         }
         infoLog("sspRequestCallback: " + address + " name: " + name + " cod: " + cod
-                + " pairingVariant " + pairingVariant + " passkey: " + passkey);
+                + " pairingVariant " + pairingVariant + " passkey: " + (Build.IS_DEBUGGABLE ? passkey : "******"));
         int variant;
         boolean displayPasskey = false;
         switch (pairingVariant) {

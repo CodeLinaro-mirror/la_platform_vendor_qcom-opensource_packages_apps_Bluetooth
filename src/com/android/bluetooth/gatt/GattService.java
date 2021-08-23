@@ -819,13 +819,14 @@ public class GattService extends ProfileService {
         public void startAdvertisingSet(AdvertisingSetParameters parameters,
                 AdvertiseData advertiseData, AdvertiseData scanResponse,
                 PeriodicAdvertisingParameters periodicParameters, AdvertiseData periodicData,
-                int duration, int maxExtAdvEvents, IAdvertisingSetCallback callback) {
+                int duration, int maxExtAdvEvents, IAdvertisingSetCallback callback,
+                List<BluetoothDevice> btDevices) {
             GattService service = getService();
             if (service == null) {
                 return;
             }
             service.startAdvertisingSet(parameters, advertiseData, scanResponse, periodicParameters,
-                    periodicData, duration, maxExtAdvEvents, callback);
+                    periodicData, duration, maxExtAdvEvents, callback, btDevices);
         }
 
         @Override
@@ -910,6 +911,12 @@ public class GattService extends ProfileService {
                 return;
             }
             service.setPeriodicAdvertisingEnable(advertiserId, enable);
+        }
+
+        public void updateAdvertisingWhiteList(int advertiserId, BluetoothDevice btDevice, boolean toAdd) {
+            GattService service = getService();
+            if (service == null) return;
+            service.updateAdvertisingWhiteList(advertiserId, btDevice, toAdd);
         }
 
         @Override
@@ -2294,10 +2301,10 @@ public class GattService extends ProfileService {
     void startAdvertisingSet(AdvertisingSetParameters parameters, AdvertiseData advertiseData,
             AdvertiseData scanResponse, PeriodicAdvertisingParameters periodicParameters,
             AdvertiseData periodicData, int duration, int maxExtAdvEvents,
-            IAdvertisingSetCallback callback) {
+            IAdvertisingSetCallback callback, List<BluetoothDevice> btDevices) {
         enforceAdminPermission();
         mAdvertiseManager.startAdvertisingSet(parameters, advertiseData, scanResponse,
-                periodicParameters, periodicData, duration, maxExtAdvEvents, callback);
+                periodicParameters, periodicData, duration, maxExtAdvEvents, callback, btDevices);
     }
 
     void stopAdvertisingSet(IAdvertisingSetCallback callback) {
@@ -2344,6 +2351,12 @@ public class GattService extends ProfileService {
     void setPeriodicAdvertisingEnable(int advertiserId, boolean enable) {
         enforceAdminPermission();
         mAdvertiseManager.setPeriodicAdvertisingEnable(advertiserId, enable);
+    }
+
+    void updateAdvertisingWhiteList(
+            int advertiserId, BluetoothDevice btDevice, boolean toAdd) {
+        enforceAdminPermission();
+        mAdvertiseManager.updateAdvertisingWhiteList(advertiserId, btDevice, toAdd);
     }
 
     /**************************************************************************
