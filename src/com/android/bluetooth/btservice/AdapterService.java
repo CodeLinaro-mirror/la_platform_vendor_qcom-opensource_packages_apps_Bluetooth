@@ -2082,10 +2082,12 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public void setBondingInitiatedLocally(BluetoothDevice device, boolean localInitiated) {
+        public void setBondingInitiatedLocally(BluetoothDevice device, boolean localInitiated,
+                    AttributionSource source) {
             // don't check caller, may be called from system UI
             AdapterService service = getService();
-            if (service == null) {
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                    service, source, "setBondingInitiatedLocally")) {
                 return;
             }
             service.setBondingInitiatedLocally(device,localInitiated);
@@ -2526,17 +2528,23 @@ public class AdapterService extends Service {
             return true;
         }
 
-        public boolean isTwsPlusDevice(BluetoothDevice device) {
+        @Override
+        public boolean isTwsPlusDevice(BluetoothDevice device,
+                AttributionSource attributionSource) {
             AdapterService service = getService();
-            if (service == null || !callerIsSystemOrActiveUser(TAG, "isTwsPlusDevice")) {
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                    service, attributionSource, "isTwsPlusDevice")) {
                 return false;
             }
             return service.isTwsPlusDevice(device);
         }
 
-        public String getTwsPlusPeerAddress(BluetoothDevice device) {
+        @Override
+        public String getTwsPlusPeerAddress(BluetoothDevice device,
+                AttributionSource attributionSource) {
             AdapterService service = getService();
-            if (service == null || !callerIsSystemOrActiveUser(TAG, "getTwsPlusPeerAddress")) {
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                    service, attributionSource, "getTwsPlusPeerAddress")) {
                 return null;
             }
             return service.getTwsPlusPeerAddress(device);
@@ -2848,11 +2856,13 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public void updateQuietModeStatus(boolean quietMode) {
+        public void updateQuietModeStatus(boolean quietMode, AttributionSource source) {
             AdapterService service = getService();
-            if (service == null) {
+            if (service == null  || !Utils.checkConnectPermissionForDataDelivery(
+                    service, source, "updateQuietModeStatus")) {
                 return;
             }
+            enforceBluetoothPrivilegedPermission(service);
             service.updateQuietModeStatus(quietMode);
         }
 
@@ -2871,9 +2881,11 @@ public class AdapterService extends Service {
 
         @Override
         public int setSocketOpt(int type, int channel, int optionName, byte [] optionVal,
-                                                    int optionLen) {
+                int optionLen) {
             AdapterService service = getService();
-            if (service == null || !Utils.checkCallerIsSystemOrActiveUser(TAG)) {
+            if (service == null || !Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    ||  !Utils.checkConnectPermissionForDataDelivery(
+                    service,  Utils.getCallingAttributionSource(), "setSocketOpt")) {
                 Log.w(TAG,"setSocketOpt not allowed for non-active user");
                 return -1;
             }
@@ -2883,7 +2895,9 @@ public class AdapterService extends Service {
         @Override
         public int getSocketOpt(int type, int channel, int optionName, byte [] optionVal) {
             AdapterService service = getService();
-            if (service == null || !Utils.checkCallerIsSystemOrActiveUser(TAG)) {
+            if (service == null || !Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    ||  !Utils.checkConnectPermissionForDataDelivery(
+                            service,  Utils.getCallingAttributionSource(), "getSocketOpt")) {
                 Log.w(TAG,"getSocketOpt not allowed for non-active user");
                 return -1;
             }
@@ -2903,9 +2917,11 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public int getDeviceType(BluetoothDevice device) {
+        public int getDeviceType(BluetoothDevice device, AttributionSource source) {
             AdapterService service = getService();
-            if (service == null || !Utils.checkCallerIsSystemOrActiveUser(TAG)) {
+            if (service == null || !Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    ||  !Utils.checkConnectPermissionForDataDelivery(
+                            service, source, "getDeviceType")) {
                 Log.w(TAG,"getDeviceType not allowed for non-active user");
                 return -1;
             }
