@@ -55,6 +55,12 @@ class VendorCommandResponseProcessor {
         SUPPORTED_VENDOR_AT_COMMANDS.put(
                 "+APLEFM",
                 BluetoothAssignedNumbers.APPLE);
+        SUPPORTED_VENDOR_AT_COMMANDS.put(
+                "OK",
+                BluetoothAssignedNumbers.APPLE);
+        SUPPORTED_VENDOR_AT_COMMANDS.put(
+                "ERROR",
+                BluetoothAssignedNumbers.APPLE);
     }
 
     // Keys are AT events (without payload), and values are the company IDs.
@@ -66,6 +72,12 @@ class VendorCommandResponseProcessor {
                 BluetoothAssignedNumbers.APPLE);
         SUPPORTED_VENDOR_EVENTS.put(
                 "+XAPL=",
+                BluetoothAssignedNumbers.APPLE);
+        SUPPORTED_VENDOR_EVENTS.put(
+                "OK",
+                BluetoothAssignedNumbers.APPLE);
+        SUPPORTED_VENDOR_EVENTS.put(
+                "ERROR",
                 BluetoothAssignedNumbers.APPLE);
     }
 

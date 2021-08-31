@@ -117,6 +117,9 @@ public class HeadsetClientStateMachine extends StateMachine {
     // special action to handle terminating specific call from multiparty call
     static final int TERMINATE_SPECIFIC_CALL = 53;
 
+    // at command error eventvalue
+    public static final int AT_ERROR = 1;
+
     // Timeouts.
     @VisibleForTesting
     static final int CONNECTING_TIMEOUT_MS = 10000;  // 10s
@@ -1239,6 +1242,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     int vendorId = message.arg1;
                     String atCommand = (String) (message.obj);
                     mVendorProcessor.sendCommand(vendorId, atCommand, mCurrentDevice);
+                    addQueuedAction(SEND_VENDOR_AT_COMMAND);
                     break;
                 }
 
@@ -1440,9 +1444,11 @@ public class HeadsetClientStateMachine extends StateMachine {
                             break;
                         case StackEvent.EVENT_TYPE_CMD_RESULT:
                             Pair<Integer, Object> queuedAction = mQueuedActions.poll();
+                            logD("StackEvent.EVENT_TYPE_CMD_RESULT: event.valueInt: " + event.valueInt + ", event.valueString: " + event.valueString);
 
                             // should not happen but...
                             if (queuedAction == null || queuedAction.first == NO_ACTION) {
+                                logD("No more propagation of at cmd result because no action is queued");
                                 clearPendingAction();
                                 break;
                             }
@@ -1470,6 +1476,21 @@ public class HeadsetClientStateMachine extends StateMachine {
                                                 HeadsetClientHalConstants.VR_STATE_STOPPED;
                                         broadcastVoiceRecognitionStateChanged(event.device,
                                                 oldState, mVoiceRecognitionActive);
+                                    }
+                                    break;
+                                case SEND_VENDOR_AT_COMMAND:
+                                    if (event.valueInt == AT_OK) {
+                                      event.valueString = "OK";
+                                      if (!mVendorProcessor.processEvent(event.valueString, event.device)) {
+                                          Log.e(TAG, "Unknown event :" + event.valueString
+                                                  + " for device " + event.device);
+                                      }
+                                    } else if (event.valueInt == AT_ERROR) {
+                                      event.valueString = "ERROR";
+                                      if (!mVendorProcessor.processEvent(event.valueString, event.device)) {
+                                          Log.e(TAG, "Unknown event :" + event.valueString
+                                                  + " for device " + event.device);
+                                      }
                                     }
                                     break;
                                 default:
