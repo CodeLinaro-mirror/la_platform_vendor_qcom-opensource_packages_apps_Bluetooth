@@ -58,6 +58,7 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
     public static final int MESSAGE_DISCONNECT_BIP                               = 2;
     public static final int MESSAGE_FETCH_THUMBNAIL                              = 3;
     public static final int MESSAGE_FETCH_IMAGE                                  = 4;
+    public static final int MESSAGE_REFRESH_SESSION                              = 5;
     // Messages for handling error conditions.
     private static final int MSG_DISCONNECT_TIMEOUT                              = 6;
 
@@ -66,11 +67,12 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
     public static final int MESSAGE_OBEX_DISCONNECT                              = 102;
     public static final int MESSAGE_OBEX_THUMBNAIL_FETCH                         = 103;
     public static final int MESSAGE_OBEX_IMAGE_FETCH                             = 104;
+    public static final int MESSAGE_OBEX_REFRESH_SESSION                         = 105;
     // messages from obex handler
-    public static final int MESSAGE_OBEX_CONNECTED                               = 105;
-    public static final int MESSAGE_OBEX_DISCONNECTED                            = 106;
-    public static final int MESSAGE_OBEX_THUMBNAIL_FETCHED                       = 107;
-    public static final int MESSAGE_OBEX_IMAGE_FETCHED                           = 108;
+    public static final int MESSAGE_OBEX_CONNECTED                               = 106;
+    public static final int MESSAGE_OBEX_DISCONNECTED                            = 107;
+    public static final int MESSAGE_OBEX_THUMBNAIL_FETCHED                       = 108;
+    public static final int MESSAGE_OBEX_IMAGE_FETCHED                           = 109;
 
     public static final String COVER_ART_HANDLE                                  = "CA_HANDLE";
     public static final String COVER_ART_IMAGE_LOCATION                          = "IMG_LOC";
@@ -260,6 +262,12 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
                     transitionTo(mConnecting);
                     break;
 
+                case MESSAGE_OBEX_CONNECTED:
+                    mAvrcpCtrlStateMachine.sendMessage(
+                            AvrcpControllerStateMachine.MESSAGE_BIP_CONNECTED);
+                    transitionTo(mConnected);
+                    break;
+
                 default:
                     return NOT_HANDLED;
             }
@@ -421,6 +429,12 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
                     msg = mAvrcpCtrlBipObexHandler.obtainMessage(MESSAGE_OBEX_DISCONNECT, mDevice);
                     msg.sendToTarget();
                     sendMessageDelayed(MSG_DISCONNECT_TIMEOUT, DISCONNECT_TIMEOUT);
+                    transitionTo(mDisconnecting);
+                    break;
+
+                case MESSAGE_REFRESH_SESSION:
+                    msg = mAvrcpCtrlBipObexHandler.obtainMessage(MESSAGE_OBEX_REFRESH_SESSION);
+                    msg.sendToTarget();
                     transitionTo(mDisconnecting);
                     break;
 

@@ -176,6 +176,10 @@ class AvrcpControllerBipObexHandler extends Handler {
                 message.setData(imageData);
                 message.sendToTarget();
                 break;
+
+            case AvrcpControllerBipStateMachine.MESSAGE_OBEX_REFRESH_SESSION:
+                refreshObexSession();
+                break;
         }
     }
 
@@ -266,6 +270,41 @@ class AvrcpControllerBipObexHandler extends Handler {
         // Close L2Cap Channel.
         closeSocket();
         mConnected = false;
+    }
+
+    private void refreshObexSession() {
+        if (mSession == null && !mConnected) return;
+        try {
+            mSession.disconnect(null);
+            mAvrcpBipSMHandler
+                .obtainMessage(AvrcpControllerBipStateMachine.MESSAGE_OBEX_DISCONNECTED)
+                .sendToTarget();
+            if(VDBG) Log.v(TAG, "Disconnected from OBEX session");
+        } catch (IOException e) {
+            Log.e(TAG, "Exception while disconnecting from AVRCP BIP server:", e);
+            disconnectBip();
+        }
+        mConnected = false;
+        try {
+            HeaderSet headerset = new HeaderSet();
+            headerset.setHeader(HeaderSet.TARGET, avrcpBipRsp);
+
+            headerset = mSession.connect(headerset);
+            int responseCode = headerset.getResponseCode();
+            if (DBG) Log.d(TAG, " refreshObexSession Rsp Code: " + headerset.getResponseCode());
+            if (responseCode == ResponseCodes.OBEX_HTTP_OK) {
+                mConnected = true;
+                mAvrcpBipSMHandler.obtainMessage(
+                    AvrcpControllerBipStateMachine.MESSAGE_OBEX_CONNECTED).sendToTarget();
+                if(VDBG) Log.v(TAG, "Reconnection established");
+            } else {
+                // Force Close the socket for failure response
+                disconnectBip();
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Exception while reconnecting to AVRCP BIP server", e);
+            disconnectBip();
+        }
     }
 
     /** Disconnect L2Cap channel.
