@@ -1991,12 +1991,11 @@ class AvrcpControllerStateMachine extends StateMachine {
         if (mRemoteDevice != null) {
             if (mAddressedPlayer.getCurrentTrack().getCoverArtHandle().isEmpty()) {
                 /* track changed happened before BIP connection. should fetch
-               * cover art handle. NumAttributes  = 0 and
-               * attributes list as null will fetch all attributes
-
-                AvrcpControllerService.getItemElementAttributesNative(
+                 * cover art handle. NumAttributes = 0 and
+                 * attributes list as null will fetch all attributes
+                 */
+                AvrcpControllerService.getElementAttributesNative(
                     mRemoteDevice.getBluetoothAddress(), (byte)0, null);
-               */
             } else {
                 int FLAG;
                 if (AvrcpControllerBipStateMachine.mImageType.
