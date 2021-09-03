@@ -180,6 +180,10 @@ class AvrcpControllerBipObexHandler extends Handler {
             case AvrcpControllerBipStateMachine.MESSAGE_OBEX_REFRESH_SESSION:
                 refreshObexSession();
                 break;
+
+            case AvrcpControllerBipStateMachine.MESSAGE_CLEAR_COVEARART_CACHE:
+                clearCoverArtMapFromLocalPath();
+                break;
         }
     }
 
