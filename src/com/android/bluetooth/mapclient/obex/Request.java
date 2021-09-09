@@ -110,7 +110,7 @@ abstract class Request {
             op.close();
 
             mResponseCode = op.getResponseCode();
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             mResponseCode = ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
 
             throw e;
