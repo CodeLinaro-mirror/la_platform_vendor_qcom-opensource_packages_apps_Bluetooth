@@ -461,6 +461,65 @@ static jobject createClassicOobDataObject(JNIEnv* env, bt_oob_data_t oob_data) {
   return env->CallObjectMethod(oobDataClassicBuilder, buildMethod);
 }
 
+static jobject createClassicOobDataExtObject(JNIEnv* env, bt_oob_data_t oob_data) {
+  ALOGV("%s", __func__);
+  jclass classicExtendedBuilderClass =
+      env->FindClass("android/bluetooth/OobData$ClassicExtendedBuilder");
+
+  jbyteArray confirmationHash = env->NewByteArray(OOB_C_SIZE);
+  env->SetByteArrayRegion(confirmationHash, 0, OOB_C_SIZE,
+                          reinterpret_cast<jbyte*>(oob_data.c));
+  jbyteArray randomizerHash = env->NewByteArray(OOB_R_SIZE);
+  env->SetByteArrayRegion(randomizerHash, 0, OOB_R_SIZE,
+                          reinterpret_cast<jbyte*>(oob_data.r));
+  jbyteArray confirmationExtentedHash = env->NewByteArray(OOB_C_SIZE);
+  env->SetByteArrayRegion(confirmationExtentedHash, 0, OOB_C_SIZE,
+                          reinterpret_cast<jbyte*>(oob_data.c_ext));
+  jbyteArray randomizerExtentedHash = env->NewByteArray(OOB_R_SIZE);
+  env->SetByteArrayRegion(randomizerExtentedHash, 0, OOB_R_SIZE,
+                          reinterpret_cast<jbyte*>(oob_data.r_ext));
+
+  jbyteArray oobDataLength = env->NewByteArray(OOB_DATA_LEN_SIZE);
+  env->SetByteArrayRegion(oobDataLength, 0, OOB_DATA_LEN_SIZE,
+                          reinterpret_cast<jbyte*>(oob_data.oob_data_length));
+
+  jbyteArray address = env->NewByteArray(OOB_ADDRESS_SIZE);
+  env->SetByteArrayRegion(address, 0, OOB_ADDRESS_SIZE,
+                          reinterpret_cast<jbyte*>(oob_data.address));
+
+  jmethodID classicBuilderConstructor =
+      env->GetMethodID(classicExtendedBuilderClass, "<init>", "([B[B[B[B[B[B)V");
+
+  jobject oobDataClassicExtendedBuilder =
+      env->NewObject(classicExtendedBuilderClass, classicBuilderConstructor,
+                     confirmationHash,randomizerHash,confirmationExtentedHash,
+                     randomizerExtentedHash, oobDataLength, address);
+
+  jmethodID setNameMethod =
+      env->GetMethodID(classicExtendedBuilderClass, "setDeviceName",
+                       "([B)Landroid/bluetooth/OobData$ClassicExtendedBuilder;");
+
+  int name_char_count = 0;
+  for (int i = 0; i < OOB_NAME_MAX_SIZE; i++) {
+    if (oob_data.device_name[i] == 0) {
+      name_char_count = i;
+      break;
+    }
+  }
+
+  jbyteArray deviceName = env->NewByteArray(name_char_count);
+  env->SetByteArrayRegion(deviceName, 0, name_char_count,
+                          reinterpret_cast<jbyte*>(oob_data.device_name));
+
+  oobDataClassicExtendedBuilder =
+      env->CallObjectMethod(oobDataClassicExtendedBuilder, setNameMethod, deviceName);
+
+  jmethodID buildMethod = env->GetMethodID(classicExtendedBuilderClass, "build",
+                                           "()Landroid/bluetooth/OobData;");
+
+  return env->CallObjectMethod(oobDataClassicExtendedBuilder, buildMethod);
+}
+
 static jobject createLeOobDataObject(JNIEnv* env, bt_oob_data_t oob_data) {
   ALOGV("%s", __func__);
 
@@ -524,11 +583,23 @@ static void generate_local_oob_data_callback(tBT_TRANSPORT transport,
   if (!sCallbackEnv.valid()) return;
 
   if (transport == TRANSPORT_BREDR) {
-    sCallbackEnv->CallVoidMethod(
-        sJniCallbacksObj, method_oobDataReceivedCallback, (jint)transport,
-        ((oob_data.is_valid)
-             ? createClassicOobDataObject(sCallbackEnv.get(), oob_data)
-             : nullptr));
+    uint8_t zero[16] = {0};
+    if (memcmp(zero, oob_data.c_ext, sizeof(oob_data.c_ext)) &&
+        memcmp(zero, oob_data.r_ext, sizeof(oob_data.r_ext))) {
+       ALOGV("%s Securty mode, P192 & P256 data both valiable", __func__);
+       sCallbackEnv->CallVoidMethod(
+            sJniCallbacksObj, method_oobDataReceivedCallback, (jint)transport,
+            ((oob_data.is_valid)
+                 ? createClassicOobDataExtObject(sCallbackEnv.get(), oob_data)
+                 : nullptr));
+    } else {
+      ALOGV("%s Only P192 data valiable", __func__);
+      sCallbackEnv->CallVoidMethod(
+            sJniCallbacksObj, method_oobDataReceivedCallback, (jint)transport,
+            ((oob_data.is_valid)
+                 ? createClassicOobDataObject(sCallbackEnv.get(), oob_data)
+                 : nullptr));
+    }
   } else if (transport == TRANSPORT_LE) {
     sCallbackEnv->CallVoidMethod(
         sJniCallbacksObj, method_oobDataReceivedCallback, (jint)transport,
