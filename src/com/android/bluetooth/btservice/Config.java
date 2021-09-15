@@ -187,8 +187,10 @@ public class Config {
             return;
         }
 
-        AdapterService.setAdvanceAudioSupport();
-        initAdvAudioConfig(ctx);
+        if (isAdvAudioAvailable()) {
+            AdapterService.setAdvanceAudioSupport();
+            initAdvAudioConfig(ctx);
+        }
 
         profiles.clear();
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
@@ -213,7 +215,8 @@ public class Config {
     }
 
     static void initAdvAudioSupport(Context ctx) {
-        if (ctx == null) {
+        if (ctx == null || !isAdvAudioAvailable()) {
+            Log.w(TAG, "Context is null or advance audio features are unavailable");
             return;
         }
 
@@ -322,6 +325,11 @@ public class Config {
       }
 
       return isLC3Supported;
+    }
+
+    /* Returns true if advance audio project is available */
+    public static boolean isAdvAudioAvailable() {
+        return (mGroupServiceClass != null ? true : false);
     }
 
     static Class[] getSupportedProfiles() {
