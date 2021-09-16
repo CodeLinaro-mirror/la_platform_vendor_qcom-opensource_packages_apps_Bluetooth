@@ -364,12 +364,24 @@ public class HeadsetClientService extends ProfileService {
 
         @Override
         public void setAudioRouteAllowed(BluetoothDevice device, boolean allowed) {
-            Log.e(TAG, "setAudioRouteAllowed API not supported");
+            HeadsetClientService service = getService();
+            if (service != null) {
+                Log.d(TAG, "setAudioRouteAllowed " + allowed);
+                service.setAudioRouteAllowed(device, allowed);
+            } else {
+                Log.w(TAG, "Service handle is null for setAudioRouteAllowed!");
+            }
         }
 
         @Override
         public boolean getAudioRouteAllowed(BluetoothDevice device) {
-            Log.e(TAG, "getAudioRouteAllowed API not supported");
+            HeadsetClientService service = getService();
+            if (service != null) {
+                Log.d(TAG, "getAudioRouteAllowed");
+                return service.getAudioRouteAllowed(device);
+            } else {
+                Log.w(TAG, "Service handle is null for getAudioRouteAllowed!");
+            }
             return false;
         }
 
@@ -718,6 +730,23 @@ public class HeadsetClientService extends ProfileService {
         }
 
         return sm.getAudioState(device);
+    }
+
+    public void setAudioRouteAllowed(BluetoothDevice device, boolean allowed) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        HeadsetClientStateMachine sm = mStateMachineMap.get(device);
+        if (sm != null) {
+            sm.setAudioRouteAllowed(allowed);
+        }
+    }
+
+    public boolean getAudioRouteAllowed(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        HeadsetClientStateMachine sm = mStateMachineMap.get(device);
+        if (sm != null) {
+            return sm.getAudioRouteAllowed();
+        }
+        return false;
     }
 
     boolean connectAudio(BluetoothDevice device) {

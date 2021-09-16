@@ -120,7 +120,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     @VisibleForTesting
     static final int CONNECTING_TIMEOUT_MS = 10000;  // 10s
     private static final int ROUTING_DELAY_MS = 250;
-
+    static final int SCO_REJECT_DELAY_MS = 250;
     private static final int MAX_HFP_SCO_VOICE_CALL_VOLUME = 15; // HFP 1.5 spec.
     private static final int MIN_HFP_SCO_VOICE_CALL_VOLUME = 1; // HFP 1.5 spec.
 
@@ -135,7 +135,8 @@ public class HeadsetClientStateMachine extends StateMachine {
     // Keep track of client call put on hold due to active ag call.
     private boolean mIsClientIncomingCallHeld = false;
     private boolean mIsClientActiveCallHeld = false;
-
+    // Indicates whether audio can be routed to the device
+    private boolean mAudioRouteAllowed;
     // Keep track of audio routing across all devices.
     private static boolean sAudioIsRouted = false;
 
@@ -772,6 +773,9 @@ public class HeadsetClientStateMachine extends StateMachine {
         mA2dpSuspendIssued = false;
         mVoiceRecognitionActive = HeadsetClientHalConstants.VR_STATE_STOPPED;
 
+        mAudioRouteAllowed = context.getResources().getBoolean(
+            R.bool.headset_client_initial_audio_route_allowed);
+        Log.d(TAG, "Constructor mAudioRouteAllowed -> " + mAudioRouteAllowed);
         mIndicatorNetworkState = HeadsetClientHalConstants.NETWORK_STATE_NOT_AVAILABLE;
         mIndicatorNetworkType = HeadsetClientHalConstants.SERVICE_TYPE_HOME;
         mIndicatorNetworkSignal = 0;
@@ -1706,6 +1710,14 @@ public class HeadsetClientStateMachine extends StateMachine {
                     mAudioWbs = true;
                     // fall through
                 case HeadsetClientHalConstants.AUDIO_STATE_CONNECTED:
+                        Log.d(TAG, "mAudioRouteAllowed=" + mAudioRouteAllowed);
+                    if (!mAudioRouteAllowed) {
+                        sendMessageDelayed(HeadsetClientStateMachine.DISCONNECT_AUDIO,
+                            SCO_REJECT_DELAY_MS);
+                        // Don't continue connecting!
+                        Log.d(TAG, "Disconnecting Audio after " + SCO_REJECT_DELAY_MS + " ms as routing not allowed");
+                        return;
+                    }
                     // Audio state is split in two parts, the audio focus is maintained by the
                     // entity exercising this service (typically the Telecom stack) and audio
                     // routing is handled by the bluetooth stack itself. The only reason to do so is
@@ -2165,4 +2177,11 @@ public class HeadsetClientStateMachine extends StateMachine {
 
        mAudioManager.setParameters("A2dpSuspended=false");
    }
+    public void setAudioRouteAllowed(boolean allowed) {
+        mAudioRouteAllowed = allowed;
+    }
+
+    public boolean getAudioRouteAllowed() {
+        return mAudioRouteAllowed;
+    }
 }
