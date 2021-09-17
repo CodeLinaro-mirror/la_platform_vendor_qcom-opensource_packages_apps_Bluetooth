@@ -30,6 +30,7 @@
 package com.android.bluetooth.apm;
 
 import android.bluetooth.BluetoothDevice;
+import android.content.Intent;
 import android.util.Log;
 import android.util.StatsLog;
 
@@ -110,16 +111,37 @@ public class VolumeManagerIntf {
         }
     }
 
-    public void setCallVolume (int volume) {
+    public void setCallVolume (Intent intent) {
         if(VolumeManager == null)
             return;
 
         Class[] arg = new Class[1];
-        arg[0] = Integer.class;
+        arg[0] = Intent.class;
 
         try {
             Method setCallVolume = VolumeManager.getDeclaredMethod("setCallVolume", arg);
-            setCallVolume.invoke(mVolumeManager, volume);
+            setCallVolume.invoke(mVolumeManager, intent);
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+    }
+
+    public void onConnStateChange(BluetoothDevice device, int state, int profile) {
+        if(VolumeManager == null)
+            return;
+
+        Class[] arg = new Class[3];
+        arg[0] = BluetoothDevice.class;
+        arg[1] = Integer.class;
+        arg[2] = Integer.class;
+
+        try {
+            Method onConnStateChange = VolumeManager.getDeclaredMethod("onConnStateChange", arg);
+            onConnStateChange.invoke(mVolumeManager, device, state, profile);
         } catch(IllegalAccessException e) {
             Log.i(TAG, "Exception" + e);
         } catch(NoSuchMethodException e) {
@@ -171,7 +193,29 @@ public class VolumeManagerIntf {
         }
     }
 
-    public void setAbsoluteVolumeSupport(BluetoothDevice device, boolean isSupported, int initVol) {
+    public void setAbsoluteVolumeSupport(BluetoothDevice device, boolean isSupported, int initVol, int profile) {
+        if(VolumeManager == null)
+            return;
+
+        Class[] arg = new Class[4];
+        arg[0] = BluetoothDevice.class;
+        arg[1] = Boolean.class;
+        arg[2] = Integer.class;
+        arg[3] = Integer.class;
+
+        try {
+            Method setAbsoluteVolumeSupport = VolumeManager.getDeclaredMethod("setAbsoluteVolumeSupport", arg);
+            setAbsoluteVolumeSupport.invoke(mVolumeManager, device, isSupported, initVol, profile);
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+    }
+
+    public void setAbsoluteVolumeSupport(BluetoothDevice device, boolean isSupported, int profile) {
         if(VolumeManager == null)
             return;
 
@@ -182,27 +226,7 @@ public class VolumeManagerIntf {
 
         try {
             Method setAbsoluteVolumeSupport = VolumeManager.getDeclaredMethod("setAbsoluteVolumeSupport", arg);
-            setAbsoluteVolumeSupport.invoke(mVolumeManager, device, isSupported, initVol);
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
-        }
-    }
-
-    public void setAbsoluteVolumeSupport(BluetoothDevice device, boolean isSupported) {
-        if(VolumeManager == null)
-            return;
-
-        Class[] arg = new Class[2];
-        arg[0] = BluetoothDevice.class;
-        arg[1] = Boolean.class;
-
-        try {
-            Method setAbsoluteVolumeSupport = VolumeManager.getDeclaredMethod("setAbsoluteVolumeSupport", arg);
-            setAbsoluteVolumeSupport.invoke(mVolumeManager, device, isSupported);
+            setAbsoluteVolumeSupport.invoke(mVolumeManager, device, isSupported, profile);
         } catch(IllegalAccessException e) {
             Log.i(TAG, "Exception" + e);
         } catch(NoSuchMethodException e) {

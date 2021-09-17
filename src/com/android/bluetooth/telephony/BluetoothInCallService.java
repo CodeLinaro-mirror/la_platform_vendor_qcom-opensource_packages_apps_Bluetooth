@@ -16,6 +16,7 @@
 
 package com.android.bluetooth.telephony;
 
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
@@ -43,6 +44,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.bluetooth.hfp.BluetoothHeadsetProxy;
+import com.android.bluetooth.hfp.HeadsetService;
 
 import androidx.annotation.VisibleForTesting;
 import com.android.internal.telephony.PhoneConstants;
@@ -142,16 +144,14 @@ public class BluetoothInCallService extends InCallService {
                 }
             };
 
-    /**
-     * Receives events for global state changes of the bluetooth adapter.
-     */
-    // TODO: The code is moved from Telecom stack. Since we're running in the BT process itself,
-    // we may be able to simplify this in a future patch.
-    @VisibleForTesting
-    public final BroadcastReceiver mBluetoothAdapterReceiver = new BroadcastReceiver() {
+    public class BluetoothAdapterReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             synchronized (LOCK) {
+                if (intent.getAction() != BluetoothAdapter.ACTION_STATE_CHANGED) {
+                    Log.w(TAG, "BluetoothAdapterReceiver: Intent action " + intent.getAction());
+                    return;
+                }
                 int state = intent
                         .getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
                 Log.d(TAG, "Bluetooth Adapter state: " + state);
@@ -161,6 +161,14 @@ public class BluetoothInCallService extends InCallService {
             }
         }
     };
+
+    /**
+     * Receives events for global state changes of the bluetooth adapter.
+     */
+    // TODO: The code is moved from Telecom stack. Since we're running in the BT process itself,
+    // we may be able to simplify this in a future patch.
+    @VisibleForTesting
+    public BluetoothAdapterReceiver mBluetoothAdapterReceiver;
 
     @VisibleForTesting
     public class CallStateCallback extends Call.Callback {
@@ -294,8 +302,6 @@ public class BluetoothInCallService extends InCallService {
             return null;
         }
         IBinder binder = super.onBind(intent);
-        IntentFilter intentFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-        registerReceiver(mBluetoothAdapterReceiver, intentFilter);
         mTelephonyManager = getSystemService(TelephonyManager.class);
         mTelecomManager = getSystemService(TelecomManager.class);
         return binder;
@@ -304,12 +310,11 @@ public class BluetoothInCallService extends InCallService {
     @Override
     public boolean onUnbind(Intent intent) {
         Log.i(TAG, "onUnbind. Intent: " + intent);
-        unregisterReceiver(mBluetoothAdapterReceiver);
         return super.onUnbind(intent);
     }
 
     public BluetoothInCallService() {
-        Log.i(TAG, "onCreate");
+        Log.i(TAG, "BluetoothInCallService is created");
         sInstance = this;
     }
 
@@ -317,10 +322,12 @@ public class BluetoothInCallService extends InCallService {
         return sInstance;
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     protected void enforceModifyPermission() {
         enforceCallingOrSelfPermission(android.Manifest.permission.MODIFY_PHONE_STATE, null);
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean answerCall() {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -334,6 +341,7 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean hangupCall() {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -370,6 +378,7 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean sendDtmf(int dtmf) {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -386,30 +395,52 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public String getNetworkOperator()  {
         synchronized (LOCK) {
             enforceModifyPermission();
             Log.i(TAG, "getNetworkOperator");
-            PhoneAccount account = mCallInfo.getBestPhoneAccount();
-            if (account != null && account.getLabel() != null) {
-                return account.getLabel().toString();
+            if (mTelecomManager != null) {
+                PhoneAccount account = mCallInfo.getBestPhoneAccount();
+                if (account != null && account.getLabel() != null) {
+                    return account.getLabel().toString();
+                }
+            } else {
+                Log.e(TAG, "TelecomManager is Null");
+                mTelephonyManager = (TelephonyManager) HeadsetService.getHeadsetService()
+                    .getSystemService(Context.TELEPHONY_SERVICE);
+            }
+            if (mTelephonyManager == null) {
+                Log.e(TAG, "TelephonyManager is Null");
+                return null;
             }
             // Finally, just get the network name from telephony.
             return mTelephonyManager.getNetworkOperatorName();
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public String getSubscriberNumber() {
         synchronized (LOCK) {
             enforceModifyPermission();
             Log.i(TAG, "getSubscriberNumber");
             String address = null;
-            PhoneAccount account = mCallInfo.getBestPhoneAccount();
-            if (account != null) {
-                Uri addressUri = account.getAddress();
-                if (addressUri != null) {
-                    address = addressUri.getSchemeSpecificPart();
+            if (mTelecomManager != null) {
+                PhoneAccount account = mCallInfo.getBestPhoneAccount();
+                if (account != null) {
+                    Uri addressUri = account.getAddress();
+                    if (addressUri != null) {
+                        address = addressUri.getSchemeSpecificPart();
+                    }
                 }
+            } else {
+                Log.e(TAG, "TelecomManager is Null");
+                mTelephonyManager = (TelephonyManager) HeadsetService.getHeadsetService()
+                    .getSystemService(Context.TELEPHONY_SERVICE);
+            }
+            if (mTelephonyManager == null) {
+                Log.e(TAG, "TelephonyManager is Null");
+                return null;
             }
             if (TextUtils.isEmpty(address)) {
                 address = mTelephonyManager.getLine1Number();
@@ -419,6 +450,7 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean listCurrentCalls() {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -436,6 +468,7 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean queryPhoneState() {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -487,6 +520,7 @@ public class BluetoothInCallService extends InCallService {
         return isHighDef;
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean processChld(int chld) {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -568,11 +602,18 @@ public class BluetoothInCallService extends InCallService {
         super.onCreate();
         BluetoothAdapter.getDefaultAdapter()
                 .getProfileProxy(this, mProfileListener, BluetoothProfile.HEADSET);
+        mBluetoothAdapterReceiver = new BluetoothAdapterReceiver();
+        IntentFilter intentFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        registerReceiver(mBluetoothAdapterReceiver, intentFilter);
     }
 
     @Override
     public void onDestroy() {
         Log.d(TAG, "onDestroy");
+        if (mBluetoothAdapterReceiver != null) {
+            unregisterReceiver(mBluetoothAdapterReceiver);
+            mBluetoothAdapterReceiver = null;
+        }
         super.onDestroy();
     }
 
@@ -673,6 +714,16 @@ public class BluetoothInCallService extends InCallService {
         String address = addressUri == null ? null : addressUri.getSchemeSpecificPart();
         if (address != null) {
             address = PhoneNumberUtils.stripSeparators(address);
+        }
+
+        // Don't send host call information when IMS calls are conferenced
+        String subsNum = getSubscriberNumber();
+        if (subsNum != null && address != null) {
+            Log.d(TAG, "subscriber number " + subsNum + " address " + address);
+            if (subsNum.contains(address)) {
+                Log.w(TAG, "return without sending host call in CLCC");
+                  return;
+            }
         }
 
         int addressType = address == null ? -1 : PhoneNumberUtils.toaFromString(address);

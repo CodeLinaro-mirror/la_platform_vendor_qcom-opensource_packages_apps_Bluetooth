@@ -55,7 +55,7 @@ import java.util.Collections;
 import java.util.List;
 public class Config {
     private static final String TAG = "AdapterServiceConfig";
-
+    private static final boolean DBG = true;
     protected static int adv_audio_feature_mask;
     public static final int ADV_AUDIO_UNICAST_FEAT_MASK = 0x01;
     public static final int ADV_AUDIO_BCA_FEAT_MASK = 0x02;
@@ -67,6 +67,7 @@ public class Config {
     private static Class mCcServiceClass = null;
     private static Class mGroupServiceClass = null;
     private static ArrayList<Class> profiles = new ArrayList<>();
+    private static boolean mIsA2dpSink, mIsBAEnabled, mIsSplitA2dpEnabled;
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -142,8 +143,9 @@ public class Config {
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
                     new ProfileConfig(ApmConstIntf.MusicPlayerControlService,
-                        R.bool.profile_supported_music_player_service, (1 << 11))
-
+                        R.bool.profile_supported_music_player_service, (1 << 11)),
+                    new ProfileConfig(mCcServiceClass, R.bool.profile_supported_cc_server,
+                        (1 << BluetoothProfile.CC_SERVER))
             ));
 
     /* List of Broadcast Advance Audio Profiles */
@@ -156,9 +158,7 @@ public class Config {
                          R.bool.profile_supported_broadcast,
                         (1 << BluetoothProfile.BROADCAST)),
                     new ProfileConfig(mPCServiceClass, R.bool.profile_supported_pc,
-                        (1 << BluetoothProfile.PC_PROFILE)),
-                    new ProfileConfig(mCcServiceClass, R.bool.profile_supported_cc_server,
-                        (1 << BluetoothProfile.CC_SERVER))
+                        (1 << BluetoothProfile.PC_PROFILE))
             ));
 
     /* List of Profiles common for Unicast and Broadcast advance audio features */
@@ -193,6 +193,7 @@ public class Config {
         }
 
         profiles.clear();
+        getAudioProperties();
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = resources.getBoolean(config.mSupported);
 
@@ -259,7 +260,11 @@ public class Config {
             for (ProfileConfig config : unicastAdvAudioProfiles) {
                 if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
-                if (supported && config.mClass != null) {
+                if (config.mClass.getSimpleName().equals("CCService") &&
+                    isCCEnabled == false) {
+                    Log.d(TAG," isCCEnabled = " + isCCEnabled);
+                    continue;
+                } else if (supported && config.mClass != null) {
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
                     advAudioProfiles.add(config.mClass);
                 }
@@ -273,11 +278,7 @@ public class Config {
                 if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
                 if (supported && config.mClass != null) {
-                    if (config.mClass.getSimpleName().equals("CCService") &&
-                        isCCEnabled == false) {
-                        Log.d(TAG," isCCEnabled = " + isCCEnabled);
-                        continue;
-                    } else if ((config.mClass == mBroadcastClass) &&
+                    if ((config.mClass == mBroadcastClass) &&
                            (adv_audio_feature_mask & ADV_AUDIO_BCS_FEAT_MASK) == 0) {
                         continue;
                     } else if ((config.mClass == mBCServiceClass ||
@@ -425,35 +426,33 @@ public class Config {
     }
 
     private static synchronized boolean addAudioProfiles(String serviceName) {
-        Log.d(TAG," addAudioProfiles profile" + serviceName);
-        boolean isA2dpSink = SystemProperties.getBoolean(
-                "persist.vendor.service.bt.a2dp.sink", false);
-        Log.i(TAG, "addAudioProfiles isA2dpSink :" + isA2dpSink);
         /* If property not enabled and request is for A2DPSinkService, don't add */
-        if ((serviceName.equals("A2dpSinkService")) && (!isA2dpSink))
+        if ((serviceName.equals("A2dpSinkService")) && (!mIsA2dpSink))
             return false;
-        if ((serviceName.equals("A2dpService")) && (isA2dpSink))
+        if ((serviceName.equals("A2dpService")) && (mIsA2dpSink))
             return false;
-
-        boolean isBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
-        // Split A2dp will be enabled by default
-        boolean isSplitA2dpEnabled = true;
-        AdapterService adapterService = AdapterService.getAdapterService();
-
-        if (adapterService != null){
-            isSplitA2dpEnabled = adapterService.isSplitA2dpEnabled();
-            Log.v(TAG,"isSplitA2dpEnabled: " + isSplitA2dpEnabled);
-        } else {
-            Log.e(TAG,"adapterService is null");
-        }
-
-        if(serviceName.equals("BATService")) {
-            Log.d(TAG," isBAEnabled = " + isBAEnabled
-                          + " isSplitEnabled " + isSplitA2dpEnabled);
-            return isBAEnabled && isSplitA2dpEnabled;
+        if (serviceName.equals("BATService")) {
+            return mIsBAEnabled && mIsSplitA2dpEnabled;
         }
 
         // always return true for other profiles
         return true;
+    }
+
+    private static void getAudioProperties() {
+        mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", false);
+        mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
+        // Split A2dp will be enabled by default
+        mIsSplitA2dpEnabled = true;
+        AdapterService adapterService = AdapterService.getAdapterService();
+        if (adapterService != null) {
+            mIsSplitA2dpEnabled = adapterService.isSplitA2dpEnabled();
+        } else {
+            Log.e(TAG,"adapterService is null");
+        }
+        if (DBG) {
+            Log.d(TAG, "getAudioProperties mIsA2dpSink " + mIsA2dpSink + " mIsBAEnabled "
+                + mIsBAEnabled + " mIsSplitA2dpEnabled " + mIsSplitA2dpEnabled);
+        }
     }
 }
