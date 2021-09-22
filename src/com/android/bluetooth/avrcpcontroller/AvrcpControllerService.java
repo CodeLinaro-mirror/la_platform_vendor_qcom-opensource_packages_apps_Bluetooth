@@ -1472,4 +1472,5 @@ public class AvrcpControllerService extends ProfileService {
     /* API used to add to now playing */
     native static void addToNowPlayingNative(byte[] address, byte scope, byte[] uid, int uidCounter);
     static native void setAddressedPlayerNative(byte[] address, int playerId);
+    native static void getElementAttributesNative(byte[] address, byte numAttributes, int[] attribIds);
 }
