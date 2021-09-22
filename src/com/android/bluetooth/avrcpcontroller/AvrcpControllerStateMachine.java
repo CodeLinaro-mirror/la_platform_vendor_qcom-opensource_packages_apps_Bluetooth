@@ -356,13 +356,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                         // According to AVRCP 1.6 SPEC(Chapter 5.14.2.2.2)
                         // We shall reset BIP connection to make sure Cover Art handle is valid when
                         // UIDS become invalid.
-                        if (!mAddressedPlayer.isDatabaseAwarePlayer()) {
-                            mBipStateMachine.sendMessage(AvrcpControllerBipStateMachine.
-                                MESSAGE_DISCONNECT_BIP, mRemoteDevice.getRemoteBipPsm(), 0,
-                                mRemoteDevice.mBTDevice);
-                            mBipStateMachine.sendMessage(AvrcpControllerBipStateMachine.
-                                MESSAGE_CONNECT_BIP, mRemoteDevice.getRemoteBipPsm(), 0,
-                                mRemoteDevice.mBTDevice);
+                        if (!mAddressedPlayer.isDatabaseAwarePlayer() && mRemoteDevice != null &&
+                            mRemoteDevice.isCoverArtSupported() && mBipStateMachine != null) {
+                            mBipStateMachine.sendMessage(
+                                AvrcpControllerBipStateMachine.MESSAGE_REFRESH_SESSION);
                         }
 
                         break;
@@ -1786,12 +1783,7 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         if (mRemoteDevice != null &&
             mRemoteDevice.isCoverArtSupported() && mBipStateMachine != null) {
-            mBipStateMachine.sendMessage(AvrcpControllerBipStateMachine.
-                MESSAGE_DISCONNECT_BIP, mRemoteDevice.getRemoteBipPsm(), 0,
-                mRemoteDevice.mBTDevice);
-            mBipStateMachine.sendMessage(AvrcpControllerBipStateMachine.
-                MESSAGE_CONNECT_BIP, mRemoteDevice.getRemoteBipPsm(), 0,
-                mRemoteDevice.mBTDevice);
+            mBipStateMachine.sendMessage(AvrcpControllerBipStateMachine.MESSAGE_REFRESH_SESSION);
         }
 
         Intent intent_uids = new Intent(BluetoothAvrcpController.ACTION_UIDS_EVENT);
