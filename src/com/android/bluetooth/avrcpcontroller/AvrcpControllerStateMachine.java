@@ -442,8 +442,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                                 && mRemoteDevice != null) {
                             if (mBipStateMachine != null) {
                                 mBipStateMachine.sendMessage(
-                                        AvrcpControllerBipStateMachine.MESSAGE_DISCONNECT_BIP,
-                                        mRemoteDevice.mBTDevice);
+                                    AvrcpControllerBipStateMachine.MESSAGE_CLEAR_COVEARART_CACHE);
+                                mBipStateMachine.sendMessage(
+                                    AvrcpControllerBipStateMachine.MESSAGE_DISCONNECT_BIP,
+                                    mRemoteDevice.mBTDevice);
                             }
                             synchronized (mLock) {
                                 mIsConnected = false;

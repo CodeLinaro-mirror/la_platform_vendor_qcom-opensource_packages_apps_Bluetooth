@@ -59,8 +59,9 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
     public static final int MESSAGE_FETCH_THUMBNAIL                              = 3;
     public static final int MESSAGE_FETCH_IMAGE                                  = 4;
     public static final int MESSAGE_REFRESH_SESSION                              = 5;
+    public static final int MESSAGE_CLEAR_COVEARART_CACHE                        = 6;
     // Messages for handling error conditions.
-    private static final int MSG_DISCONNECT_TIMEOUT                              = 6;
+    private static final int MSG_DISCONNECT_TIMEOUT                              = 7;
 
     // messages to obex handler
     public static final int MESSAGE_OBEX_CONNECT                                 = 101;
@@ -430,6 +431,16 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
                     msg.sendToTarget();
                     sendMessageDelayed(MSG_DISCONNECT_TIMEOUT, DISCONNECT_TIMEOUT);
                     transitionTo(mDisconnecting);
+                    break;
+
+                case MESSAGE_CLEAR_COVEARART_CACHE:
+                    if (mAvrcpCtrlBipObexHandler == null) {
+                        //Should not happen
+                        Log.w(STATE_TAG,"ObexHandler not available: Cover Art cache can't be cleared");
+                        break;
+                    }
+                    msg = mAvrcpCtrlBipObexHandler.obtainMessage(MESSAGE_CLEAR_COVEARART_CACHE);
+                    msg.sendToTarget();
                     break;
 
                 case MESSAGE_REFRESH_SESSION:
