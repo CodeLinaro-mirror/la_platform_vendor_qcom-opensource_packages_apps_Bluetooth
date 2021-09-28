@@ -92,6 +92,16 @@ public class HfpClientConnectionService extends ConnectionService {
                             return;
                         }
                         block.cleanup();
+
+                        // Set default Phone account to the last connected HF when one of HF
+                        // is disconnected.
+                        for (Map.Entry<BluetoothDevice, HfpClientDeviceBlock> entry: mDeviceBlocks.entrySet()) {
+                            if(entry.getValue() != null) {
+                                block = entry.getValue();
+                            }
+                        }
+                        block.setUserSelectedOutgoingPhoneAccount();
+
                         // Block should be subsequently garbage collected
                         block = null;
                     }

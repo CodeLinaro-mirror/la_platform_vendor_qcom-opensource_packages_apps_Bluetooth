@@ -325,7 +325,9 @@ class AvrcpControllerStateMachine extends StateMachine {
 
             // By default, sBrowseTree.mSearchNode is invalid because device is null.
             // So it is necessary to update it when there is a active device.
-            mService.sBrowseTree.updateSearchNode(mBrowseTree.mSearchNode);
+            if (mService.sBrowseTree != null) {
+                mService.sBrowseTree.updateSearchNode(mBrowseTree.mSearchNode);
+            }
 
             A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
             if (a2dpSinkService == null) {
@@ -363,10 +365,12 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     synchronized void onBrowsingConnected() {
         if (mBrowsingConnected) return;
-        mService.sBrowseTree.mRootNode.addChild(mBrowseTree.mRootNode);
-        BluetoothMediaBrowserService.notifyChanged(mService
-                .sBrowseTree.mRootNode);
-        mBrowsingConnected = true;
+        if (mService.sBrowseTree != null && mService.sBrowseTree.mRootNode!= null) {
+            mService.sBrowseTree.mRootNode.addChild(mBrowseTree.mRootNode);
+            BluetoothMediaBrowserService.notifyChanged(mService
+                    .sBrowseTree.mRootNode);
+            mBrowsingConnected = true;
+        }
     }
 
     synchronized void onBrowsingDisconnected() {
@@ -379,13 +383,15 @@ class AvrcpControllerStateMachine extends StateMachine {
         if (isActive()) {
             BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mNowPlayingNode);
         }
-        mService.sBrowseTree.mRootNode.removeChild(
-                mBrowseTree.mRootNode);
-        BluetoothMediaBrowserService.notifyChanged(mService
-                .sBrowseTree.mRootNode);
-        removeUnusedArtwork(previousTrackUuid);
-        removeUnusedArtworkFromBrowseTree();
-        mBrowsingConnected = false;
+        if (mService.sBrowseTree != null && mService.sBrowseTree.mRootNode!= null) {
+            mService.sBrowseTree.mRootNode.removeChild(
+                    mBrowseTree.mRootNode);
+            BluetoothMediaBrowserService.notifyChanged(mService
+                    .sBrowseTree.mRootNode);
+            removeUnusedArtwork(previousTrackUuid);
+            removeUnusedArtworkFromBrowseTree();
+            mBrowsingConnected = false;
+        }
     }
 
     synchronized void connectCoverArt() {
@@ -1192,6 +1198,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                 mMaxVolume = mCarAudioManager.getGroupMaxVolume(mVolumeGroupId);
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected!", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
             }
         }
 
@@ -1231,6 +1239,8 @@ class AvrcpControllerStateMachine extends StateMachine {
             currIndex = mCarAudioManager.getGroupVolume(mVolumeGroupId);
         } catch (CarNotConnectedException e) {
             Log.e(TAG, "Car is not connected", e);
+        } catch (NullPointerException e) {
+            Log.e(TAG, "mCarAudioManager is NULL!", e);
         }
 
         int newIndex = (mMaxVolume * absVol) / ABS_VOL_BASE;
@@ -1248,20 +1258,29 @@ class AvrcpControllerStateMachine extends StateMachine {
                         AudioManager.FLAG_SHOW_UI);
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
             }
         }
     }
 
     private int getAbsVolume() {
         int currIndex = 0;
+        int newIndex = 0;
 
         try {
             currIndex = mCarAudioManager.getGroupVolume(mVolumeGroupId);
         } catch (CarNotConnectedException e) {
             Log.e(TAG, "Car is not connected", e);
+        } catch (NullPointerException e) {
+            Log.e(TAG, "mCarAudioManager is NULL!", e);
         }
 
-        int newIndex = (currIndex * ABS_VOL_BASE) / mMaxVolume;
+        if (mMaxVolume != 0) {
+            Log.w(TAG, "mMaxVolume is not updated!");
+            newIndex = (currIndex * ABS_VOL_BASE) / mMaxVolume;
+        }
+
         return newIndex;
     }
 
