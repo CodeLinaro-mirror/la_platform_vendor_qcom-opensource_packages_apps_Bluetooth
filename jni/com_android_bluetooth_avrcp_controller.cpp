@@ -1479,7 +1479,11 @@ static void getElementAttributesNative(JNIEnv *env, jobject object, jbyteArray a
   }
 
   jint* attr = NULL;
-  if ((numAttr > 0) && (attrIds != NULL)) {
+  if (numAttr > 0) {
+    if (attrIds == NULL) {
+        ALOGE("getElementAttributesNative: attrIds is NULL when numAttr is greater than zero!");
+        return;
+    }
     attr = env->GetIntArrayElements(attrIds, NULL);
     if (!attr) {
       jniThrowIOException(env, EINVAL);
