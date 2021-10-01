@@ -660,6 +660,7 @@ class PhonePolicy {
                autoConnectA2dpSink(mostRecentlyConnectedA2dpSrcDevice);
             }
             if (mostRecentlyActiveA2dpDevice == null &&
+                mostRecentlyActiveHfpClientDevice == null &&
                 mostRecentlyActiveHfpDevice == null) {
                 errorLog("autoConnect: most recently active a2dp and hfp devices are null");
                 return;
@@ -691,6 +692,10 @@ class PhonePolicy {
                     debugLog("autoConnectHF: 2nd pair TWS+ EB");
                     autoConnectHeadset(peerTwsDevice);
                 }
+            } else if (mostRecentlyActiveHfpClientDevice != null) {
+                debugLog("autoConnect: recently connected HfpClientDevice " +
+                mostRecentlyActiveHfpClientDevice + " attempting auto connection HFP Client");
+                autoConnectHeadsetClient(mostRecentlyActiveHfpClientDevice);
             }
         } else {
             debugLog("autoConnect() - BT is in quiet mode. Not initiating auto connections");
