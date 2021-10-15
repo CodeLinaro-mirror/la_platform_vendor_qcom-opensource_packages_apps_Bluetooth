@@ -97,7 +97,6 @@ public class MediaPlayerList {
     private final AudioManager mAudioManager;
     private Car mCar;
     private CarAudioManager mCarAudioManager;
-    private int mVolumeGroupId;
 
     private Map<Integer, MediaPlayerWrapper> mMediaPlayers =
             Collections.synchronizedMap(new HashMap<Integer, MediaPlayerWrapper>());
@@ -845,14 +844,15 @@ public class MediaPlayerList {
     }
 
     void setStreamVolume(BluetoothDevice device, int volume) {
+        int zoneId = getZoneId(device);
         int volumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(
-                                getZoneId(device), AudioAttributes.USAGE_MEDIA);
+                                zoneId, AudioAttributes.USAGE_MEDIA);
         if (DEBUG) {
-            Log.d(TAG, "volumeGroupId " + volumeGroupId + " volume " + volume);
+            Log.d(TAG, "zoneId " + zoneId + " volumeGroupId " + volumeGroupId + " volume " + volume);
         }
 
         try {
-          mCarAudioManager.setGroupVolume(volumeGroupId, volume, AudioManager.FLAG_SHOW_UI);
+          mCarAudioManager.setGroupVolume(zoneId, volumeGroupId, volume, AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
         } catch (CarNotConnectedException e) {
           Log.e(TAG, "Car is not connected!", e);
         } catch (NullPointerException e) {
@@ -861,19 +861,20 @@ public class MediaPlayerList {
     }
 
     int getStreamVolume(BluetoothDevice device) {
-        int volume = -1;;
+        int volume = -1;
+        int zoneId = getZoneId(device);
         int volumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(
-                                getZoneId(device), AudioAttributes.USAGE_MEDIA);
+                                zoneId, AudioAttributes.USAGE_MEDIA);
 
         try {
-          volume = mCarAudioManager.getGroupVolume(volumeGroupId);
+          volume = mCarAudioManager.getGroupVolume(zoneId, volumeGroupId);
         } catch (CarNotConnectedException e) {
           Log.e(TAG, "Car is not connected!", e);
         } catch (NullPointerException e) {
           Log.e(TAG, "mCarAudioManager is NULL!", e);
         }
         if (DEBUG) {
-            Log.d(TAG, "volumeGroupId " + volumeGroupId + " volume " + volume);
+            Log.d(TAG, "getStreamVolume: volumeGroupId " + volumeGroupId + " volume " + volume);
         }
         return volume;
     }
@@ -1170,6 +1171,7 @@ public class MediaPlayerList {
         public void onServiceConnected(ComponentName name, IBinder service) {
             try {
                 mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
+                mCarAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected!", e);
             } catch (NullPointerException e) {
@@ -1182,6 +1184,43 @@ public class MediaPlayerList {
             Log.e(TAG, "Car service is disconnected");
         }
     };
+
+    /*
+     * When volume for the zone bonded with the headset has been changed, notifiy the headset
+     * by Set Absolute Volume command
+     */
+    private final CarAudioManager.CarVolumeCallback mVolumeChangeCallback =
+        new CarAudioManager.CarVolumeCallback() {
+            @Override
+            public void onGroupVolumeChanged(int zoneId, int groupId, int flags) {
+                Log.d(TAG, "onGroupVolumeChanged: zoneId:" + zoneId + ", groupId:" + groupId + ", flags: " + flags);
+
+                for (BluetoothDevice device : mActiveBluetoothDevices.values()) {
+                    if (getZoneId(device) == zoneId) {
+                        int volumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(
+                                                zoneId, AudioAttributes.USAGE_MEDIA);
+
+                        Log.d(TAG, "onGroupVolumeChanged: volumeGroupId: " + volumeGroupId);
+                        int streamValue = 0;
+                        int maxVolume = 0;
+                        try {
+                            streamValue = mCarAudioManager.getGroupVolume(zoneId, groupId);
+                            maxVolume = mCarAudioManager.getGroupMaxVolume(zoneId, groupId);
+                        } catch (CarNotConnectedException e) {
+                            Log.e(TAG, "Car is not connected", e);
+                        } catch (NullPointerException e) {
+                            Log.e(TAG, "mCarAudioManager is NULL!", e);
+                        }
+                        // When flag has AudioManager.FLAG_BLUETOOTH_ABS_VOLUME the set volume is initiated from
+                        // headset and need not send volume changed to headset.
+                        if (flags != AudioManager.FLAG_BLUETOOTH_ABS_VOLUME) {
+                            Log.d(TAG, "onGroupVolumeChanged: sendVolumeChanged: " + streamValue);
+                            mCallback.sendVolumeChanged(device, streamValue, maxVolume);
+                        }
+                    }
+                }
+            }
+        };
 
     void dump(StringBuilder sb) {
         sb.append("List of MediaControllers: size=" + mMediaPlayers.size() + "\n");
