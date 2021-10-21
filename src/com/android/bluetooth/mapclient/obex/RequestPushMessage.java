@@ -78,6 +78,10 @@ public class RequestPushMessage extends Request {
         return mMsgHandle;
     }
 
+    public int getResponseCode() {
+        return mResponseCode;
+    }
+
     @Override
     public void execute(ClientSession session) throws IOException {
         executePut(session, BmessageBuilder.createBmessage(mMsg).getBytes());

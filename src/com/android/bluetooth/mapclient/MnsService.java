@@ -67,6 +67,10 @@ public class MnsService {
             Log.e(TAG, "SdpManager is null");
             return;
         }
+        if (DBG) {
+            Log.d(TAG, "Create MNS record for Rfcomm channel  " + sServerSockets.getRfcommChannel()
+                    + " and L2cap psm " + sServerSockets.getL2capPsm());
+        }
         mSdpHandle = sdpManager.createMapMnsRecord("MAP Message Notification Service",
                 sServerSockets.getRfcommChannel(), sServerSockets.getL2capPsm(), MNS_VERSION,
                 MasClient.MAP_SUPPORTED_FEATURES);
@@ -134,6 +138,11 @@ public class MnsService {
             } else if (stateMachine.getState() != BluetoothProfile.STATE_CONNECTED) {
                 Log.e(TAG, "Error: statemachine for device: " + device.getAddress()
                         + " (name: " + Utils.getName(device) + ") is not currently CONNECTED : "
+                        + stateMachine.getCurrentState());
+                return false;
+            } else if (stateMachine.getState() != BluetoothProfile.STATE_CONNECTED) {
+                Log.e(TAG, "Error: statemachine for device: " + device.getAddress()
+                        + " (name: " + device.getName() + ") is not currently CONNECTED : "
                         + stateMachine.getCurrentState());
                 return false;
             }

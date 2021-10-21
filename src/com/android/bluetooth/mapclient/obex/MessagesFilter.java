@@ -49,9 +49,16 @@ public final class MessagesFilter {
         //Handle possible NPE for obexTime constructor utility
         if (filterBegin != null) {
             periodBegin = (new ObexTime(filterBegin)).toString();
+        } else {
+            // clear periodBegin
+            periodBegin = null;
         }
+
         if (filterEnd != null) {
             periodEnd = (new ObexTime(filterEnd)).toString();
+        } else {
+            // clear periodEnd
+            periodEnd = null;
         }
     }
 
