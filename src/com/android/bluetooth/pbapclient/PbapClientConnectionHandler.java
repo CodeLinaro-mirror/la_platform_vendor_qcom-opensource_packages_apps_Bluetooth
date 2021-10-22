@@ -108,6 +108,10 @@ class PbapClientConnectionHandler extends Handler {
     public static final String MCH_PATH = "telecom/mch.vcf";
     public static final String ICH_PATH = "telecom/ich.vcf";
     public static final String OCH_PATH = "telecom/och.vcf";
+    public static final String SIM1_PB_PATH = "SIM1/telecom/pb.vcf";
+    public static final String SIM1_MCH_PATH = "SIM1/telecom/mch.vcf";
+    public static final String SIM1_ICH_PATH = "SIM1/telecom/ich.vcf";
+    public static final String SIM1_OCH_PATH = "SIM1/telecom/och.vcf";
 
     public static final int PBAP_V1_2 = 0x0102;
     public static final byte VCARD_TYPE_21 = 0;
@@ -409,6 +413,11 @@ class PbapClientConnectionHandler extends Handler {
         }
     }
 
+    void downloadCallLog(String path) {
+        HashMap<String, Integer> callCounter = new HashMap<>();
+        downloadCallLog(path, callCounter);
+    }
+
     private boolean addAccount(Account account) {
         if (mAccountManager.addAccountExplicitly(account, null, null)) {
             if (DBG) {
@@ -476,6 +485,19 @@ class PbapClientConnectionHandler extends Handler {
         }
     }
 
+    private boolean isCallLog(String pbName) {
+        if (pbName != null) {
+            return (pbName.equals(MCH_PATH) ||
+                    pbName.equals(ICH_PATH) ||
+                    pbName.equals(OCH_PATH) ||
+                    pbName.equals(SIM1_MCH_PATH) ||
+                    pbName.equals(SIM1_ICH_PATH) ||
+                    pbName.equals(SIM1_OCH_PATH)) ? true : false;
+        } else {
+            return false;
+        }
+    }
+
     private void handlePullPhonebook(Bundle extras) {
         String pbName = extras.getString(PbapClientHandler.KEY_PB_NAME);
         long filter = extras.getLong(PbapClientHandler.KEY_FILTER);
@@ -502,7 +524,23 @@ class PbapClientConnectionHandler extends Handler {
             return;
         }
 
+        if (isCallLog(pbName)) {
+            // Delete old call log
+            removeCallLog(mAccount);
+            // Download new call log
+            downloadCallLog(pbName);
+            return;
+        }
+
         try {
+            // Remove then re-add account
+            removeAccount(mAccount);
+            mAccountCreated = addAccount(mAccount);
+            if (mAccountCreated == false) {
+                Log.e(TAG, "Account creation failed.");
+                return;
+            }
+
             BluetoothPbapRequestPullPhoneBook request =
                 new BluetoothPbapRequestPullPhoneBook(pbName, mAccount,
                     filter, format, maxListCount, listStartOffset);
@@ -513,10 +551,6 @@ class PbapClientConnectionHandler extends Handler {
             if (DBG) {
                 Log.d(TAG, "handlePullPhonebook Found size: " + request.getCount());
             }
-
-            // Delete old contacts
-            mContext.getContentResolver().delete(ContactsContract.RawContacts.CONTENT_URI, null, null);
-            mContext.getContentResolver().delete(CallLog.Calls.CONTENT_URI, null, null);
 
             // Store phonebook into Contact DB if it's not to get phonebook size.
             PhonebookPullRequest processor =
