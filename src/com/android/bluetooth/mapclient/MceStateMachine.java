@@ -74,6 +74,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.obex.ResponseCodes;
+
 /* The MceStateMachine is responsible for setting up and maintaining a connection to a single
  * specific Messaging Server Equipment endpoint.  Upon connect command an SDP record is retrieved,
  * a connection to the Message Access Server is created and a request to enable notification of new
@@ -513,15 +515,32 @@ final class MceStateMachine extends StateMachine {
                         processInboundMessage((RequestGetMessage) message.obj);
                     } else if (message.obj instanceof RequestPushMessage) {
                         String messageHandle = ((RequestPushMessage) message.obj).getMsgHandle();
+                        int responseCode = ((RequestPushMessage) message.obj).getResponseCode();
                         if (DBG) {
                             Log.d(TAG, "Message Sent......." + messageHandle);
                         }
                         // ignore the top-order byte (converted to string) in the handle for now
                         // some test devices don't populate messageHandle field.
                         // in such cases, no need to wait up for response for such messages.
-                        if (messageHandle != null && messageHandle.length() > 2) {
+                        if (messageHandle != null && messageHandle.length() > 2 &&
+                            ((responseCode == ResponseCodes.OBEX_HTTP_OK) ||
+                             (responseCode == ResponseCodes.OBEX_HTTP_CONTINUE))) {
                             mSentMessageLog.put(messageHandle.substring(2),
                                     ((RequestPushMessage) message.obj).getBMsg());
+                        }
+                        else {
+                            Log.w(TAG, "Message Sent Failed, responseCode = " + responseCode);
+                            PendingIntent intentToSend = null;
+                            intentToSend = mSentReceiptRequested.remove(((RequestPushMessage) message.obj).getBMsg());
+                            // send intent to notify application
+                            if (intentToSend != null) {
+                                try {
+                                    if (DBG) Log.d(TAG, "*******Sending " + intentToSend);
+                                    intentToSend.send(SmsManager.RESULT_ERROR_GENERIC_FAILURE);
+                                } catch (PendingIntent.CanceledException e) {
+                                    Log.w(TAG, "Notification Request Canceled" + e);
+                                }
+                            }
                         }
                     } else if (message.obj instanceof RequestGetMessagesListing) {
                         processMessageListing((RequestGetMessagesListing) message.obj);
