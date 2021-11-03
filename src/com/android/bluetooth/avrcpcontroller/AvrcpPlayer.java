@@ -52,7 +52,6 @@ class AvrcpPlayer {
     private String mName = "";
     private int mPlayerType;
     private TrackInfo mCurrentTrack = new TrackInfo();
-    private PlaybackState mPlaybackState;
     private byte[] mPlayerFeatures = new byte[16];
     private long mAvailableActions = PlaybackStateCompat.ACTION_PREPARE;
     private PlaybackStateCompat mPlaybackStateCompat;
@@ -142,10 +141,21 @@ class AvrcpPlayer {
         Log.d(TAG, "Settings changed");
         mCurrentPlayerApplicationSettings = playerApplicationSettings;
         MediaSessionCompat session = BluetoothMediaBrowserService.getSession();
-        session.setRepeatMode(mCurrentPlayerApplicationSettings.getSetting(
-                PlayerApplicationSettings.REPEAT_STATUS));
-        session.setShuffleMode(mCurrentPlayerApplicationSettings.getSetting(
-                PlayerApplicationSettings.SHUFFLE_STATUS));
+        if (mCurrentPlayerApplicationSettings == null) {
+            session.setRepeatMode(PlaybackStateCompat.REPEAT_MODE_NONE);
+            session.setShuffleMode(PlaybackStateCompat.SHUFFLE_MODE_NONE);
+        } else {
+            session.setRepeatMode(mCurrentPlayerApplicationSettings.getSetting(
+                    PlayerApplicationSettings.REPEAT_STATUS));
+            session.setShuffleMode(mCurrentPlayerApplicationSettings.getSetting(
+                    PlayerApplicationSettings.SHUFFLE_STATUS));
+        }
+    }
+
+
+    public PlayerApplicationSettings getCurrentPlayerApplicationSettings() {
+        Log.d(TAG, "getCurrentPlayerApplicationSettings");
+        return mCurrentPlayerApplicationSettings;
     }
 
     public int getPlayStatus() {
@@ -176,8 +186,9 @@ class AvrcpPlayer {
     public synchronized void updateCurrentTrack(TrackInfo update) {
         if (update != null) {
             long trackNumber = update.getTrackNum();
-            mPlaybackState = new PlaybackState.Builder(mPlaybackState).setActiveQueueItemId(
-                             trackNumber - 1).build();
+            mPlaybackStateCompat = new PlaybackStateCompat.Builder(
+                    mPlaybackStateCompat).setActiveQueueItemId(
+                    trackNumber - 1).build();
 
             String imageLocation = update.getImageLocation();
             String thumbNailLocation = update.getThumbNailLocation();
