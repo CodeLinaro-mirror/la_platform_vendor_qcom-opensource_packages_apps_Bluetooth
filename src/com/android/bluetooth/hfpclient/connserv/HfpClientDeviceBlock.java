@@ -26,7 +26,7 @@ import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.util.Log;
-
+import android.media.AudioManager;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +45,7 @@ public class HfpClientDeviceBlock {
     private final PhoneAccount mPhoneAccount;
     private final Map<UUID, HfpClientConnection> mConnections = new HashMap<>();
     private final TelecomManager mTelecomManager;
+    private final AudioManager mAudioManager;
     private final HfpClientConnectionService mConnServ;
     private HfpClientConference mConference;
 
@@ -58,6 +59,9 @@ public class HfpClientDeviceBlock {
         mTAG = "HfpClientDeviceBlock." + mDevice.getAddress();
         mPhoneAccount = HfpClientConnectionService.createAccount(mContext, device);
         mTelecomManager = (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
+        mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+
+
 
         // Register the phone account since block is created only when devices are connected
         mTelecomManager.registerPhoneAccount(mPhoneAccount);
@@ -166,6 +170,37 @@ public class HfpClientDeviceBlock {
 
         if (connection == null) {
             // Create the connection here, trigger Telecom to bind to us.
+            // Do not allow new calls while SCO channel is in use.
+            if (mConnections.isEmpty() && mAudioManager.isBluetoothScoOn()) {
+                Log.d(mTAG, " Do not allow new calls while SCO channel is in use");
+                return;
+            }
+
+            // If the new call's state is terminated, just discard this call
+            if (call.getState() == BluetoothHeadsetClientCall.CALL_STATE_TERMINATED) {
+                return;
+            }
+
+            // Do not allow calls over HFP when there is another incoming call.
+            // The result otherwise will be the Telecom hanging up the bluetooth call.
+            if (call.getState() == BluetoothHeadsetClientCall.CALL_STATE_INCOMING
+                    && mTelecomManager.isRinging()) {
+                return;
+            }
+
+            // If Telecom is being used by another source, ignore in-progress calls that occur
+            // due to being connected after initiation. If we did allow these calls to reach
+            // telecom, it would be unclear which call would take priority for audio.
+            if (mConnections.isEmpty() && mTelecomManager.isInCall()
+                    && call.getState() != BluetoothHeadsetClientCall.CALL_STATE_INCOMING) {
+                if (mHeadsetProfile != null && mHeadsetProfile.getAudioState(mDevice) ==
+                    BluetoothHeadsetClient.STATE_AUDIO_CONNECTED) {
+                    Log.d(mTAG, " CS call in progress, disconnect SCO for Client call");
+                    mHeadsetProfile.disconnectAudio(mDevice);
+                }
+                return;
+            }
+
             buildConnection(call, null);
 
             // Depending on where this call originated make it an incoming call or outgoing
