@@ -300,55 +300,6 @@ public class HeadsetClientStateMachine extends StateMachine {
 
     private void sendCallChangedIntent(BluetoothHeadsetClientCall c) {
         Log.d(TAG, "sendCallChangedIntent " + c);
-        HeadsetService headsetService = HeadsetService.getHeadsetService();
-        if (headsetService != null && headsetService.isInCall()) {
-           /* do not inform the client call info to telephony if AG call is present*/
-           /* this is to avoid the blocking of HFP AG call indicator update to remote device*/
-            int mClientCallState = c.getState();
-            switch(mClientCallState) {
-                case BluetoothHeadsetClientCall.CALL_STATE_INCOMING : {
-                    Log.d(TAG, "AG Call is active, hold the incoming client call");
-                    if(!mIsClientIncomingCallHeld ) {
-                        mIsClientIncomingCallHeld = true;
-                        holdCall();
-                    }
-                    break;
-                }
-                case BluetoothHeadsetClientCall.CALL_STATE_ACTIVE : {
-                    Log.d(TAG, "AG Call is active, hold the active client call");
-                    /* AG may take some time to put the call on hold , avoid sending hold again*/
-                    if(!mIsClientActiveCallHeld ) {
-                        mIsClientActiveCallHeld = true;
-                        holdCall();
-                    }
-                    break;
-                }
-                case BluetoothHeadsetClientCall.CALL_STATE_TERMINATED : {
-                    Log.d(TAG, "reset mIsClientCallHeld");
-                    mIsClientActiveCallHeld  = false;
-                    mIsClientIncomingCallHeld = false;
-                     break;
-                }
-                default :
-                    break;
-            }
-            return;
-        } else if (mIsClientActiveCallHeld || mIsClientIncomingCallHeld) {
-            mIsClientIncomingCallHeld = false;
-            mIsClientActiveCallHeld = false;
-            Log.d(TAG, "no Active AG Call is present, resume held client call");
-            if(c.getState() == BluetoothHeadsetClientCall.CALL_STATE_HELD) {
-                /* AG call ended and it would have released the a2dp suspend
-                 * Suspend the A2dp for client call
-                 */
-                mA2dpSuspend = suspendA2DP();
-                acceptCall(BluetoothHeadsetClient.CALL_ACCEPT_HOLD);
-                if(!isAudioOn()) {
-                    Log.d(TAG, "intiate the audio connection for resume call ");
-                    sendMessageDelayed(HeadsetClientStateMachine.CONNECT_AUDIO, CONNECT_AUDIO_DELAY);
-                }
-            }
-        }
 
        /* This case usually happens when A2dp is Suspended and later there is no SCO connected
         * for hfp client call and when call is ended we need to release the a2dp suspend.
