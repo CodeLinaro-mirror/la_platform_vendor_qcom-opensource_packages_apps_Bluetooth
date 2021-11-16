@@ -1426,7 +1426,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                 case ACTION_PLAYING_STATE_CHANGED:
                     int mA2dpState = message.arg1;
                     Log.d(TAG, "Connected: mA2dpState  " + mA2dpState);
-                    if ((IsInCall() || mCallIsInSetup) && mA2dpSuspendIssued && mA2dpState ==
+                    if (mA2dpSuspendIssued && mA2dpState ==
                                        BluetoothA2dp.STATE_NOT_PLAYING) {
                         Log.d(TAG, "Connected: a2dp is suspended");
                         mA2dpSuspend = true;
