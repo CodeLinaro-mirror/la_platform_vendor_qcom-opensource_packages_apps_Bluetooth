@@ -253,7 +253,7 @@ class A2dpCodecConfig {
             mA2dpSourceCodecPriorityAptxHd = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
         }
 
-
+        /*
         if(mAdapterService.isSplitA2DPSourceLDAC()) {
             try {
                 value = resources.getInteger(R.integer.a2dp_source_codec_priority_ldac);
@@ -271,6 +271,11 @@ class A2dpCodecConfig {
         } else {
             mA2dpSourceCodecPriorityLdac = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
         }
+        */
+        //LDAC Codec not supported on target
+        mA2dpSourceCodecPriorityLdac = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
+
+        /*
         if (mAdapterService.isVendorIntfEnabled()) {
             try {
                 value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_tws);
@@ -288,6 +293,9 @@ class A2dpCodecConfig {
         } else {
             mA2dpSourceCodecPriorityAptxTwsp = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
         }
+        */
+        //TWS Codec not supported on target
+        mA2dpSourceCodecPriorityAptxTwsp = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
 
         BluetoothCodecConfig codecConfig;
         BluetoothCodecConfig[] codecConfigArray;
