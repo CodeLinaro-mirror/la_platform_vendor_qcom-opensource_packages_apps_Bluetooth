@@ -26,6 +26,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
@@ -55,6 +56,9 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Used to receive updates about calls from the Telecom component. This service is bound to Telecom
@@ -89,6 +93,8 @@ public class BluetoothInCallService extends InCallService {
     // Indicates that no BluetoothCall is ringing
     private static final int DEFAULT_RINGING_ADDRESS_TYPE = 128;
 
+    private static final int DISCONNECT_TONE_TIMEOUT_SECONDS = 1;
+
     private int mNumActiveCalls = 0;
     private int mNumHeldCalls = 0;
     private int mNumChildrenOfActiveCall = 0;
@@ -101,6 +107,13 @@ public class BluetoothInCallService extends InCallService {
 
     private static final Object LOCK = new Object();
     private BluetoothHeadsetProxy mBluetoothHeadset;
+
+    private Semaphore mDisconnectionToneSemaphore = new Semaphore(0);
+    private int mAudioMode = AudioManager.MODE_INVALID;
+    private final Object mAudioModeLock = new Object();
+
+    @VisibleForTesting
+    public AudioManager mAudioManager;
 
     @VisibleForTesting
     public TelephonyManager mTelephonyManager;
@@ -190,6 +203,11 @@ public class BluetoothInCallService extends InCallService {
                 return;
             }
 
+            if (state == Call.STATE_DISCONNECTING) {
+                Log.w(TAG, "ignoring DISCONNECTING call state");
+                mLastState = state;
+                return;
+            }
             // If a BluetoothCall is being put on hold because of a new connecting call, ignore the
             // CONNECTING since the BT state update needs to send out the numHeld = 1 + dialing
             // state atomically.
@@ -225,13 +243,19 @@ public class BluetoothInCallService extends InCallService {
         }
 
         public void onDetailsChanged(BluetoothCall call, Call.Details details) {
+            Log.i(TAG, "onDetailsChanged call: " + call + "details: " + details);
             if (mCallInfo.isNullCall(call)) {
                 return;
             }
             if (call.isExternalCall()) {
                 onCallRemoved(call);
             } else {
-                onCallAdded(call);
+                if (!mBluetoothCallHashMap.containsKey(call.getTelecomCallId())) {
+                    onCallAdded(call);
+                 }else{
+                   Log.i(TAG, "onDetailsChanged call was already added");
+                   updateHeadsetWithCallState(false /* force */);
+                }
             }
         }
 
@@ -286,6 +310,19 @@ public class BluetoothInCallService extends InCallService {
                     getBluetoothCallsByIds(BluetoothCall.getIds(children)));
         }
     }
+
+    class BluetoothOnModeChangedListener implements AudioManager.OnModeChangedListener {
+        @Override
+        public void onModeChanged(int mode) {
+            synchronized (mAudioModeLock) {
+                mAudioMode = mode;
+            }
+            if (mode == AudioManager.MODE_NORMAL) {
+                mDisconnectionToneSemaphore.release();
+            }
+        }
+    }
+    private BluetoothOnModeChangedListener mBluetoothOnModeChangedListener;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -350,7 +387,18 @@ public class BluetoothInCallService extends InCallService {
             if (mCallInfo.isNullCall(call)) {
                 return false;
             }
-            call.disconnect();
+            // release the parent if there is a conference call
+            BluetoothCall conferenceCall = getBluetoothCallById(call.getParentId());
+            if (!mCallInfo.isNullCall(conferenceCall)
+                    && conferenceCall.getState() == Call.STATE_ACTIVE) {
+                Log.i(TAG, "BT - hanging up conference call");
+                call = conferenceCall;
+            }
+            if (call.getState() == Call.STATE_RINGING) {
+                call.reject(false, "");
+            } else {
+                call.disconnect();
+            }
             return true;
         }
     }
@@ -372,7 +420,11 @@ public class BluetoothInCallService extends InCallService {
                 Log.e(TAG, "no such call with Index");
                 return false;
             }
-            call.disconnect();
+           if (call.getState() == Call.STATE_RINGING) {
+                call.reject(false, "");
+            } else {
+                call.disconnect();
+            }
             ret = true;
             return ret;
         }
@@ -478,6 +530,11 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    public void cleanUp() {
+        mBluetoothCallHashMap.clear();
+        Log.i(TAG, "BluetoothCallHashMap Cleared");
+    }
+
     public boolean isCsCallInProgress() {
         boolean isCsCall = false;
         BluetoothCall activeCall = mCallInfo.getActiveCall();
@@ -565,6 +622,26 @@ public class BluetoothInCallService extends InCallService {
             return;
         }
         Log.d(TAG, "onCallRemoved");
+        BluetoothCall heldCall = mCallInfo.getHeldCall();
+        if (mCallInfo.isNullCall(heldCall)) {
+            // current call is the only call
+
+            mDisconnectionToneSemaphore.drainPermits();
+            boolean isAudioModeNormal = false;
+            synchronized (mAudioModeLock) {
+                isAudioModeNormal = (mAudioMode == AudioManager.MODE_NORMAL);
+            }
+            if (!isAudioModeNormal) {
+                Log.d(TAG, "Acquiring mDisconnectionToneSemaphore");
+                try {
+                  boolean result = mDisconnectionToneSemaphore.tryAcquire(
+                    DISCONNECT_TONE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                  Log.d(TAG, "Acquiring mDisconnectionToneSemaphore result " + result);
+                } catch (InterruptedException e) {
+                  Log.w(TAG, "Failed to acquire mDisconnectionToneSemaphore");
+                }
+            }
+        }
         CallStateCallback callback = getCallback(call);
         if (callback != null) {
             call.unregisterCallback(callback);
@@ -605,11 +682,19 @@ public class BluetoothInCallService extends InCallService {
         mBluetoothAdapterReceiver = new BluetoothAdapterReceiver();
         IntentFilter intentFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
         registerReceiver(mBluetoothAdapterReceiver, intentFilter);
+        mBluetoothOnModeChangedListener = new BluetoothOnModeChangedListener();
+        mAudioManager = getSystemService(AudioManager.class);
+        mAudioManager.addOnModeChangedListener(
+                Executors.newSingleThreadExecutor(), mBluetoothOnModeChangedListener);
     }
 
     @Override
     public void onDestroy() {
         Log.d(TAG, "onDestroy");
+        if (mBluetoothOnModeChangedListener != null) {
+            mAudioManager.removeOnModeChangedListener(mBluetoothOnModeChangedListener);
+            mBluetoothOnModeChangedListener = null;
+        }
         if (mBluetoothAdapterReceiver != null) {
             unregisterReceiver(mBluetoothAdapterReceiver);
             mBluetoothAdapterReceiver = null;
@@ -841,11 +926,14 @@ public class BluetoothInCallService extends InCallService {
                 return false;
             }
             if (!mCallInfo.isNullCall(activeCall)) {
-                activeCall.disconnect();
-                if (!mCallInfo.isNullCall(ringingCall)) {
-                    ringingCall.answer(VideoProfile.STATE_AUDIO_ONLY);
+                BluetoothCall conferenceCall = getBluetoothCallById(activeCall.getParentId());
+                if (!mCallInfo.isNullCall(conferenceCall)
+                        && conferenceCall.getState() == Call.STATE_ACTIVE) {
+                    Log.i(TAG, "CHLD: disconnect conference call");
+                    conferenceCall.disconnect();
+                } else {
+                    activeCall.disconnect();
                 }
-                return true;
             }
             if (!mCallInfo.isNullCall(ringingCall)) {
                 ringingCall.answer(ringingCall.getVideoState());
@@ -1034,8 +1122,12 @@ public class BluetoothInCallService extends InCallService {
         int bluetoothCallState = CALL_STATE_IDLE;
         if (!mCallInfo.isNullCall(ringingCall) && !ringingCall.isSilentRingingRequested()) {
             bluetoothCallState = CALL_STATE_INCOMING;
-        } else if (!mCallInfo.isNullCall(dialingCall)) {
+        } else if ((!mCallInfo.isNullCall(dialingCall))
+                  &&(dialingCall.getState() == Call.STATE_DIALING)
+                  &&(null != dialingCall.getDetails().getExtras())
+                  &&(0 != dialingCall.getDetails().getExtras().getInt(TelecomManager.EXTRA_CALL_TECHNOLOGY_TYPE))) {
             bluetoothCallState = CALL_STATE_ALERTING;
+            Log.i(TAG, "updateHeadsetWithCallState CALL_STATE_ALERTING");
         } else if (hasOnlyDisconnectedCalls || mIsDisconnectedTonePlaying) {
             // Keep the DISCONNECTED state until the disconnect tone's playback is done
             bluetoothCallState = CALL_STATE_DISCONNECTED;

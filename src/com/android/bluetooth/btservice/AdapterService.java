@@ -72,6 +72,7 @@ import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
+import android.app.PropertyInvalidatedCache;
 import android.app.Service;
 import android.bluetooth.BluetoothA2dp;
 import android.app.admin.DevicePolicyManager;
@@ -684,6 +685,8 @@ public class AdapterService extends Service {
 
         setAdapterService(this);
 
+        invalidateBluetoothCaches();
+
         // First call to getSharedPreferences will result in a file read into
         // memory cache. Call it here asynchronously to avoid potential ANR
         // in the future
@@ -942,8 +945,13 @@ public class AdapterService extends Service {
       }
     }
 
+    private void invalidateBluetoothGetStateCache() {
+        BluetoothAdapter.invalidateBluetoothGetStateCache();
+    }
+
     void updateAdapterState(int prevState, int newState) {
         mAdapterProperties.setState(newState);
+        invalidateBluetoothGetStateCache();
         if (mCallbacks != null) {
             int n = mCallbacks.beginBroadcast();
             debugLog("updateAdapterState() - Broadcasting state " + BluetoothAdapter.nameForState(
@@ -996,9 +1004,13 @@ public class AdapterService extends Service {
             mAdapter = null;
         }
 
+        BluetoothAdapter.invalidateGetProfileConnectionStateCache();
+        BluetoothAdapter.invalidateIsOffloadedFilteringSupportedCache();
+
         clearAdapterService(this);
 
         mCleaningUp = true;
+        invalidateBluetoothCaches();
 
         unregisterReceiver(mAlarmBroadcastReceiver);
         unregisterReceiver(mWifiStateBroadcastReceiver);
@@ -1092,6 +1104,13 @@ public class AdapterService extends Service {
         }
     }
 
+    private void invalidateBluetoothCaches() {
+        BluetoothAdapter.invalidateGetProfileConnectionStateCache();
+        BluetoothAdapter.invalidateIsOffloadedFilteringSupportedCache();
+        BluetoothDevice.invalidateBluetoothGetBondStateCache();
+        BluetoothAdapter.invalidateBluetoothGetStateCache();
+    }
+
     private void setProfileServiceState(Class service, int state) {
         Intent intent = new Intent(this, service);
         intent.putExtra(EXTRA_ACTION, ACTION_SERVICE_STATE_CHANGED);
@@ -1143,6 +1162,9 @@ public class AdapterService extends Service {
         ParcelUuid ADV_AUDIO_W_MEDIA =
             ParcelUuid.fromString("2587db3c-ce70-4fc9-935f-777ab4188fd7");
 
+        ParcelUuid ADV_AUDIO_G_VBC =
+            ParcelUuid.fromString("00006AD6-0000-1000-8000-00805F9B34FB");
+
         if (remoteDeviceUuids == null || remoteDeviceUuids.length == 0) {
             Log.e(TAG, "isSupported: Remote Device Uuids Empty");
         }
@@ -1167,7 +1189,8 @@ public class AdapterService extends Service {
                     || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_HEARINGAID)
                     || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_G_MEDIA)
                     || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_W_MEDIA)
-                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_P_MEDIA);
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_P_MEDIA)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_G_VBC);
         }
         if (profile == BluetoothProfile.A2DP_SINK) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.ADV_AUDIO_DIST)
@@ -1667,6 +1690,8 @@ public class AdapterService extends Service {
 
         AdapterServiceBinder(AdapterService svc) {
             mService = svc;
+            mService.invalidateBluetoothGetStateCache();
+            BluetoothAdapter.getDefaultAdapter().disableBluetoothGetStateCache();
         }
 
         public void cleanup() {
@@ -2588,9 +2613,10 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean isBroadcastActive() {
+        public boolean isBroadcastActive(AttributionSource attributionSource) {
             AdapterService service = getService();
-            if (service == null) {
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                         service, attributionSource, "AdapterService isBroadcastActive")) {
                 return false;
             }
             return service.isBroadcastActive();

@@ -35,6 +35,9 @@ import android.os.PowerManager;
 import android.os.SystemProperties;
 import android.util.Log;
 
+import com.android.bluetooth.apm.ApmConstIntf;
+import com.android.bluetooth.apm.CallAudioIntf;
+
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.List;
@@ -115,6 +118,12 @@ public class HeadsetSystemInterface {
      * Stop this system interface
      */
     public synchronized void stop() {
+        BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
+        if (bluetoothInCallService != null) {
+            bluetoothInCallService.cleanUp();
+        } else {
+            Log.e(TAG, "No Cleanup, as BluetoothInCallService is null");
+        }
         mHeadsetPhoneState.cleanup();
     }
 
@@ -193,6 +202,14 @@ public class HeadsetSystemInterface {
         // Close the virtual call if active. Virtual call should be
         // terminated for CHUP callback event
         if (mHeadsetService.isVirtualCallStarted()) {
+            if(ApmConstIntf.getLeAudioEnabled()) {
+                Log.d(TAG, "hangupCall remoteDisconnectVirtualVoiceCall Adv Audio enabled");
+                CallAudioIntf mCallAudio = CallAudioIntf.get();
+                if(mCallAudio != null) {
+                    mCallAudio.remoteDisconnectVirtualVoiceCall(device);
+                }
+                return;
+            }
             mHeadsetService.stopScoUsingVirtualVoiceCall();
         } else {
             BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
@@ -219,6 +236,14 @@ public class HeadsetSystemInterface {
         // Close the virtual call if active. Virtual call should be
         // terminated for CHUP callback event
         if (mHeadsetService.isVirtualCallStarted()) {
+            if(ApmConstIntf.getLeAudioEnabled()) {
+                Log.d(TAG, "terminateCall remoteDisconnectVirtualVoiceCall Adv Audio enabled");
+                CallAudioIntf mCallAudio = CallAudioIntf.get();
+                if(mCallAudio != null) {
+                    mCallAudio.remoteDisconnectVirtualVoiceCall(device);
+                }
+                return;
+            }
             mHeadsetService.stopScoUsingVirtualVoiceCall();
         } else {
             BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
