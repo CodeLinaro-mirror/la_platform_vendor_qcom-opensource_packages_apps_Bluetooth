@@ -1309,9 +1309,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
 
                 case DISCONNECT_AUDIO:
-                    if (!mNativeInterface.disconnectAudio(getByteAddress(mCurrentDevice))) {
-                        Log.e(TAG, "ERROR: Couldn't disconnect Audio for device " + mCurrentDevice);
-                    }
+                    Log.e(TAG, "ERROR: Connected: ignore DISCONNECT_AUDIO, device= " + mCurrentDevice);
                     break;
 
                 case VOICE_RECOGNITION_START:
@@ -1720,6 +1718,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                             SCO_REJECT_DELAY_MS);
                         // Don't continue connecting!
                         Log.d(TAG, "Disconnecting Audio after " + SCO_REJECT_DELAY_MS + " ms as routing not allowed");
+                        transitionTo(mAudioOn);
                         return;
                     }
                     // Audio state is split in two parts, the audio focus is maintained by the
