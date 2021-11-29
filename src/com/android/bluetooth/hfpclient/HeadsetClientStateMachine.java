@@ -340,7 +340,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                     Log.d(TAG, "Associating the first call with HF originated call");
                 }
                 hfOriginatedAssoc = (Integer) callAddedIds.toArray()[0];
-                mCalls.put(hfOriginatedAssoc, mCalls.get(HF_ORIGINATED_CALL_ID));
+                // Create new call with id updated
+                BluetoothHeadsetClientCall newCall = createCall(
+                    mCalls.get(HF_ORIGINATED_CALL_ID), hfOriginatedAssoc);
+                mCalls.put(hfOriginatedAssoc, newCall);
                 mCalls.remove(HF_ORIGINATED_CALL_ID);
 
                 // Adjust this call in above sets.
@@ -1909,5 +1912,10 @@ public class HeadsetClientStateMachine extends StateMachine {
         b.putString(BluetoothHeadsetClient.EXTRA_OPERATOR_NAME, mOperatorName);
         b.putString(BluetoothHeadsetClient.EXTRA_SUBSCRIBER_INFO, mSubscriberInfo);
         return b;
+    }
+
+    private BluetoothHeadsetClientCall createCall(BluetoothHeadsetClientCall c, int id) {
+        return new BluetoothHeadsetClientCall(c.getDevice(), id, c.getUUID(),
+            c.getState(), c.getNumber(), c.isMultiParty(), c.isOutgoing(), c.isInBandRing());
     }
 }

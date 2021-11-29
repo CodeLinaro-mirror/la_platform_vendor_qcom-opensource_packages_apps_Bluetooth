@@ -223,6 +223,11 @@ public abstract class ProfileService extends Service {
             return;
         }
 
+        if (mProfileStarted) {
+            Log.w(mName, "doStart() called, but the profile is already in running.");
+            return;
+        }
+
         mAdapterService = AdapterService.getAdapterService();
         if (mAdapterService == null) {
             Log.w(mName, "Could not add this profile because AdapterService is null.");

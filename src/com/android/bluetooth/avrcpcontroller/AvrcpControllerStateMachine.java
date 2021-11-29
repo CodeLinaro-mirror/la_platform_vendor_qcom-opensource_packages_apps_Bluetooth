@@ -356,13 +356,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                         // According to AVRCP 1.6 SPEC(Chapter 5.14.2.2.2)
                         // We shall reset BIP connection to make sure Cover Art handle is valid when
                         // UIDS become invalid.
-                        if (!mAddressedPlayer.isDatabaseAwarePlayer()) {
-                            mBipStateMachine.sendMessage(AvrcpControllerBipStateMachine.
-                                MESSAGE_DISCONNECT_BIP, mRemoteDevice.getRemoteBipPsm(), 0,
-                                mRemoteDevice.mBTDevice);
-                            mBipStateMachine.sendMessage(AvrcpControllerBipStateMachine.
-                                MESSAGE_CONNECT_BIP, mRemoteDevice.getRemoteBipPsm(), 0,
-                                mRemoteDevice.mBTDevice);
+                        if (!mAddressedPlayer.isDatabaseAwarePlayer() && mRemoteDevice != null &&
+                            mRemoteDevice.isCoverArtSupported() && mBipStateMachine != null) {
+                            mBipStateMachine.sendMessage(
+                                AvrcpControllerBipStateMachine.MESSAGE_REFRESH_SESSION);
                         }
 
                         break;
@@ -445,8 +442,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                                 && mRemoteDevice != null) {
                             if (mBipStateMachine != null) {
                                 mBipStateMachine.sendMessage(
-                                        AvrcpControllerBipStateMachine.MESSAGE_DISCONNECT_BIP,
-                                        mRemoteDevice.mBTDevice);
+                                    AvrcpControllerBipStateMachine.MESSAGE_CLEAR_COVEARART_CACHE);
+                                mBipStateMachine.sendMessage(
+                                    AvrcpControllerBipStateMachine.MESSAGE_DISCONNECT_BIP,
+                                    mRemoteDevice.mBTDevice);
                             }
                             synchronized (mLock) {
                                 mIsConnected = false;
@@ -1045,7 +1044,6 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case MESSAGE_SEND_GROUP_NAVIGATION_CMD:
                 case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
                 case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
-                case MESSAGE_PROCESS_TRACK_CHANGED:
                 case MESSAGE_PROCESS_PLAY_POS_CHANGED:
                 case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
                 case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION:
@@ -1786,12 +1784,7 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         if (mRemoteDevice != null &&
             mRemoteDevice.isCoverArtSupported() && mBipStateMachine != null) {
-            mBipStateMachine.sendMessage(AvrcpControllerBipStateMachine.
-                MESSAGE_DISCONNECT_BIP, mRemoteDevice.getRemoteBipPsm(), 0,
-                mRemoteDevice.mBTDevice);
-            mBipStateMachine.sendMessage(AvrcpControllerBipStateMachine.
-                MESSAGE_CONNECT_BIP, mRemoteDevice.getRemoteBipPsm(), 0,
-                mRemoteDevice.mBTDevice);
+            mBipStateMachine.sendMessage(AvrcpControllerBipStateMachine.MESSAGE_REFRESH_SESSION);
         }
 
         Intent intent_uids = new Intent(BluetoothAvrcpController.ACTION_UIDS_EVENT);
@@ -1997,12 +1990,11 @@ class AvrcpControllerStateMachine extends StateMachine {
         if (mRemoteDevice != null) {
             if (mAddressedPlayer.getCurrentTrack().getCoverArtHandle().isEmpty()) {
                 /* track changed happened before BIP connection. should fetch
-               * cover art handle. NumAttributes  = 0 and
-               * attributes list as null will fetch all attributes
-
-                AvrcpControllerService.getItemElementAttributesNative(
+                 * cover art handle. NumAttributes = 0 and
+                 * attributes list as null will fetch all attributes
+                 */
+                AvrcpControllerService.getElementAttributesNative(
                     mRemoteDevice.getBluetoothAddress(), (byte)0, null);
-               */
             } else {
                 int FLAG;
                 if (AvrcpControllerBipStateMachine.mImageType.
