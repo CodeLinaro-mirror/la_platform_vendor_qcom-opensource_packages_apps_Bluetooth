@@ -41,6 +41,7 @@ abstract class BipRequest {
     // Request types
     public static final int TYPE_GET_IMAGE_PROPERTIES = 0;
     public static final int TYPE_GET_IMAGE = 1;
+    public static final int TYPE_GET_LINKED_THUMBNAIL = 2;
 
     protected HeaderSet mHeaderSet;
     protected ClientOperation mOperation = null;
