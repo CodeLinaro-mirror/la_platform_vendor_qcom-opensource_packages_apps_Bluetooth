@@ -909,7 +909,12 @@ public class HeadsetClientStateMachine extends StateMachine {
     static int amToHfVol(int amVol) {
         int amRange = (sMaxAmVcVol > sMinAmVcVol) ? (sMaxAmVcVol - sMinAmVcVol) : 1;
         int hfRange = MAX_HFP_SCO_VOICE_CALL_VOLUME - MIN_HFP_SCO_VOICE_CALL_VOLUME;
-        int hfOffset = (hfRange * (amVol - sMinAmVcVol)) / amRange;
+        int hfOffset = 0;
+        if (amRange > 0) {
+            hfOffset = (hfRange * (amVol - sMinAmVcVol)) / amRange;
+        } else {
+            Log.w(TAG, "Invalid amRange " + amRange);
+        }
         int hfVol = MIN_HFP_SCO_VOICE_CALL_VOLUME + hfOffset;
         logD("AM -> HF " + amVol + " " + hfVol);
         return hfVol;
