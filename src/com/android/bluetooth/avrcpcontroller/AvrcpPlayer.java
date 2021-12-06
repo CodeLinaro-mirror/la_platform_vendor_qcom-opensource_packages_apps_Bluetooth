@@ -42,7 +42,9 @@ class AvrcpPlayer {
     public static final int FEATURE_FORWARD = 47;
     public static final int FEATURE_PREVIOUS = 48;
     public static final int FEATURE_BROWSING = 59;
+    public static final int FEATURE_ADD_TO_NOWPLAYING = 61;
     public static final int FEATURE_NOW_PLAYING = 65;
+    public static final int FEATURE_COVER_ART = 68;
 
     // Same to BTRC_FEATURE_BIT_MASK_SIZE in bt_rc.h
     public static final int FEATURE_BIT_MASK_SIZE = 16;
