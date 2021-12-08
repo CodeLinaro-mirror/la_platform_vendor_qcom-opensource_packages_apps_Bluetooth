@@ -770,6 +770,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         mAudioWbs = false;
         mA2dpSuspend = false;
         mA2dpSuspendIssued = false;
+        mCallIsInSetup = false;
         mVoiceRecognitionActive = HeadsetClientHalConstants.VR_STATE_STOPPED;
 
         mIndicatorNetworkState = HeadsetClientHalConstants.NETWORK_STATE_NOT_AVAILABLE;
@@ -1755,8 +1756,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                     broadcastAudioState(device, BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED,
                             mAudioState);
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
-                    if(!IsInCall()) {
-                            releaseA2DP();
+                    if(!IsInCall() && !mCallIsInSetup) {
+                        releaseA2DP();
                     }
                     break;
 
@@ -1912,7 +1913,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     Log.d(TAG, "SCO is disconnected for hfp client call");
                     routeHfpAudio(false);
                     returnAudioFocusIfNecessary();
-                    if(!IsInCall()) {
+                    if(!IsInCall() && !mCallIsInSetup) {
                         releaseA2DP();
                     }
                     transitionTo(mConnected);
