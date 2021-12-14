@@ -15,10 +15,15 @@
  */
 package com.android.bluetooth.mapclient;
 
+import android.os.SystemProperties;
+
+import com.android.bluetooth.Utils;
 import com.android.internal.annotations.VisibleForTesting;
 
 class MapUtils {
     private static MnsService sMnsService = null;
+    private static final String FETCH_MESSAGE_TYPE =
+            "persist.bluetooth.pts.mapclient.fetchmessagetype";
 
     @VisibleForTesting
     static void setMnsService(MnsService service) {
@@ -27,5 +32,14 @@ class MapUtils {
 
     static MnsService newMnsServiceInstance(MapClientService mapClientService) {
         return (sMnsService == null) ? new MnsService(mapClientService) : sMnsService;
+    }
+
+    static byte fetchMessageType() {
+        if (Utils.isPtsTestMode()) {
+            return (byte) SystemProperties.getInt(FETCH_MESSAGE_TYPE,
+                    MessagesFilter.MESSAGE_TYPE_ALL);
+        } else {
+            return MessagesFilter.MESSAGE_TYPE_ALL;
+        }
     }
 }

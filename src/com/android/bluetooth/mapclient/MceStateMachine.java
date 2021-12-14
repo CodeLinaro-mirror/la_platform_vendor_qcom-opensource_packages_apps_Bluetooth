@@ -52,6 +52,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Message;
 import android.provider.Telephony;
+import android.os.SystemProperties;
 import android.telecom.PhoneAccount;
 import android.telephony.SmsManager;
 import android.util.Log;
@@ -66,6 +67,7 @@ import com.android.internal.util.StateMachine;
 import com.android.vcard.VCardConstants;
 import com.android.vcard.VCardEntry;
 import com.android.vcard.VCardProperty;
+import com.android.bluetooth.Utils;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -94,6 +96,12 @@ final class MceStateMachine extends StateMachine {
     static final int MSG_NOTIFICATION = 2003;
     static final int MSG_GET_LISTING = 2004;
     static final int MSG_GET_MESSAGE_LISTING = 2005;
+    // Set message status to read or deleted
+    static final int MSG_SET_MESSAGE_STATUS = 3001;
+    // To abort
+    static final int MSG_ABORT = 3002;
+    // Abort over
+    static final int MSG_ABORTED = 3003;
 
     private static final String TAG = "MceSM";
     private static final Boolean DBG = MapClientService.DBG;
@@ -111,6 +119,19 @@ final class MceStateMachine extends StateMachine {
     private static final String FOLDER_INBOX = "inbox";
     private static final String INBOX_PATH = "telecom/msg/inbox";
 
+    /* Properties for MAP PTS test */
+    // Set "vendor.bt.mce.test.upload" to true to test PTS upload feature case
+    // MAP/MCE/MMU/BV-01-I
+    // When test upload feature with PTS, NotificationRegistration and UpdateInbox
+    // should be disabled during enter connected status, or PTS takes the 2 requests
+    // as under test requests and reports failure.
+    private final static String BLUETOOTH_MAP_TEST_UPLOAD = "vendor.bt.pts.mce.test.upload";
+    private final static String BLUETOOTH_MAP_AUTO_GET_NEW_MESSAGE = "vendor.bt.pts.mce.autogetnewmessage";
+
+    // Instance id under pts test
+    private final static String BLUETOOTH_MAP_INSTANCE_UNDER_TEST = "vendor.bt.pts.mce.instance";
+
+    private static final int UNSET = -1;
 
     // Connectivity States
     private int mPreviousState = BluetoothProfile.STATE_DISCONNECTED;
@@ -127,6 +148,7 @@ final class MceStateMachine extends StateMachine {
     private HashMap<Bmessage, PendingIntent> mDeliveryReceiptRequested =
             new HashMap<>(MAX_MESSAGES);
     private Bmessage.Type mDefaultMessageType = Bmessage.Type.SMS_CDMA;
+    private boolean mAbort = false;
 
     /**
      * An object to hold the necessary meta-data for each message so we can broadcast it alongside
@@ -263,7 +285,7 @@ final class MceStateMachine extends StateMachine {
         if (contacts == null || contacts.length <= 0) {
             return false;
         }
-        if (this.getCurrentState() == mConnected) {
+        if (this.getCurrentState() == mConnected && !isAbort()) {
             Bmessage bmsg = new Bmessage();
             // Set type and status.
             bmsg.setType(getDefaultMessageType());
@@ -310,7 +332,7 @@ final class MceStateMachine extends StateMachine {
         if (DBG) {
             Log.d(TAG, "getMessage" + handle);
         }
-        if (this.getCurrentState() == mConnected) {
+        if (this.getCurrentState() == mConnected && !isAbort()) {
             sendMessage(MSG_INBOUND_MESSAGE, handle);
             return true;
         }
@@ -319,9 +341,9 @@ final class MceStateMachine extends StateMachine {
 
     synchronized boolean getUnreadMessages() {
         if (DBG) {
-            Log.d(TAG, "getMessage");
+            Log.d(TAG, "getUnreadMessages");
         }
-        if (this.getCurrentState() == mConnected) {
+        if (this.getCurrentState() == mConnected && !isAbort()) {
             sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_INBOX);
             return true;
         }
@@ -335,6 +357,68 @@ final class MceStateMachine extends StateMachine {
         }
         if (DBG) Log.d(TAG, "in getSupportedFeatures, returning 0");
         return 0;
+    }
+
+    synchronized boolean setMessageStatus(String handle, int status) {
+        if (DBG) {
+            Log.d(TAG, "setMessageStatus(" + handle + ", " + status + ")");
+        }
+        if (this.getCurrentState() == mConnected) {
+            RequestSetMessageStatus.StatusIndicator statusIndicator;
+            byte value;
+            switch (status) {
+                case BluetoothMapClient.UNREAD:
+                    statusIndicator = RequestSetMessageStatus.StatusIndicator.READ;
+                    value = RequestSetMessageStatus.STATUS_NO;
+                    break;
+
+                case BluetoothMapClient.READ:
+                    statusIndicator = RequestSetMessageStatus.StatusIndicator.READ;
+                    value = RequestSetMessageStatus.STATUS_YES;
+                    break;
+
+                case BluetoothMapClient.UNDELETED:
+                    statusIndicator = RequestSetMessageStatus.StatusIndicator.DELETED;
+                    value = RequestSetMessageStatus.STATUS_NO;
+                    break;
+
+                case BluetoothMapClient.DELETED:
+                    statusIndicator = RequestSetMessageStatus.StatusIndicator.DELETED;
+                    value = RequestSetMessageStatus.STATUS_YES;
+                    break;
+
+                default:
+                    Log.e(TAG, "Invalid parameter for status" + status);
+                    return false;
+            }
+            sendMessage(MSG_SET_MESSAGE_STATUS, 0, 0, new RequestSetMessageStatus(
+                    handle, statusIndicator, value));
+            return true;
+        }
+        return false;
+    }
+
+    synchronized boolean abort() {
+        if (DBG) {
+            Log.d(TAG, "abort");
+        }
+        if (this.getCurrentState() == mConnected && !isAbort()) {
+            sendMessage(MSG_ABORT);
+            setAbort(true);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isAbort() {
+        return mAbort;
+    }
+
+    private void setAbort(boolean abort) {
+        if (DBG) {
+            Log.d(TAG, "setAbort " + abort);
+        }
+        mAbort = abort;
     }
 
     private String getContactURIFromPhone(String number) {
@@ -371,6 +455,10 @@ final class MceStateMachine extends StateMachine {
             }
             onConnectionStateChanged(mPreviousState, BluetoothProfile.STATE_DISCONNECTED);
             mPreviousState = BluetoothProfile.STATE_DISCONNECTED;
+            if (isAbort()) {
+                Log.w(TAG, "Abort status is not cleared, do it here ");
+                setAbort(false);
+            }
             quit();
         }
 
@@ -410,8 +498,10 @@ final class MceStateMachine extends StateMachine {
                                     + mDevice.getName());
                             return NOT_HANDLED;
                         }
+                        if (isValidInstance(record.getMasInstanceId())) {
                         mMasClient = new MasClient(mDevice, MceStateMachine.this, record);
                         setDefaultMessageType(record);
+                        }
                     }
                     break;
 
@@ -457,6 +547,33 @@ final class MceStateMachine extends StateMachine {
             mPreviousState = BluetoothProfile.STATE_CONNECTING;
             removeMessages(MSG_CONNECTING_TIMEOUT);
         }
+
+        // Return true is not in PTS test or it is the specified instance under pts test
+        private boolean isValidInstance(int instance) {
+            if (DBG) {
+                Log.d(TAG, "instance " + instance + ", getUnderTestInstance() " + getUnderTestInstance());
+            }
+            if (getUnderTestInstance() == UNSET || isInstanceUnderTest(instance)) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        // For pts test
+        // Set the property to the value prompted on PTS
+        private int getUnderTestInstance() {
+            return SystemProperties.getInt(BLUETOOTH_MAP_INSTANCE_UNDER_TEST, UNSET);
+        }
+
+        // For pts test
+        private boolean isInstanceUnderTest(int instance) {
+            if (getUnderTestInstance() == instance) {
+                return true;
+            } else {
+                return false;
+            }
+        }
     }
 
     class Connected extends State {
@@ -472,7 +589,11 @@ final class MceStateMachine extends StateMachine {
             mMasClient.makeRequest(new RequestSetPath(FOLDER_INBOX));
             mMasClient.makeRequest(new RequestGetFolderListing(0, 0));
             mMasClient.makeRequest(new RequestSetPath(false));
-            mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
+            if (!isTestUpload()) {
+                // SetNotificationRegistration and UpdateInbox
+                mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
+                mMasClient.makeRequest(new RequestUpdateInbox());
+            }
         }
 
         @Override
@@ -507,13 +628,27 @@ final class MceStateMachine extends StateMachine {
                 case MSG_GET_MESSAGE_LISTING:
                     // Get latest 50 Unread messages in the last week
                     MessagesFilter filter = new MessagesFilter();
-                    filter.setMessageType((byte) 0);
+                    filter.setMessageType(MapUtils.fetchMessageType());
                     filter.setReadStatus(MessagesFilter.READ_STATUS_UNREAD);
                     Calendar calendar = Calendar.getInstance();
                     calendar.add(Calendar.DATE, -7);
                     filter.setPeriod(calendar.getTime(), null);
                     mMasClient.makeRequest(new RequestGetMessagesListing(
                             (String) message.obj, 0, filter, 0, 50, 0));
+                    break;
+
+                case MSG_SET_MESSAGE_STATUS:
+                    if (message.obj instanceof RequestSetMessageStatus) {
+                        mMasClient.makeRequest((RequestSetMessageStatus) message.obj);
+                    }
+                    break;
+
+                case MSG_ABORT:
+                    mMasClient.abort();
+                    break;
+
+                case MSG_ABORTED:
+                    setAbort(false);
                     break;
 
                 case MSG_MAS_REQUEST_COMPLETED:
@@ -553,6 +688,10 @@ final class MceStateMachine extends StateMachine {
                         }
                     } else if (message.obj instanceof RequestGetMessagesListing) {
                         processMessageListing((RequestGetMessagesListing) message.obj);
+                    } else if (message.obj instanceof RequestSetMessageStatus) {
+                        processSetMessageStatus((RequestSetMessageStatus) message.obj);
+                    } else if (message.obj instanceof RequestUpdateInbox) {
+                        processUpdateInbox((RequestUpdateInbox) message.obj);
                     }
                     break;
 
@@ -604,6 +743,8 @@ final class MceStateMachine extends StateMachine {
                     switch (ev.getType()) {
 
                         case NEW_MESSAGE:
+                            // To work around PTS test case "MAP/MCE/MMN/BV-03-I", don't send request to get message
+                            if (isAutoGetNewMessage()) {
                             // Infer the timestamp for this message as 'now' and read status false
                             // instead of getting the message listing data for it
                             if (!mMessages.contains(ev.getHandle())) {
@@ -614,6 +755,7 @@ final class MceStateMachine extends StateMachine {
                             }
                             mMasClient.makeRequest(new RequestGetMessage(ev.getHandle(),
                                     MasClient.CharsetType.UTF_8, false));
+                            }
                             break;
 
                         case DELIVERY_SUCCESS:
@@ -622,12 +764,28 @@ final class MceStateMachine extends StateMachine {
                         case SENDING_FAILURE:
                         case MEMORY_FULL:
                         case MEMORY_AVAILABLE:
-                        case MESSAGE_DELETED:
                         case MESSAGE_SHIFT:
                             notifySentMessageStatus(ev.getHandle(), ev.getType());
                             break;
+                        case MESSAGE_DELETED:
+                            notifyMessageDeletedStatusChanged(ev.getHandle(), ev.getFolder());
+                            break;
+                        case READ_STATUS_CHANGED:
+                            notifyMessageReadStatusChanged(ev.getHandle(), ev.getFolder(), ev.getReadStatus());
+                            break;
                     }
             }
+        }
+
+        /**
+         * Auto get the new message when new message event report received.
+         */
+        private boolean isAutoGetNewMessage() {
+            return SystemProperties.getBoolean(BLUETOOTH_MAP_AUTO_GET_NEW_MESSAGE, true);
+        }
+
+        private boolean isTestUpload() {
+            return SystemProperties.getBoolean(BLUETOOTH_MAP_TEST_UPLOAD, false);
         }
 
         // Sets the specified message status to "read" (from "unread" status, mostly)
@@ -636,14 +794,14 @@ final class MceStateMachine extends StateMachine {
             MessageMetadata metadata = mMessages.get(request.getHandle());
             metadata.setRead(true);
             mMasClient.makeRequest(new RequestSetMessageStatus(
-                    request.getHandle(), RequestSetMessageStatus.StatusIndicator.READ));
+                    request.getHandle(), RequestSetMessageStatus.StatusIndicator.READ, RequestSetMessageStatus.STATUS_YES));
         }
 
         // Sets the specified message status to "deleted"
         private void markMessageDeleted(RequestGetMessage request) {
             if (DBG) Log.d(TAG, "markMessageDeleted");
             mMasClient.makeRequest(new RequestSetMessageStatus(
-                    request.getHandle(), RequestSetMessageStatus.StatusIndicator.DELETED));
+                    request.getHandle(), RequestSetMessageStatus.StatusIndicator.DELETED, RequestSetMessageStatus.STATUS_YES));
         }
 
         /**
@@ -657,6 +815,10 @@ final class MceStateMachine extends StateMachine {
             if (DBG) {
                 Log.d(TAG, "processMessageListing");
             }
+            if (isAbort()) {
+                Log.i(TAG, "Abort processMessageListing");
+                return;
+            }
             ArrayList<com.android.bluetooth.mapclient.Message> messageListing = request.getList();
             if (messageListing != null) {
                 for (com.android.bluetooth.mapclient.Message msg : messageListing) {
@@ -669,6 +831,69 @@ final class MceStateMachine extends StateMachine {
                     getMessage(msg.getHandle());
                 }
             }
+        }
+
+        private void processSetMessageStatus(RequestSetMessageStatus request) {
+            if (DBG) {
+                Log.d(TAG, "processSetMessageStatus");
+            }
+            int result = BluetoothMapClient.RESULT_SUCCESS;
+            if (!request.isSuccess()) {
+                Log.e(TAG, "Set message status failed");
+                result = BluetoothMapClient.RESULT_FAILURE;
+            }
+            Intent intent;
+            RequestSetMessageStatus.StatusIndicator status = request.getStatusIndicator();
+            switch (status) {
+                case READ:
+                    intent = new Intent(BluetoothMapClient.ACTION_MESSAGE_READ_STATUS_CHANGED);
+                    intent.putExtra(BluetoothMapClient.EXTRA_MESSAGE_READ_STATUS,
+                            request.getValue() == RequestSetMessageStatus.STATUS_YES ? true : false);
+                    break;
+
+                case DELETED:
+                    intent = new Intent(BluetoothMapClient.ACTION_MESSAGE_DELETED_STATUS_CHANGED);
+                    intent.putExtra(BluetoothMapClient.EXTRA_MESSAGE_DELETED_STATUS,
+                            request.getValue() == RequestSetMessageStatus.STATUS_YES ? true : false);
+                    break;
+
+                default:
+                    Log.e(TAG, "Unknown status indicator " + status);
+                    return;
+            }
+            intent.putExtra(BluetoothMapClient.EXTRA_MESSAGE_HANDLE, request.getHandle());
+            intent.putExtra(BluetoothMapClient.EXTRA_RESULT_CODE, result);
+            mService.sendBroadcast(intent);
+        }
+
+        private void processUpdateInbox(RequestUpdateInbox request) {
+            if (request.isSuccess()) {
+                if (DBG) {
+                    Log.d(TAG, "UpdateInbox success");
+                }
+            } else {
+                Log.e(TAG, "UpdateInbox failed");
+            }
+        }
+
+        private void notifyMessageDeletedStatusChanged(String handle, String folder) {
+            if (DBG) {
+                Log.d(TAG, "notifyMessageDeletedStatusChanged for " + handle);
+            }
+            Intent intent = new Intent(BluetoothMapClient.ACTION_MESSAGE_DELETED_STATUS_CHANGED);
+            intent.putExtra(BluetoothMapClient.EXTRA_MESSAGE_HANDLE, handle);
+            mService.sendBroadcast(intent);
+        }
+
+        private void notifyMessageReadStatusChanged(String handle, String folder, String read) {
+            if (DBG) {
+                Log.d(TAG, "notifyMessageReadStatusChanged for handle " + handle + " folder " + folder);
+            }
+            Intent intent = new Intent(BluetoothMapClient.ACTION_MESSAGE_READ_STATUS_CHANGED);
+            //intent.putExtra(BluetoothMapClient.EXTRA_FOLDER, folder);
+            intent.putExtra(BluetoothMapClient.EXTRA_MESSAGE_HANDLE, handle);
+            intent.putExtra(BluetoothMapClient.EXTRA_MESSAGE_READ_STATUS, read == null ? false : "READ".equals(read) ? false : true);
+            mService.sendBroadcast(intent);
         }
 
         /**
@@ -721,6 +946,7 @@ final class MceStateMachine extends StateMachine {
                             metadata.getTimestamp());
                     intent.putExtra(BluetoothMapClient.EXTRA_MESSAGE_READ_STATUS,
                             metadata.getRead());
+                    intent.putExtra(BluetoothMapClient.EXTRA_TYPE, message.getTypeString());
                     intent.putExtra(android.content.Intent.EXTRA_TEXT, message.getBodyContent());
                     VCardEntry originator = message.getOriginator();
                     if (originator != null) {
@@ -741,7 +967,7 @@ final class MceStateMachine extends StateMachine {
                     }
                     // Only send to the current default SMS app if one exists
                     String defaultMessagingPackage = Telephony.Sms.getDefaultSmsPackage(mService);
-                    if (defaultMessagingPackage != null) {
+                    if (defaultMessagingPackage != null && !(Utils.isPtsTestMode())) {
                         intent.setPackage(defaultMessagingPackage);
                     }
                     mService.sendBroadcast(intent, android.Manifest.permission.RECEIVE_SMS);
