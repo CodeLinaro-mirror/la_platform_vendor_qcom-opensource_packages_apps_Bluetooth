@@ -137,6 +137,7 @@ public class AvrcpControllerService extends ProfileService {
 
     private boolean mCoverArtEnabled = false;
     protected AvrcpCoverArtManager mCoverArtManager;
+    private static final Object mBtAvrcpLock = new Object();
 
     private class ImageDownloadCallback implements AvrcpCoverArtManager.Callback {
         @Override
@@ -186,8 +187,10 @@ public class AvrcpControllerService extends ProfileService {
     protected synchronized boolean stop() {
         Intent stopIntent = new Intent(this, BluetoothMediaBrowserService.class);
         stopService(stopIntent);
-        for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
-            stateMachine.doQuit();
+        synchronized (mBtAvrcpLock) {
+            for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
+                stateMachine.doQuit();
+            }
         }
 
         sService = null;
@@ -857,7 +860,11 @@ public class AvrcpControllerService extends ProfileService {
      * Remove state machine from device map once it is no longer needed.
      */
     public void removeStateMachine(AvrcpControllerStateMachine stateMachine) {
-        mDeviceStateMap.remove(stateMachine.getDevice());
+        synchronized (mBtAvrcpLock) {
+            stateMachine.doQuit();
+            mDeviceStateMap.remove(stateMachine.getDevice());
+            stateMachine = null;
+        }
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
@@ -869,13 +876,20 @@ public class AvrcpControllerService extends ProfileService {
     }
 
     protected AvrcpControllerStateMachine getOrCreateStateMachine(BluetoothDevice device) {
-        AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
-        if (stateMachine == null) {
-            stateMachine = newStateMachine(device);
-            mDeviceStateMap.put(device, stateMachine);
-            stateMachine.start();
+        if (device == null) {
+            Log.e(TAG, "getOrCreateStateMachine failed: device cannot be null");
+            return null;
         }
-        return stateMachine;
+        synchronized (mBtAvrcpLock) {
+            AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
+            if (stateMachine == null) {
+                stateMachine = newStateMachine(device);
+                if (DBG) Log.d(TAG, "Creating a new state machine for " + device);
+                mDeviceStateMap.put(device, stateMachine);
+                stateMachine.start();
+            }
+            return stateMachine;
+        }
     }
 
     protected AvrcpCoverArtManager getCoverArtManager() {

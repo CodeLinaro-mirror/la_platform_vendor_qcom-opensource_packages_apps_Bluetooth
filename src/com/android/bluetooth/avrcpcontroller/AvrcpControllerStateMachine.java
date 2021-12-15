@@ -422,6 +422,8 @@ class AvrcpControllerStateMachine extends StateMachine {
             mCar = null;
         }
 
+        mAvailablePlayerList.clear();
+
         quitNow();
     }
 
