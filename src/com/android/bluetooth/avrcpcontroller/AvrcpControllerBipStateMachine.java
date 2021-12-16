@@ -137,7 +137,11 @@ public class AvrcpControllerBipStateMachine extends StateMachine {
         }
         if (mHandlerThread != null) {
             mHandlerThread.quitSafely();
+            mHandlerThread = null;
         }
+
+        mAvrcpCtrlStateMachine = null;
+
         quitNow();
     }
 

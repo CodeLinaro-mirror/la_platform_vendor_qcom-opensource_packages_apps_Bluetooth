@@ -173,6 +173,10 @@ public class AvrcpControllerService extends ProfileService {
         }
     }
 
+    // Add lock to protect critical resource AvrcpControllerStateMachine
+    // This is to avoid creating statemachine and quitting statemachine at the same time
+    private static final Object mLock = new Object();
+
     MediaSessionCompat.Callback mSessionCallbacks = new MediaSessionCompat.Callback() {
         @Override
         public void onPlay() {
@@ -426,8 +430,10 @@ public class AvrcpControllerService extends ProfileService {
     protected boolean stop() {
         Intent stopIntent = new Intent(this, BluetoothMediaBrowserService.class);
         stopService(stopIntent);
-        for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
-            stateMachine.doQuit();
+        synchronized (mLock) {
+            for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
+                stateMachine.doQuit();
+            }
         }
 
         sService = null;
@@ -1194,7 +1200,11 @@ public class AvrcpControllerService extends ProfileService {
      * Remove state machine from device map once it is no longer needed.
      */
     public void removeStateMachine(AvrcpControllerStateMachine stateMachine) {
-        mDeviceStateMap.remove(stateMachine.getDevice());
+        synchronized (mLock) {
+            stateMachine.doQuit();
+            mDeviceStateMap.remove(stateMachine.getDevice());
+            stateMachine = null;
+        }
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
@@ -1210,13 +1220,20 @@ public class AvrcpControllerService extends ProfileService {
     }
 
     protected AvrcpControllerStateMachine getOrCreateStateMachine(BluetoothDevice device) {
-        AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
-        if (stateMachine == null) {
-            stateMachine = newStateMachine(device);
-            mDeviceStateMap.put(device, stateMachine);
-            stateMachine.start();
+        if (device == null) {
+            Log.e(TAG, "getOrCreateStateMachine failed: device cannot be null");
+            return null;
         }
-        return stateMachine;
+        synchronized (mLock) {
+            AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
+            if (stateMachine == null) {
+                stateMachine = newStateMachine(device);
+                if (DBG) Log.d(TAG, "Creating a new state machine for " + device);
+                mDeviceStateMap.put(device, stateMachine);
+                stateMachine.start();
+            }
+            return stateMachine;
+        }
     }
 
     List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
