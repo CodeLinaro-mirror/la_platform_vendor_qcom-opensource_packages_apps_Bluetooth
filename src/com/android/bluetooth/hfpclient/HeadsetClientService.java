@@ -36,6 +36,7 @@ import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService;
+import android.bluetooth.BluetoothA2dp;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -107,6 +108,8 @@ public class HeadsetClientService extends ProfileService {
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         filter.addAction(ACTION_AUDIO_CONN_DISCONN);
         filter.addAction(ACTION_QUERY_NETWORK);
+        filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
+        filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         registerReceiver(mBroadcastReceiver, filter);
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
@@ -213,6 +216,26 @@ public class HeadsetClientService extends ProfileService {
                   if (sm != null) {
                       sm.sendMessage(
                               HeadsetClientStateMachine.QUERY_OPERATOR_NAME);
+                  }
+              }
+           } else if (action.equals(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED)) {
+              Log.d(TAG, "Received BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED");
+              int currState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE,
+                                       BluetoothA2dp.STATE_NOT_PLAYING);
+              for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                  if (sm != null) {
+                      sm.sendMessage(
+                              HeadsetClientStateMachine.ACTION_PLAYING_STATE_CHANGED, currState);
+                  }
+              }
+           } else if (action.equals(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)) {
+              Log.d(TAG, "Received BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED");
+              int currState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE,
+                                       BluetoothProfile.STATE_DISCONNECTED);
+              for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                  if (sm != null) {
+                      sm.sendMessage(
+                              HeadsetClientStateMachine.ACTION_CONNECTION_STATE_CHANGED, currState);
                   }
               }
            }
