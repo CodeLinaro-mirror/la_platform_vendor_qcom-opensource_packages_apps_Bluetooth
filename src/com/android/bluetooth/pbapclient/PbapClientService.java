@@ -320,7 +320,7 @@ public class PbapClientService extends ProfileService {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH_PRIVILEGED permission");
         if (DBG) Log.d(TAG, "Received request to ConnectPBAPPhonebook " + device.getAddress());
-        if (getConnectionPolicy(device) <= BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+        if (getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             return false;
         }
         synchronized (mPbapClientStateMachineMap) {
