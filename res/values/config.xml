@@ -65,7 +65,7 @@
     <integer name="gatt_balanced_priority_latency">0</integer>
     <integer name="gatt_low_power_latency">2</integer>
 
-    <bool name="headset_client_initial_audio_route_allowed">true</bool>
+    <bool name="headset_client_initial_audio_route_allowed">false</bool>
 
     <!-- @deprecated: use a2dp_absolute_volume_initial_threshold_percent
          instead. -->

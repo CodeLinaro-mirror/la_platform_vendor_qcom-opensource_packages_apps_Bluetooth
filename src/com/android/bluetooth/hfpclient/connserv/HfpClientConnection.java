@@ -81,7 +81,6 @@ public class HfpClientConnection extends Connection {
             return;
         }
 
-        mHeadsetProfile.connectAudio(device);
         setInitializing();
         setDialing();
         finishInitializing();
@@ -265,6 +264,15 @@ public class HfpClientConnection extends Connection {
             Log.d(TAG, "onAnswer " + mCurrentCall);
         }
         if (!mClosed) {
+            /* We have to make sure that we allow incoming SCO connection from AG
+             * or we may also initiate one if AG hasn't done yet
+             */
+            if(mHfpClientConnectionService != null){
+                HfpClientDeviceBlock block = mHfpClientConnectionService.findBlockForDevice(mDevice);
+                if(block != null ){
+                    block.enableAudio(true, true);
+                }
+            }
             mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
         }
     }
@@ -275,10 +283,14 @@ public class HfpClientConnection extends Connection {
             Log.d(TAG, "onAnswer videoState" + mCurrentCall);
         }
         if (!mClosed) {
+            if(mHfpClientConnectionService != null){
+                HfpClientDeviceBlock block = mHfpClientConnectionService.findBlockForDevice(mDevice);
+                if(block != null ){
+                    block.enableAudio(true, true);
+                }
+            }
             mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
         }
-
-        mHeadsetProfile.connectAudio(mDevice);
     }
 
     @Override
