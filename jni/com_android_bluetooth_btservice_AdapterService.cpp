@@ -74,6 +74,7 @@ static jmethodID method_setWakeAlarm;
 static jmethodID method_acquireWakeLock;
 static jmethodID method_releaseWakeLock;
 static jmethodID method_energyInfo;
+static jmethodID method_getLinkKeyCallback;
 
 static struct {
   jclass clazz;
@@ -695,6 +696,47 @@ static void energy_info_recv_callback(bt_activity_energy_info* p_energy_info,
       p_energy_info->idle_time, p_energy_info->energy_used, array.get());
 }
 
+static jstring create_link_key_string(JNIEnv* env, Link_Key link_key) {
+  char c_linkkey[KEY_LEN * 2 + 1] = {0};
+  //switch each Link_Key element(hex number) to 2 char in string, and end with '\0'.
+
+  snprintf(c_linkkey, sizeof(c_linkkey),
+           "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+           link_key.at(0), link_key.at(1), link_key.at(3), link_key.at(4),
+           link_key.at(4), link_key.at(5), link_key.at(6), link_key.at(7),
+           link_key.at(8), link_key.at(9), link_key.at(10), link_key.at(11),
+           link_key.at(12), link_key.at(13), link_key.at(14), link_key.at(15));
+  return env->NewStringUTF(c_linkkey);
+}
+
+static void get_link_key_callback(RawAddress* bd_addr, bool key_found,
+                                     Link_Key link_key, int key_type) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  if (!bd_addr) {
+    ALOGE("Address is null in %s", __func__);
+    return;
+  }
+
+  ScopedLocalRef<jbyteArray> addr(
+    sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
+
+  if (!addr.get()) {
+    ALOGE("Address allocation failed in %s", __func__);
+    return;
+  }
+
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
+                                   (jbyte*)bd_addr);
+
+  ScopedLocalRef<jstring> linkkey(sCallbackEnv.get(),
+                                  create_link_key_string(sCallbackEnv.get(), link_key));
+
+  sCallbackEnv->CallVoidMethod(sJniAdapterServiceObj, method_getLinkKeyCallback,
+                               linkkey.get(), addr.get(), key_found, key_type);
+}
+
 static bt_callbacks_t sBluetoothCallbacks = {
     sizeof(sBluetoothCallbacks),  adapter_state_change_callback,
     adapter_properties_callback,  remote_device_properties_callback,
@@ -703,7 +745,8 @@ static bt_callbacks_t sBluetoothCallbacks = {
     bond_state_changed_callback,  acl_state_changed_callback,
     callback_thread_event,        dut_mode_recv_callback,
     le_test_mode_recv_callback,   energy_info_recv_callback,
-    link_quality_report_callback, generate_local_oob_data_callback};
+    link_quality_report_callback, generate_local_oob_data_callback,
+    get_link_key_callback};
 
 // The callback to call when the wake alarm fires.
 static alarm_cb sAlarmCallback;
@@ -926,6 +969,9 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "releaseWakeLock", "(Ljava/lang/String;)Z");
   method_energyInfo = env->GetMethodID(
       clazz, "energyInfoCallback", "(IIJJJJ[Landroid/bluetooth/UidTraffic;)V");
+
+  method_getLinkKeyCallback =
+      env->GetMethodID(clazz, "onGetLinkKey", "(Ljava/lang/String;[BZI)V");
 
   if (env->GetJavaVM(&vm) != JNI_OK) {
     ALOGE("Could not get JavaVM");
@@ -1760,6 +1806,20 @@ static int getMetricIdNative(JNIEnv* env, jobject obj, jbyteArray address) {
   return sBluetoothInterface->get_metric_id(addr_obj);
 }
 
+static void getLinkKeyNative(JNIEnv* env, jobject obj, jbyteArray address) {
+  ALOGV("%s", __func__);
+  if (!sBluetoothInterface) return;
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (addr == NULL) {
+    jniThrowIOException(env, EINVAL);
+    return;
+  }
+
+  sBluetoothInterface->get_link_key((RawAddress*)addr);
+  env->ReleaseByteArrayElements(address, addr, 0);
+}
+
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void*)classInitNative},
@@ -1801,7 +1861,8 @@ static JNINativeMethod sMethods[] = {
     {"createSocketChannelNative", "(ILjava/lang/String;[BIII)I",
      (void*)createSocketChannelNative},
     {"requestMaximumTxDataLengthNative", "([B)V",
-     (void*)requestMaximumTxDataLengthNative}};
+     (void*)requestMaximumTxDataLengthNative},
+    {"getLinkKeyNative", "([B)V", (void*) getLinkKeyNative}};
 
 int register_com_android_bluetooth_btservice_AdapterService(JNIEnv* env) {
   return jniRegisterNativeMethods(
