@@ -1741,6 +1741,14 @@ public class HeadsetClientStateMachine extends StateMachine {
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_CONNECTED;
 
                     Log.d(TAG, "SCO is connected for hfp client call");
+                    //If SCO is connected for HFP Client call but a2dp suspend is not issued,
+                    // we need to suspend a2dp first
+                    if(!mA2dpSuspendIssued) {
+                        mA2dpSuspend = suspendA2DP();
+                    }
+                    //To fill dialer UI with in-progress calls from companion
+                    sendMessage(QUERY_CURRENT_CALLS);
+
                     if(mA2dpSuspend) {
                        routeHfpAudio(true);
                     } else {
