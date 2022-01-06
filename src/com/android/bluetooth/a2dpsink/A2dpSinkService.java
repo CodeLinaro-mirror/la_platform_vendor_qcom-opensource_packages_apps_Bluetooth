@@ -47,6 +47,10 @@ public class A2dpSinkService extends ProfileService {
     protected Map<BluetoothDevice, A2dpSinkStateMachine> mDeviceStateMap =
             new ConcurrentHashMap<>(1);
 
+    // Add lock to protect critical resource A2dpSinkStateMachine
+    // This is to avoid creating statemachine and quitting statemachine at the same time
+    private static final Object mLock = new Object();
+
     private A2dpSinkStreamHandler mA2dpSinkStreamHandler;
     private static A2dpSinkService sService;
 
@@ -64,8 +68,10 @@ public class A2dpSinkService extends ProfileService {
 
     @Override
     protected boolean stop() {
-        for (A2dpSinkStateMachine stateMachine : mDeviceStateMap.values()) {
-            stateMachine.quitNow();
+        synchronized (mLock) {
+            for (A2dpSinkStateMachine stateMachine : mDeviceStateMap.values()) {
+                stateMachine.quitNow();
+            }
         }
         sService = null;
         return true;
@@ -269,7 +275,11 @@ public class A2dpSinkService extends ProfileService {
     }
 
     void removeStateMachine(A2dpSinkStateMachine stateMachine) {
-        mDeviceStateMap.remove(stateMachine.getDevice());
+        synchronized (mLock) {
+            mDeviceStateMap.remove(stateMachine.getDevice());
+            stateMachine.quitNow();
+            stateMachine = null;
+        }
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
@@ -277,13 +287,20 @@ public class A2dpSinkService extends ProfileService {
     }
 
     protected A2dpSinkStateMachine getOrCreateStateMachine(BluetoothDevice device) {
-        A2dpSinkStateMachine stateMachine = mDeviceStateMap.get(device);
-        if (stateMachine == null) {
-            stateMachine = newStateMachine(device);
-            mDeviceStateMap.put(device, stateMachine);
-            stateMachine.start();
+        if (device == null) {
+            Log.e(TAG, "getOrCreateStateMachine failed: device cannot be null");
+            return null;
         }
-        return stateMachine;
+
+        synchronized (mLock) {
+            A2dpSinkStateMachine stateMachine = mDeviceStateMap.get(device);
+            if (stateMachine == null) {
+                stateMachine = newStateMachine(device);
+                mDeviceStateMap.put(device, stateMachine);
+                stateMachine.start();
+            }
+            return stateMachine;
+        }
     }
 
     List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
