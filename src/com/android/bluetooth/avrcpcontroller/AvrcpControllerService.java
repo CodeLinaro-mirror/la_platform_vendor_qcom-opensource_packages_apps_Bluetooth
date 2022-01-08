@@ -430,6 +430,17 @@ public class AvrcpControllerService extends ProfileService {
             Log.w(TAG, "getPlayerSettings not implemented");
             return null;
         }
+
+        @Override
+        public void getPlaybackState(BluetoothDevice device, AttributionSource source) {
+            Attributable.setAttributionSource(device, source);
+            AvrcpControllerService service = getService(source);
+            if (service == null) {
+                return;
+            }
+            service.getPlaybackStateNative(Utils.getByteAddress(device));
+            return;
+        }
     }
 
 
