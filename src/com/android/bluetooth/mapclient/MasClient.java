@@ -25,6 +25,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
+import android.os.SystemProperties;
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.internal.util.StateMachine;
 
@@ -202,12 +203,21 @@ public class MasClient {
 
     private synchronized boolean connectSocket() {
         try {
-            int rfcommChannel = mSdpMasRecord.getRfcommCannelNumber();
-            mSocket = mRemoteDevice.createRfcommSocket(rfcommChannel);
-            if (DBG) {
+            int l2capSocket = mSdpMasRecord.getL2capPsm();
+            boolean usel2cap = SystemProperties.getBoolean("persist.bt.mce.l2capsocket", false);
+            if ((l2capSocket != -1) && usel2cap) {
+                if (DBG) {
+                    Log.d(TAG, "Connecting to OBEX on L2CAP channel " + l2capSocket);
+                }
+                mSocket = mRemoteDevice.createL2capSocket(l2capSocket);
+            } else {
+               int rfcommChannel = mSdpMasRecord.getRfcommCannelNumber();
+               mSocket = mRemoteDevice.createRfcommSocket(rfcommChannel);
+               if (DBG) {
                 Log.d(TAG, "Connect device: " + mRemoteDevice +
-                        ", RFCOMM channel: " + rfcommChannel +
-                        ", socket: " + mSocket.toString());
+                         ", RFCOMM channel: " + rfcommChannel +
+                         ", socket: " + mSocket.toString());
+               }
             }
             if (mSocket != null) {
                 mSocket.connect();
