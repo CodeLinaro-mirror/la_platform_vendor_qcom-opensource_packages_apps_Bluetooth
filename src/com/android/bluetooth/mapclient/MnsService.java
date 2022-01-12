@@ -59,15 +59,18 @@ public class MnsService {
         }
         sContext = context;
         sAcceptThread = new SocketAcceptor();
-        sServerSockets = ObexServerSockets.createWithFixedChannels(sAcceptThread,
-                SdpManager.MNS_RFCOMM_CHANNEL, SdpManager.MNS_L2CAP_PSM);
+        sServerSockets = ObexServerSockets.create(sAcceptThread);
         SdpManager sdpManager = SdpManager.getDefaultManager();
         if (sdpManager == null) {
             Log.e(TAG, "SdpManager is null");
             return;
         }
+        if (DBG) {
+            Log.d(TAG, "Create MNS record for Rfcomm channel  " + sServerSockets.getRfcommChannel()
+                    + " and L2cap psm " + sServerSockets.getL2capPsm());
+        }
         mSdpHandle = sdpManager.createMapMnsRecord("MAP Message Notification Service",
-                sServerSockets.getRfcommChannel(), -1, MNS_VERSION,
+                sServerSockets.getRfcommChannel(), sServerSockets.getL2capPsm(), MNS_VERSION,
                 MasClient.MAP_SUPPORTED_FEATURES);
     }
 
