@@ -179,7 +179,9 @@ public class PbapClientService extends ProfileService {
             if (DBG) Log.v(TAG, "onReceive" + action);
             if (action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (getConnectionState(device) == BluetoothProfile.STATE_CONNECTED) {
+                int state = getConnectionState(device);
+                if ((state == BluetoothProfile.STATE_CONNECTED) ||
+                    (state == BluetoothProfile.STATE_CONNECTING)) {
                     disconnect(device);
                 }
             } else if (action.equals(Intent.ACTION_USER_UNLOCKED)) {
