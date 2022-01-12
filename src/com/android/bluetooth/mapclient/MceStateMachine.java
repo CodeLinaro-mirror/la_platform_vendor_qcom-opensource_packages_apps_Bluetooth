@@ -618,6 +618,12 @@ final class MceStateMachine extends StateMachine {
 
                         case DELIVERY_SUCCESS:
                         case SENDING_SUCCESS:
+                        case DELIVERY_FAILURE:
+                        case SENDING_FAILURE:
+                        case MEMORY_FULL:
+                        case MEMORY_AVAILABLE:
+                        case MESSAGE_DELETED:
+                        case MESSAGE_SHIFT:
                             notifySentMessageStatus(ev.getHandle(), ev.getType());
                             break;
                     }
@@ -760,7 +766,9 @@ final class MceStateMachine extends StateMachine {
             // ignore the top-order byte (converted to string) in the handle for now
             String shortHandle = handle.substring(2);
             if (status == EventReport.Type.SENDING_FAILURE
-                    || status == EventReport.Type.SENDING_SUCCESS) {
+                    || status == EventReport.Type.SENDING_SUCCESS
+                    || status == EventReport.Type.MEMORY_FULL
+                    || status == EventReport.Type.MEMORY_AVAILABLE) {
                 intentToSend = mSentReceiptRequested.remove(mSentMessageLog.get(shortHandle));
             } else if (status == EventReport.Type.DELIVERY_SUCCESS
                     || status == EventReport.Type.DELIVERY_FAILURE) {
