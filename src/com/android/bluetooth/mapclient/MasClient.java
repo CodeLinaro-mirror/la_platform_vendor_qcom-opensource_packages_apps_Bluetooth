@@ -102,6 +102,8 @@ public class MasClient {
             if (!connectSocket()) {
                 // Fail to connect socket for RFCOMM
                 mCallback.sendMessage(MceStateMachine.MSG_MAS_DISCONNECTED);
+                // Release resource otherwise there is fd leakage
+                mThread.quitSafely();
                 return;
             }
             mTransport = new BluetoothObexTransport(mSocket);
@@ -126,13 +128,14 @@ public class MasClient {
             } else {
                 Log.e(TAG, "Fail to connect OBEX, result: " + responseCode);
             }
-
         } catch (IOException e) {
             Log.e(TAG, "Caught an exception " + e.toString());
         }
 
         if (!mConnected) {
             disconnect();
+            // Release resource otherwise there is fd leakage
+            mThread.quitSafely();
         }
     }
 
