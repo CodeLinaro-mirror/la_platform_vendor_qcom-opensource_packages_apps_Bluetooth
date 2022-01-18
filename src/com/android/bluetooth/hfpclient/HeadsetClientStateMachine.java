@@ -121,6 +121,12 @@ public class HeadsetClientStateMachine extends StateMachine {
     static final int CONNECTING_TIMEOUT_MS = 10000;  // 10s
     private static final int ROUTING_DELAY_MS = 250;
 
+    private static final int SCO_DELAY_MS = 2000; // 2s
+    private static final int MO_CALL_IND = 2; //+CIEV: 2,2
+    private static final int NO_ACTIVE_CALL_IND = 0; //+CIEV: 1,0
+    private static final int ACTIVE_CALL_IND = 1; //+CIEV: 1,1
+    private static final int MO_CALL_ALRT_IND = 3; // +CIND remote party being alerted in an outgoing call
+
     private static final int MAX_HFP_SCO_VOICE_CALL_VOLUME = 15; // HFP 1.5 spec.
     private static final int MIN_HFP_SCO_VOICE_CALL_VOLUME = 1; // HFP 1.5 spec.
 
@@ -190,6 +196,9 @@ public class HeadsetClientStateMachine extends StateMachine {
 
     // currently connected device
     private BluetoothDevice mCurrentDevice = null;
+
+    // call ind received from companion
+    private int mCallIndRcvd = 0;
 
     // general peer features and call handling features
     private int mPeerFeatures;
@@ -771,6 +780,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         mA2dpSuspend = false;
         mA2dpSuspendIssued = false;
         mCallIsInSetup = false;
+        mCallIndRcvd = 0;
         mVoiceRecognitionActive = HeadsetClientHalConstants.VR_STATE_STOPPED;
 
         mIndicatorNetworkState = HeadsetClientHalConstants.NETWORK_STATE_NOT_AVAILABLE;
@@ -926,7 +936,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             mIndicatorNetworkSignal = 0;
             mIndicatorBatteryLevel = 0;
             mInBandRing = false;
-
+            mCallIndRcvd = 0;
             mAudioWbs = false;
 
             // will be set on connect
@@ -1212,10 +1222,15 @@ public class HeadsetClientStateMachine extends StateMachine {
         private void processOnCallEvent(int call, BluetoothDevice device) {
             Log.d(TAG, "Enter Connecting processOnCallEvent() Device: "+
                     device + "call = " + call);
+            mCallIndRcvd = call;
             if(call == 0) {
                 mCallIsInSetup = false;
             } else if(!isA2dpSuspendIssuedFromHeadset() && !mA2dpSuspendIssued) {
                 mA2dpSuspend = suspendA2DP();
+                if ((mA2dpSuspend == false) && (call == ACTIVE_CALL_IND)) {
+                    Log.d(TAG, "send connet audio message after " + SCO_DELAY_MS);
+                    sendMessageDelayed(CONNECT_AUDIO,SCO_DELAY_MS);
+                }
             }
         }
 
@@ -1224,8 +1239,31 @@ public class HeadsetClientStateMachine extends StateMachine {
                 mA2dpSuspendIssued + " callsetup " + callsetup);
             if(callsetup == 0) {
                 mCallIsInSetup = false;
+
+                /* Remove the queued CONNECT_AUDIO if call ended without
+                 * moving to active state.
+                 */
+                if (mCallIndRcvd == NO_ACTIVE_CALL_IND) {
+                    Log.d(TAG, "remove the queued connect audio msg");
+                    removeMessages(CONNECT_AUDIO);
+                }
             } else if(!isA2dpSuspendIssuedFromHeadset() && !mA2dpSuspendIssued) {
                 mA2dpSuspend = suspendA2DP();
+                /*  if A2DP is Playing then suspendA2DP() will return false.
+                 *  and we need to wait for a2dp play back to suspend.
+                 */
+
+                /*  When A2DP is streaming on BT Headset and there is
+                 *  MO call intiated from companion side, SCO request is getting rejected
+                 *  at BT SOC level and companion is failed to establish the SCO Session.
+                 *  Queue the SCO request from DUT if we receive the outgoing call set up ind
+                 *
+                 */
+                if ((mA2dpSuspend == false) && (callsetup == MO_CALL_IND
+                               || callsetup == MO_CALL_ALRT_IND)) {
+                    Log.d(TAG, "send connet audio message after " + SCO_DELAY_MS);
+                    sendMessageDelayed(CONNECT_AUDIO,SCO_DELAY_MS);
+                }
             }
         }
 
@@ -1677,6 +1715,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         private void processOnCallEvent(int call, BluetoothDevice device) {
             Log.d(TAG, "Enter Connected processOnCallEvent() device:" + device);
 
+            mCallIndRcvd = call;
             if(call == 0) {
                 mCallIsInSetup = false;
             } else if(!isA2dpSuspendIssuedFromHeadset() && !mA2dpSuspendIssued) {
@@ -1689,8 +1728,33 @@ public class HeadsetClientStateMachine extends StateMachine {
                           + mA2dpSuspendIssued + " callsetup " + callsetup);
             if(callsetup == 0) {
                 mCallIsInSetup = false;
+                /* Remove the queued CONNECT_AUDIO if call ended without
+                 * moving to active state.
+                 */
+                if(mCallIndRcvd == NO_ACTIVE_CALL_IND) {
+                    Log.e(TAG, " no call active, remove CONNECT_AUDIO msg ");
+                    removeMessages(CONNECT_AUDIO);
+                    if(!IsInCall()) {
+                        releaseA2DP();
+                    }
+                }
             } else if(!isA2dpSuspendIssuedFromHeadset() && !mA2dpSuspendIssued) {
                 mA2dpSuspend = suspendA2DP();
+
+                /*  if A2DP is Playing then suspendA2DP() will return false.
+                 *  and we need to wait for a2dp play back to suspend.
+                 */
+
+                /*  When A2DP is streaming on BT Headset and there is
+                 *  MO call intiated from companion side, SCO request is getting rejected
+                 *  at BT SOC level and companion is failed to establish the SCO Session.
+                 *  Queue the SCO request from DUT if we receive the outgoing call set up ind
+                 *
+                 */
+                if (mA2dpSuspend == false && callsetup == MO_CALL_IND) {
+                    Log.d(TAG, "send connet audio message after " + SCO_DELAY_MS);
+                    sendMessageDelayed(CONNECT_AUDIO,SCO_DELAY_MS);
+                }
             }
         }
 
@@ -2135,11 +2199,16 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
         return BluetoothAdapter.STATE_DISCONNECTED;
     }
+
     public boolean isA2dpSuspendIssuedFromHeadset()
     {
         //If Bluetooth SCO is present, A2DP Suspend must have been issued from Headset earlier
         return mAudioManager.isBluetoothScoOn();
     }
+
+    /* return false : if A2DP is Playing
+     * return true  : if A2dp is not playing
+     */
     synchronized public boolean suspendA2DP() {
         /* set mA2dpSuspendIssued flag in begaining of suspendA2DP function
          * so that we can avoid repeat calling of suspendA2DP function
