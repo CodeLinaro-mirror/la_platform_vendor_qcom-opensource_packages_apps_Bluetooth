@@ -1337,6 +1337,68 @@ static void generateLocalOobDataNative(JNIEnv* env, jobject obj,
   }
 }
 
+static jboolean loadRemoteOobDataNative(JNIEnv* env, jobject obj,
+                                        jbyteArray address, jint transport,
+                                        jobject p192Data, jobject p256Data) {
+  // No BT interface? Can't do anything.
+  if (!sBluetoothInterface) return JNI_FALSE;
+
+  // No data? Can't do anything
+  if (p192Data == NULL && p256Data == NULL) {
+    ALOGE("%s: All OOB Data are null! Nothing to do.", __func__);
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+
+  // This address is already reversed which is why its being passed...
+  // In the future we want to remove this and just reverse the address
+  // for the oobdata in the host stack.
+  if (address == NULL) {
+    ALOGE("%s: Address cannot be null! Nothing to do.", __func__);
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+
+  // Check the data
+  int len = env->GetArrayLength(address);
+  if (len != 6) {
+    ALOGE("%s: addressBytes must be 6 bytes in length (address plus type) 6+1!",
+          __func__);
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (addr == NULL) {
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+
+  // Convert P192 data from Java POJO to C Struct
+  bt_oob_data_t p192_data;
+  if (p192Data != NULL) {
+    if (set_data(env, p192_data, p192Data, transport) == JNI_FALSE) {
+      jniThrowIOException(env, EINVAL);
+      return JNI_FALSE;
+    }
+  }
+
+  // Convert P256 data from Java POJO to C Struct
+  bt_oob_data_t p256_data;
+  if (p256Data != NULL) {
+    if (set_data(env, p256_data, p256Data, transport) == JNI_FALSE) {
+      jniThrowIOException(env, EINVAL);
+      return JNI_FALSE;
+    }
+  }
+
+  return ((sBluetoothInterface->load_remote_oob_data(
+              (RawAddress*)addr, transport, &p192_data, &p256_data)) ==
+              BT_STATUS_SUCCESS)
+              ? JNI_TRUE
+              : JNI_FALSE;
+}
+
 static jboolean createBondOutOfBandNative(JNIEnv* env, jobject obj,
                                           jbyteArray address, jint transport,
                                           jobject p192Data, jobject p256Data) {
@@ -1841,6 +1903,9 @@ static JNINativeMethod sMethods[] = {
     {"removeBondNative", "([B)Z", (void*)removeBondNative},
     {"cancelBondNative", "([B)Z", (void*)cancelBondNative},
     {"generateLocalOobDataNative", "(I)V", (void*)generateLocalOobDataNative},
+    {"loadRemoteOobDataNative",
+    "([BILandroid/bluetooth/OobData;Landroid/bluetooth/OobData;)Z",
+    (void*)loadRemoteOobDataNative},
     {"getConnectionStateNative", "([B)I", (void*)getConnectionStateNative},
     {"pinReplyNative", "([BZI[B)Z", (void*)pinReplyNative},
     {"sspReplyNative", "([BIZI)Z", (void*)sspReplyNative},
