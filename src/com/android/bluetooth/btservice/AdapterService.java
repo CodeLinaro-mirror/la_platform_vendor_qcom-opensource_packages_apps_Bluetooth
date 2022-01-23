@@ -1691,6 +1691,22 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public boolean loadRemoteOobData(BluetoothDevice device, int transport, OobData remoteP192Data,
+                OobData remoteP256Data, AttributionSource attributionSource) {
+            Attributable.setAttributionSource(device, attributionSource);
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveOrManagedUser(service, TAG, "createBond")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService createBond")) {
+                return false;
+            }
+
+            enforceBluetoothPrivilegedPermission(service);
+            return service.loadRemoteOobData(device, transport, remoteP192Data, remoteP256Data,
+                    attributionSource.getPackageName());
+        }
+
+        @Override
         public long getSupportedProfiles() {
             AdapterService service = getService();
             if (service == null) {
@@ -2739,6 +2755,18 @@ public class AdapterService extends Service {
                 Log.e(TAG, "Failed to make callback", e);
             }
         }
+    }
+
+    public boolean loadRemoteOobData(BluetoothDevice device, int transport, OobData remoteP192Data,
+        OobData remoteP256Data, String callingPackage) {
+        debugLog("start loadRemoteOobData");
+        if (!isPackageNameAccurate(this, callingPackage, Binder.getCallingUid())) {
+                return false;
+        }
+
+        byte[] addr = Utils.getBytesFromAddress(device.getAddress());
+
+        return loadRemoteOobDataNative(addr, transport, remoteP192Data, remoteP256Data);
     }
 
     public boolean isQuietModeEnabled() {
@@ -3912,6 +3940,10 @@ public class AdapterService extends Service {
 
     /*package*/
     native void generateLocalOobDataNative(int transport);
+
+    /*package*/
+    native boolean loadRemoteOobDataNative(byte[] address, int transport,
+            OobData p192Data, OobData p256Data);
 
     /*package*/
     native boolean sdpSearchNative(byte[] address, byte[] uuid);
