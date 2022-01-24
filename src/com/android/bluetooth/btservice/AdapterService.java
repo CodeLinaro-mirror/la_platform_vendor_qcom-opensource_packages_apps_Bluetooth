@@ -139,6 +139,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -162,6 +163,7 @@ public class AdapterService extends Service {
     private final ArrayList<String> mStartedProfiles = new ArrayList<>();
     private final ArrayList<ProfileService> mRegisteredProfiles = new ArrayList<>();
     private final ArrayList<ProfileService> mRunningProfiles = new ArrayList<>();
+    private final Map<BluetoothDevice, String> mBluetoothCallerNameMap = new HashMap<>();
 
     public static final String ACTION_LOAD_ADAPTER_PROPERTIES =
             "com.android.bluetooth.btservice.action.LOAD_ADAPTER_PROPERTIES";
@@ -1199,6 +1201,10 @@ public class AdapterService extends Service {
         return !mCleaningUp;
     }
 
+    private boolean isValidLinkKey(String linkKey, int keyType, int pinLen) {
+        return (linkKey.isEmpty() || keyType < 0 || pinLen < 0) ? false : true;
+    }
+
     /**
      * Handlers for incoming service calls
      */
@@ -1624,6 +1630,21 @@ public class AdapterService extends Service {
             }
 
             return service.cancelBondNative(addressToBytes(device.getAddress()));
+        }
+
+        @Override
+        public void getLinkKey(BluetoothDevice device, String caller) {
+            if (!callerIsSystemOrActiveUser(TAG, "getLinkKey")) {
+                Log.w(TAG, "getLinkKey() - Not allowed for non-active user");
+                return;
+            }
+
+            AdapterService service = getService();
+            if (service == null) {
+                return;
+            }
+            service.debugLog("getLinkKey(" + device + ")");
+            service.getLinkKey(device, caller);
         }
 
         @Override
@@ -2739,6 +2760,51 @@ public class AdapterService extends Service {
                 Log.e(TAG, "Failed to make callback", e);
             }
         }
+    }
+
+    void getLinkKey(BluetoothDevice device,     String caller) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
+        byte[] addr = Utils.getBytesFromAddress(device.getAddress());
+        Log.d(TAG, "getLinkKey callerName " + caller);
+        synchronized (mBluetoothCallerNameMap) {
+            mBluetoothCallerNameMap.put(device, caller);
+        }
+        getLinkKeyNative(addr);
+    }
+
+    void sendGetLinkKeyIntent(String linkKey, String address, boolean keyFound, int keyType) {
+        Intent intent = new Intent(BluetoothDevice.ACTION_LINKKEY);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, address);
+
+        if (keyFound) {
+            Log.d(TAG, "found linkkey " + keyFound);
+            intent.putExtra(BluetoothDevice.EXTRA_KEY_LINK_KEY, linkKey);
+            intent.putExtra(BluetoothDevice.EXTRA_KEY_LINK_KEY_TYPE, keyType);
+        } else {
+            Log.e(TAG, "Can not find linkkey");
+            intent.putExtra(BluetoothDevice.EXTRA_KEY_LINK_KEY, "");
+            intent.putExtra(BluetoothDevice.EXTRA_KEY_LINK_KEY_TYPE, BluetoothDevice.LKEY_TYPE_NO_LINK);
+        }
+
+        // send the intent to the caller application
+        synchronized (mBluetoothCallerNameMap) {
+            BluetoothDevice device = mRemoteDevices.getDevice(Utils.getBytesFromAddress(address));
+            String caller = mBluetoothCallerNameMap.get(device);
+            if (caller == null) {
+                Log.e(TAG, "Can not find caller");
+                return;
+            }
+            intent.setPackage(caller);
+            sendBroadcast(intent, android.Manifest.permission.BLUETOOTH_PRIVILEGED);
+        }
+    }
+
+    void onGetLinkKey(String linkKey, byte[] remoteAddr, boolean keyFound, int keyType) {
+        String address = Utils.getAddressStringFromByte(remoteAddr);
+
+        // Broadcast intent (to app)
+        sendGetLinkKeyIntent(linkKey, address, keyFound, keyType);
     }
 
     public boolean isQuietModeEnabled() {
@@ -3971,4 +4037,6 @@ public class AdapterService extends Service {
     public boolean isMock() {
         return false;
     }
+
+    private native void getLinkKeyNative(byte[] address);
 }
