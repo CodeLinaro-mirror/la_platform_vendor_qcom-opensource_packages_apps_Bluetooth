@@ -1539,6 +1539,18 @@ public class HeadsetClientStateMachine extends StateMachine {
                             logD("Connected: command result: " + event.valueInt
                                     + " queuedAction: " + queuedAction.first);
 
+                            if (event.valueInt != BluetoothHeadsetClient.ACTION_RESULT_OK) {
+                                intent = new Intent(BluetoothHeadsetClient.ACTION_RESULT);
+                                intent.putExtra(BluetoothHeadsetClient.EXTRA_RESULT_CODE,
+                                        event.valueInt);
+                                if (event.valueInt == BluetoothHeadsetClient.ACTION_RESULT_ERROR_CME) {
+                                    intent.putExtra(BluetoothHeadsetClient.EXTRA_CME_CODE,
+                                            event.valueInt2);
+                                }
+                                mService.sendBroadcast(intent, BLUETOOTH_CONNECT,
+                                        Utils.getTempAllowlistBroadcastOptions());
+                            }
+
                             switch (queuedAction.first) {
                                 case QUERY_CURRENT_CALLS:
                                     queryCallsDone();
