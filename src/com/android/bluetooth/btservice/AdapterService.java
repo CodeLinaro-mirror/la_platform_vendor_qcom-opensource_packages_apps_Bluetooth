@@ -174,6 +174,7 @@ import android.net.wifi.WifiManager;
 import android.net.NetworkInfo;
 import android.os.ParcelUuid;
 import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.SupplicantState;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -410,10 +411,11 @@ public class AdapterService extends Service {
         WifiManager wifiMgr = (WifiManager) getSystemService(Context.WIFI_SERVICE);
         if ((wifiMgr != null) && (wifiMgr.isWifiEnabled())) {
             WifiInfo wifiInfo = wifiMgr.getConnectionInfo();
-            if((wifiInfo != null) && (wifiInfo.getNetworkId() != -1)) {
+            if((wifiInfo != null) && (wifiInfo.getSupplicantState() == SupplicantState.COMPLETED)) {
                 isWifiConnected = true;
             }
         }
+        Log.w(TAG,"fetchWifiState - isWifiConnected =" + isWifiConnected);
         mVendor.setWifiState(isWifiConnected);
     }
 

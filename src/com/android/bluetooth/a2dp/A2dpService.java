@@ -311,6 +311,11 @@ public class A2dpService extends ProfileService {
 
         // Step 9: Clear active device and stop playing audio
         removeActiveDevice(true);
+        if (ApmConstIntf.getLeAudioEnabled()) {
+           synchronized (mBtA2dpLock) {
+	    updateAndBroadcastActiveDevice(null);
+        }
+       }
         // Step 8: Mark service as stopped
         setA2dpService(null);
 
@@ -1657,8 +1662,17 @@ public class A2dpService extends ProfileService {
         return true;
     }
 
-    public void enableOptionalCodecsA2dp(BluetoothDevice device, BluetoothCodecConfig codecConfig) {
-        mA2dpCodecConfig.enableOptionalCodecs(device, codecConfig);
+    public void enableOptionalCodecsA2dp(BluetoothDevice device, BluetoothCodecStatus codecStatus) {
+        if (codecStatus == null) {
+            Log.e(TAG, "enableOptionalCodecsA2dp: codecStatus is null");
+            return;
+        }
+
+        boolean ret = mA2dpCodecConfig.enableOptionalCodecs(device, codecStatus.getCodecConfig());
+        if (!ret) {
+            Log.e(TAG, "enableOptionalCodecsA2dp: failed, broadcast current codec config again");
+            broadcastCodecConfig(device, codecStatus);
+        }
     }
 
     /**
@@ -2401,7 +2415,7 @@ public class A2dpService extends ProfileService {
         public BluetoothDevice getActiveDevice(AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
-                return activeDeviceManager.getActiveDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+                return activeDeviceManager.getActiveAbsoluteDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
             }
             A2dpService service = getService(source);
             if (service == null) {
