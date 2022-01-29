@@ -13,6 +13,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/* Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+ */
 
 package com.android.bluetooth.hfp;
 
@@ -691,6 +725,11 @@ public class HeadsetService extends ProfileService {
         @Override
         public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states,
                 AttributionSource source) {
+            if(ApmConstIntf.getLeAudioEnabled()) {
+                 Log.d(TAG, "getDevicesMatchingConnectionStates Adv Audio enabled");
+                CallAudioIntf mCallAudio = CallAudioIntf.get();
+                return mCallAudio.getDevicesMatchingConnectionStates(states);
+            }
             HeadsetService service = getService(source);
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
@@ -1014,7 +1053,7 @@ public class HeadsetService extends ProfileService {
         public BluetoothDevice getActiveDevice(AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
-                return activeDeviceManager.getActiveDevice(ApmConstIntf.AudioFeatures.CALL_AUDIO);
+                return activeDeviceManager.getActiveAbsoluteDevice(ApmConstIntf.AudioFeatures.CALL_AUDIO);
             }
             HeadsetService service = getService(source);
             if (service == null) {
@@ -1030,6 +1069,25 @@ public class HeadsetService extends ProfileService {
                 return false;
             }
             return service.isInbandRingingEnabled();
+        }
+
+        public void phoneStateChangedDsDa(int numActive, int numHeld, int callState, String number,
+                int type, String name, AttributionSource source) {
+            HeadsetService service = getService(source);
+            if (service == null) {
+                return;
+            }
+            service.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
+        }
+
+        public void clccResponseDsDa(int index, int direction, int status, int mode, boolean mpty,
+                String number, int type, AttributionSource source) {
+
+            HeadsetService service = getService(source);
+            if (service == null) {
+                return;
+            }
+            service.clccResponse(index, direction, status, mode, mpty, number, type);
         }
     }
 
@@ -1765,9 +1823,9 @@ public class HeadsetService extends ProfileService {
             ActiveDeviceManagerServiceIntf mActiveDeviceManager =
                     ActiveDeviceManagerServiceIntf.get();
             /*Precautionary Change: Force Active Device Manager
-             * to always return true*/
+             * to always return false as same as Media Audio*/
             return mActiveDeviceManager.setActiveDevice(device,
-                    ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
+                    ApmConstIntf.AudioFeatures.CALL_AUDIO, false);
         } else {
             int ret = setActiveDeviceHF(device);
             if (ret == ActiveDeviceManagerServiceIntf.SHO_FAILED) {
@@ -1800,7 +1858,7 @@ public class HeadsetService extends ProfileService {
                         Log.d(TAG, "stopScoUsingVirtualVoiceCall Adv Audio enabled");
                         CallAudioIntf mCallAudio = CallAudioIntf.get();
                         if (mCallAudio != null) {
-                            mCallAudio.remoteDisconnectVirtualVoiceCall(mActiveDevice);
+                            mCallAudio.stopScoUsingVirtualVoiceCall();
                         }
                     } else if (!stopScoUsingVirtualVoiceCall()) {
                         Log.w(TAG, "setActiveDevice: fail to stopScoUsingVirtualVoiceCall from "
@@ -1966,6 +2024,23 @@ public class HeadsetService extends ProfileService {
             }
             if (stateMachine.getAudioState() != BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
                 logD("connectAudio: audio is not idle for device " + device);
+                /**
+                 * add for case that device disconnecting audio has been set active again,
+                 * then send CONNECT_AUDIO if not contained in queue and should persist audio
+                 */
+                if (mActiveDevice != null && mActiveDevice.equals(device) &&
+                        stateMachine.getAudioState() == BluetoothHeadset.STATE_AUDIO_DISCONNECTING
+                        && !stateMachine.hasMessagesInQueue(HeadsetStateMachine.CONNECT_AUDIO) &&
+                        !stateMachine.hasDeferredMessagesInQueue(HeadsetStateMachine.CONNECT_AUDIO)
+                        && shouldPersistAudio()) {
+                    if (stateMachine.getIfDeviceBlacklistedForSCOAfterSLC() == true)
+                        connDelay = 0;
+
+                    Log.i(TAG, "connectAudio: active again and connect audio after "
+                            + connDelay + " ms");
+                    stateMachine.sendMessageDelayed(HeadsetStateMachine.CONNECT_AUDIO,
+                            device, connDelay);
+                }
                 return true;
             }
             if (isAudioOn()) {
@@ -2395,7 +2470,7 @@ public class HeadsetService extends ProfileService {
                     if (ApmConstIntf.getLeAudioEnabled()) {
                         CallAudioIntf mCallAudio = CallAudioIntf.get();
                        if (mCallAudio != null) {
-                           mCallAudio.remoteDisconnectVirtualVoiceCall(mActiveDevice);
+                           mCallAudio.stopScoUsingVirtualVoiceCall();
                        }
                     } else {
                         stopScoUsingVirtualVoiceCall();
@@ -2435,11 +2510,6 @@ public class HeadsetService extends ProfileService {
                     }
                 }
             }
-            mStateMachinesThread.getThreadHandler().post(() -> {
-                mSystemInterface.getHeadsetPhoneState().setNumActiveCall(numActive);
-                mSystemInterface.getHeadsetPhoneState().setNumHeldCall(numHeld);
-                mSystemInterface.getHeadsetPhoneState().setCallState(callState);
-            });
             List<BluetoothDevice> availableDevices =
                         getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
             if(availableDevices.size() > 0) {
@@ -2448,7 +2518,10 @@ public class HeadsetService extends ProfileService {
                 doForEachConnectedConnectingStateMachine(
                    stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
                         new HeadsetCallState(numActive, numHeld, callState, number, type, name)));
-                mStateMachinesThread.getThreadHandler().post(() -> {
+                 mStateMachinesThread.getThreadHandler().post(() -> {
+                    mSystemInterface.getHeadsetPhoneState().setNumActiveCall(numActive);
+                    mSystemInterface.getHeadsetPhoneState().setNumHeldCall(numHeld);
+                    mSystemInterface.getHeadsetPhoneState().setCallState(callState);
                     if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
                         Log.i(TAG, "no call, sending resume A2DP message to state machines");
                         for (BluetoothDevice device : availableDevices) {
@@ -2463,7 +2536,10 @@ public class HeadsetService extends ProfileService {
                     }
                 });
             } else {
-                mStateMachinesThread.getThreadHandler().post(() -> {
+                  mStateMachinesThread.getThreadHandler().post(() -> {
+                    mSystemInterface.getHeadsetPhoneState().setNumActiveCall(numActive);
+                    mSystemInterface.getHeadsetPhoneState().setNumHeldCall(numHeld);
+                    mSystemInterface.getHeadsetPhoneState().setCallState(callState);
                     if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
                         //If no device is connected, resume A2DP if there is no call
                         Log.i(TAG, "No device is connected and no call, " +
@@ -2475,9 +2551,9 @@ public class HeadsetService extends ProfileService {
                                    "set A2DPsuspended to true");
                         mHfpA2dpSyncInterface.suspendA2DP(HeadsetA2dpSync.
                                                       A2DP_SUSPENDED_BY_CS_CALL, null);
-                    }
-                });
-            }
+                }
+             });
+           }
         }
     }
 
@@ -2569,21 +2645,23 @@ public class HeadsetService extends ProfileService {
                         if (peerDevice != null) {
                             setActiveDevice(peerDevice);
                         }
-                    }/* else {
+                    }else if (!ApmConstIntf.getLeAudioEnabled()) {
                         setActiveDevice(null);
-                    }*/
+                    }
                 }
             }
         }
 
         // if active device is null, SLC connected, make this device as active.
-        /*if (fromState == BluetoothProfile.STATE_CONNECTING &&
+        if (!ApmConstIntf.getLeAudioEnabled()) {
+          if (fromState == BluetoothProfile.STATE_CONNECTING &&
              toState == BluetoothProfile.STATE_CONNECTED &&
              mActiveDevice == null) {
              Log.i(TAG, "onConnectionStateChangedFromStateMachine: SLC connected, no active"
                               + " is present. Setting active device to " + device);
              setActiveDevice(device);
-        }*/
+         }
+      }
     }
 
     public HeadsetA2dpSync getHfpA2DPSyncInterface(){
@@ -2702,7 +2780,7 @@ public class HeadsetService extends ProfileService {
                             if(ApmConstIntf.getLeAudioEnabled()) {
                                 CallAudioIntf mCallAudio = CallAudioIntf.get();
                                 if(mCallAudio != null) {
-                                    mCallAudio.remoteDisconnectVirtualVoiceCall(device);
+                                    mCallAudio.stopScoUsingVirtualVoiceCall();
                                 }
                             } else {
                                 if (!stopScoUsingVirtualVoiceCall()) {
