@@ -2157,8 +2157,8 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
     public boolean isA2dpSuspendIssuedFromHeadset()
     {
-        //If Bluetooth SCO is present, A2DP Suspend must have been issued from Headset earlier
-        return mAudioManager.isBluetoothScoOn();
+        Log.d(TAG,"isA2dpSuspendIssuedFromHeadset() ");
+        return HeadsetService.getHeadsetService().isScoOrCallActive();
     }
     synchronized public boolean suspendA2DP() {
         /* set mA2dpSuspendIssued flag in begaining of suspendA2DP function
