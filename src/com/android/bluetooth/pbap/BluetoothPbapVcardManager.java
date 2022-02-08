@@ -49,6 +49,7 @@ import android.provider.ContactsContract.PhoneLookup;
 import android.provider.ContactsContract.RawContactsEntity;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -104,11 +105,13 @@ public class BluetoothPbapVcardManager {
 
     private static final int NEED_SEND_BODY = -1;
     protected static boolean isPullVcardEntry = false;
+    private boolean isQcomWatch;
 
     public BluetoothPbapVcardManager(final Context context) {
         mContext = context;
         mResolver = mContext.getContentResolver();
         sLastFetchedTimeStamp = System.currentTimeMillis();
+        isQcomWatch = SystemProperties.getBoolean("ro.product.qti.qcom_watch", false);
     }
 
     /**
@@ -317,6 +320,9 @@ public class BluetoothPbapVcardManager {
         }
 
         composer = BluetoothPbapUtils.createFilteredVCardComposer(mContext, vcardType, null);
+        if (isQcomWatch) {
+            composer.enableIteratorMode();
+        }
         composer.setPhoneNumberTranslationCallback(new VCardPhoneNumberTranslationCallback() {
 
             @Override
@@ -736,6 +742,9 @@ public class BluetoothPbapVcardManager {
             // input from caller
             composer = BluetoothPbapUtils.createFilteredVCardComposer(mContext, vcardType, null);
             // End enhancement
+            if (isQcomWatch) {
+                composer.enableIteratorMode();
+            }
 
             // BT does want PAUSE/WAIT conversion while it doesn't want the
             // other formatting
@@ -838,6 +847,9 @@ public class BluetoothPbapVcardManager {
             // input from caller
             composer = BluetoothPbapUtils.createFilteredVCardComposer(mContext, vcardType, null);
             // End enhancement
+            if (isQcomWatch) {
+                composer.enableIteratorMode();
+            }
 
             /* BT does want PAUSE/WAIT conversion while it doesn't want the
              * other formatting done by vCard library by default. */
