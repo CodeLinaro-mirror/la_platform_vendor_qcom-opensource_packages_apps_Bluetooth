@@ -50,8 +50,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MapClientService extends ProfileService {
     private static final String TAG = "MapClientService";
 
-    static final boolean DBG = false;
-    static final boolean VDBG = false;
+    static final boolean DBG = true;
+    static final boolean VDBG = true;
 
     static final int MAXIMUM_CONNECTED_DEVICES = 4;
 
@@ -418,6 +418,22 @@ public class MapClientService extends ProfileService {
         return mapStateMachine.getSupportedFeatures();
     }
 
+    public synchronized boolean setMessageStatus(BluetoothDevice device, String handle, int status) {
+        MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
+        if (mapStateMachine == null) {
+            return false;
+        }
+        return mapStateMachine.setMessageStatus(handle, status);
+    }
+
+    public synchronized boolean abort(BluetoothDevice device) {
+        MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
+        if (mapStateMachine == null) {
+            return false;
+        }
+        return mapStateMachine.abort();
+    }
+
     @Override
     public void dump(StringBuilder sb) {
         super.dump(sb);
@@ -589,6 +605,26 @@ public class MapClientService extends ProfileService {
             mService.enforceCallingOrSelfPermission(Manifest.permission.BLUETOOTH,
                     "Need BLUETOOTH permission");
             return service.getSupportedFeatures(device);
+        }
+
+        @Override
+        public boolean setMessageStatus(BluetoothDevice device, String handle, int status) {
+            MapClientService service = getService();
+            if (service == null) {
+                return false;
+            }
+            mService.enforceCallingOrSelfPermission(Manifest.permission.READ_SMS,
+                    "Need READ_SMS permission");
+            return service.setMessageStatus(device, handle, status);
+        }
+
+        @Override
+        public boolean abort(BluetoothDevice device) {
+            MapClientService service = getService();
+            if (service == null) {
+                return false;
+            }
+            return service.abort(device);
         }
     }
 

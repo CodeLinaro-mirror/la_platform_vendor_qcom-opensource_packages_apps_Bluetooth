@@ -31,8 +31,8 @@
     <bool name="profile_supported_avrcp_controller">true</bool>
     <bool name="profile_supported_bac">true</bool>
     <bool name="profile_supported_sap">false</bool>
-    <bool name="profile_supported_pbapclient">false</bool>
-    <bool name="profile_supported_mapmce">false</bool>
+    <bool name="profile_supported_pbapclient">true</bool>
+    <bool name="profile_supported_mapmce">true</bool>
     <bool name="profile_supported_broadcast">true</bool>
     <bool name="profile_supported_hid_device">false</bool>
     <bool name="profile_supported_le_audio">true</bool>
@@ -65,7 +65,7 @@
     <integer name="gatt_balanced_priority_latency">0</integer>
     <integer name="gatt_low_power_latency">2</integer>
 
-    <bool name="headset_client_initial_audio_route_allowed">true</bool>
+    <bool name="headset_client_initial_audio_route_allowed">false</bool>
 
     <!-- @deprecated: use a2dp_absolute_volume_initial_threshold_percent
          instead. -->

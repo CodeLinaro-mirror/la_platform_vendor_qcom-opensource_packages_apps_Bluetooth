@@ -387,18 +387,13 @@ class PhonePolicy {
             }
         }
 
-        if ((headsetClientService != null) && ((ArrayUtils.contains(uuids, BluetoothUuid.HSP)
-                || ArrayUtils.contains(uuids, BluetoothUuid.HFP)) && (
+        if ((headsetClientService != null) && ((ArrayUtils.contains(uuids, BluetoothUuid.HSP_AG)
+                || ArrayUtils.contains(uuids, BluetoothUuid.HFP_AG)) && (
                 headsetClientService.getConnectionPolicy(device)
                         == BluetoothProfile.CONNECTION_POLICY_UNKNOWN))) {
-            debugLog("setting peer device to connection policy on for hfp" + device);
+            debugLog("setting peer device to connection policy on for hfp client" + device);
             mAdapterService.getDatabase().setProfileConnectionPolicy(device,
                     BluetoothProfile.HEADSET_CLIENT, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
-            if (peerTwsDevice != null) {
-                debugLog("setting peer earbud to connection policy on for hfp" + peerTwsDevice);
-            mAdapterService.getDatabase().setProfileConnectionPolicy(device,
-                    BluetoothProfile.HEADSET_CLIENT, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
-            }
         }
 
         if ((a2dpService != null) && (ArrayUtils.contains(uuids, BluetoothUuid.A2DP_SINK)

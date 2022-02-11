@@ -42,6 +42,7 @@ public class EventReport {
     private final String mFolder;
     private final String mOldFolder;
     private final Bmessage.Type mMsgType;
+    private final String mReadStatus;
 
     private EventReport(HashMap<String, String> attrs) throws IllegalArgumentException {
         mType = parseType(attrs.get("type"));
@@ -77,6 +78,12 @@ public class EventReport {
             }
         } else {
             mMsgType = null;
+        }
+
+        if (mType == Type.NEW_MESSAGE || mType == Type.READ_STATUS_CHANGED) {
+            mReadStatus = attrs.get("read_status");
+        } else {
+            mReadStatus = null;
         }
     }
 
@@ -180,6 +187,13 @@ public class EventReport {
         return mMsgType;
     }
 
+     /**
+     * @return value corresponding to <code>read_status</code> parameter in MAP specification
+     */
+    public String getReadStatus() {
+        return mReadStatus;
+    }
+
     @Override
     public String toString() {
         JSONObject json = new JSONObject();
@@ -190,6 +204,7 @@ public class EventReport {
             json.put("folder", mFolder);
             json.put("old_folder", mOldFolder);
             json.put("msg_type", mMsgType);
+            json.put("read_status", mReadStatus);
         } catch (JSONException e) {
             // do nothing
         }
@@ -206,8 +221,13 @@ public class EventReport {
         MEMORY_FULL("MemoryFull"),
         MEMORY_AVAILABLE("MemoryAvailable"),
         MESSAGE_DELETED("MessageDeleted"),
-        MESSAGE_SHIFT("MessageShift");
-
+        MESSAGE_SHIFT("MessageShift"),
+        READ_STATUS_CHANGED("ReadStatusChanged"),
+        MESSAGE_REMOVED("MessageRemoved"),
+        MESSAGE_EXTENDED_DATA_CHANGED("MessageExtendedDataChanged"),
+        PARTICIPANT_PRESENCE_CHANGED("ParticipantPresenceChanged"),
+        PARTICIPANT_CHAT_STATE_CHANGED("ParticipantChatStateChanged"),
+        CONCERSATION_CHANGED("ConversationChanged");
         private final String mSpecName;
 
         Type(String specName) {
