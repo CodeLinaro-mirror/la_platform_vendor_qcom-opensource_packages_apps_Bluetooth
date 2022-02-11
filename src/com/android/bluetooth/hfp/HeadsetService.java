@@ -570,7 +570,7 @@ public class HeadsetService extends ProfileService {
                     if(call.getState() == BluetoothHeadsetClientCall.CALL_STATE_TERMINATED) {
                         // If HFP Client call has ended, update latest AG call state to Headset
                         synchronized (mStateMachines) {
-                            doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessageDelayed(HeadsetStateMachine.QUERY_PHONE_STATE_AT_SLC, 100));
+                            doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessageDelayed(HeadsetStateMachine.QUERY_PHONE_STATE_AT_SLC, 500));
                         }
                     }
                     break;
