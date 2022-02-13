@@ -653,7 +653,7 @@ final class RemoteDevices {
         }
     }
 
-    void aclStateChangeCallback(int status, byte[] address, int newState, int hciReason) {
+    void aclStateChangeCallback(int status, byte[] address, int newState, int hciReason, int link_type) {
         BluetoothDevice device = getDevice(address);
 
         if (device == null) {
@@ -683,10 +683,9 @@ final class RemoteDevices {
                 sAdapterService.sendBroadcast(intent, BLUETOOTH_CONNECT,
                         Utils.getTempAllowlistBroadcastOptions());
             }
-            if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_TURNING_OFF) {
+            if (link_type == BluetoothDevice.TRANSPORT_BREDR) {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-            } else if (state == BluetoothAdapter.STATE_BLE_ON
-                    || state == BluetoothAdapter.STATE_BLE_TURNING_OFF) {
+            } else if (link_type == BluetoothDevice.TRANSPORT_LE) {
                 intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_DISCONNECTED);
             }
             // Reset battery level on complete disconnection
