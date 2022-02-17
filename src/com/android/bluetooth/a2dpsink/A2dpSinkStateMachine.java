@@ -33,7 +33,7 @@ import com.android.bluetooth.statemachine.StateMachine;
 
 
 public class A2dpSinkStateMachine extends StateMachine {
-    static final String TAG = "A2DPSinkStateMachine";
+    static final String TAG = "A2dpSinkStateMachine";
     static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
 
     //0->99 Events from Outside
@@ -141,9 +141,6 @@ public class A2dpSinkStateMachine extends StateMachine {
         @Override
         public void enter() {
             if (DBG) Log.d(TAG, "Enter Disconnected");
-            if (mMostRecentState != BluetoothProfile.STATE_DISCONNECTED) {
-                sendMessage(CLEANUP);
-            }
             onConnectionStateChanged(BluetoothProfile.STATE_DISCONNECTED);
         }
 
@@ -158,6 +155,7 @@ public class A2dpSinkStateMachine extends StateMachine {
                     transitionTo(mConnecting);
                     return true;
                 case CLEANUP:
+                    mAudioConfig = null;
                     mService.removeStateMachine(A2dpSinkStateMachine.this);
                     return true;
             }

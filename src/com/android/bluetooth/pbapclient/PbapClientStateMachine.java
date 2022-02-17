@@ -276,6 +276,9 @@ final class PbapClientStateMachine extends StateMachine {
                 case MSG_DISCONNECT_TIMEOUT:
                     Log.w(TAG, "Disconnect Timeout, Forcing");
                     mConnectionHandler.abort();
+                    // Switch to Disconnected state to quit statemachine
+                    // Otherwise, new PBAP connect request is blocked.
+                    transitionTo(mDisconnected);
                     break;
 
                 case MSG_RESUME_DOWNLOAD:
