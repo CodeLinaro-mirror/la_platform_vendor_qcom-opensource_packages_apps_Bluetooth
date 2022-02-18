@@ -37,6 +37,7 @@ import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService;
 import android.bluetooth.BluetoothA2dp;
+import com.android.bluetooth.hfp.HeadsetService;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -727,7 +728,11 @@ public class HeadsetClientService extends ProfileService {
             Log.e(TAG, "Cannot allocate SM for device " + device);
             return false;
         }
-
+        HeadsetService service = HeadsetService.getHeadsetService();
+        if (service != null && service.isAudioOn()) {
+            Log.e(TAG, "SCO Connected for headsetService ignore connectAudio " + device);
+            return false;
+        }
         if (!sm.isConnected()) {
             return false;
         }
@@ -985,6 +990,16 @@ public class HeadsetClientService extends ProfileService {
             return null;
         }
         return sm.getCurrentAgEvents();
+    }
+
+    public boolean isHeadsetClientCallPresent() {
+        boolean mIsInCall = false;
+        for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+            if (sm != null) {
+               mIsInCall |= sm.IsInCall();
+            }
+        }
+        return mIsInCall;
     }
 
     public Bundle getCurrentAgFeatures(BluetoothDevice device) {
