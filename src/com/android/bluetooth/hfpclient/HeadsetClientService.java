@@ -767,7 +767,11 @@ public class HeadsetClientService extends ProfileService {
             Log.e(TAG, "Cannot allocate SM for device " + device);
             return false;
         }
-
+        HeadsetService service = HeadsetService.getHeadsetService();
+        if (service != null && service.isAudioOn()) {
+            Log.e(TAG, "SCO Connected for headsetService ignore connectAudio " + device);
+            return false;
+        }
         if (!sm.isConnected()) {
             return false;
         }
@@ -1025,6 +1029,16 @@ public class HeadsetClientService extends ProfileService {
             return null;
         }
         return sm.getCurrentAgEvents();
+    }
+
+    public boolean isHeadsetClientCallPresent() {
+        boolean mIsInCall = false;
+        for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+            if (sm != null) {
+               mIsInCall |= sm.IsInCall();
+            }
+        }
+        return mIsInCall;
     }
 
     public Bundle getCurrentAgFeatures(BluetoothDevice device) {
