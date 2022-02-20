@@ -22,7 +22,9 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.SdpPseRecord;
+import android.bluetooth.BluetoothPbapClient;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -41,6 +43,8 @@ import java.util.HashMap;
 import javax.obex.ClientSession;
 import javax.obex.HeaderSet;
 import javax.obex.ResponseCodes;
+
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
 
 /* Bluetooth/pbapclient/PbapClientConnectionHandler is responsible
  * for connecting, disconnecting and downloading contacts from the
@@ -136,6 +140,7 @@ class PbapClientConnectionHandler extends Handler {
     private BluetoothPbapObexAuthenticator mAuth = null;
     private final PbapClientStateMachine mPbapClientStateMachine;
     private boolean mAccountCreated;
+    private boolean reportEntrySize = true;
 
     PbapClientConnectionHandler(Looper looper, Context context, PbapClientStateMachine stateMachine,
             BluetoothDevice device) {
@@ -428,6 +433,10 @@ class PbapClientConnectionHandler extends Handler {
                 processor.setResults(vcards);
                 processor.onPullComplete();
 
+                // Broadcast phonebook's entry size
+                if (reportEntrySize)
+                    broadcastEntrySize(mDevice, vcards.size(), path);
+
                 startOffset += numberOfContactsToDownload;
                 numberOfContactsRemaining -= numberOfContactsToDownload;
             }
@@ -449,6 +458,10 @@ class PbapClientConnectionHandler extends Handler {
                         callCounter, mAccount);
             processor.setResults(request.getList());
             processor.onPullComplete();
+
+            // Broadcast calllogs size
+            if (reportEntrySize)
+                broadcastEntrySize(mDevice, request.getList().size(), path);
         } catch (IOException e) {
             Log.w(TAG, "Download call log failure");
         }
@@ -496,5 +509,19 @@ class PbapClientConnectionHandler extends Handler {
             return false;
         }
         return (mask & mPseRec.getSupportedRepositories()) != 0;
+    }
+
+    private void broadcastEntrySize(BluetoothDevice device, int size, String path) {
+        if (VDBG) Log.v(TAG, "EntrySize: " + size + " path: " + path);
+
+        Intent intent = new Intent(BluetoothPbapClient.ACTION_ENTRY_SIZE);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+        intent.putExtra(BluetoothPbapClient.EXTRA_ENTRY_PATH, path);
+        intent.putExtra(BluetoothPbapClient.EXTRA_ENTRY_SIZE, size);
+        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
+                | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
+
+        mContext.sendBroadcast(intent, BLUETOOTH_CONNECT,
+                com.android.bluetooth.Utils.getTempAllowlistBroadcastOptions());
     }
 }
