@@ -1728,6 +1728,16 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public boolean getRssi(BluetoothDevice device, int transport){
+            AdapterService service = getService();
+            if (service == null)
+                return false;
+
+            enforceBluetoothPrivilegedPermission(service);
+            return service.getRssi(device, transport);
+        }
+
+        @Override
         public long getSupportedProfiles() {
             AdapterService service = getService();
             if (service == null) {
@@ -2833,6 +2843,14 @@ public class AdapterService extends Service {
         byte[] addr = Utils.getBytesFromAddress(device.getAddress());
 
         return loadRemoteOobDataNative(addr, transport, remoteP192Data, remoteP256Data);
+    }
+
+    public boolean getRssi(BluetoothDevice device, int transport) {
+        debugLog("getRssi");
+
+        byte[] addr = Utils.getBytesFromAddress(device.getAddress());
+
+        return getRssiNative(addr, transport);
     }
 
     public boolean isQuietModeEnabled() {
@@ -4059,6 +4077,7 @@ public class AdapterService extends Service {
             int type, String serviceName, byte[] uuid, int port, int flag, int callingUid);
 
     /*package*/ native void requestMaximumTxDataLengthNative(byte[] address);
+    /*package*/ native boolean getRssiNative(byte[] address, int transport);
 
     // Returns if this is a mock object. This is currently used in testing so that we may not call
     // System.exit() while finalizing the object. Otherwise GC of mock objects unfortunately ends up

@@ -603,7 +603,14 @@ final class RemoteDevices {
                             break;
                         case AbstractionLayer.BT_PROPERTY_REMOTE_RSSI:
                             // RSSI from hal is in one byte
+                            // Send out RSSI via broadcast
                             device.mRssi = val[0];
+                            debugLog("rssi is:" + device.mRssi);
+                            intent = new Intent(BluetoothDevice.ACTION_RSSI);
+                            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, bdDevice);
+                            intent.putExtra(BluetoothDevice.EXTRA_RSSI, device.mRssi);
+                            sAdapterService.sendBroadcast(intent, BLUETOOTH_CONNECT,
+                                    Utils.getTempAllowlistBroadcastOptions());
                             break;
                     }
                 }

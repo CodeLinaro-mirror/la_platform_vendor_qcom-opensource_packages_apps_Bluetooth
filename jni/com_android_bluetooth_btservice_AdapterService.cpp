@@ -1884,6 +1884,23 @@ static void getLinkKeyNative(JNIEnv* env, jobject obj, jbyteArray address) {
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 
+static jboolean getRssiNative(JNIEnv* env, jobject obj, jbyteArray address,
+                              jint transport) {
+  ALOGV("%s", __func__);
+  if (!sBluetoothInterface) return JNI_FALSE;
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+
+  if (addr == NULL) {
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+
+  int ret = sBluetoothInterface->get_rssi((RawAddress*)addr, transport);
+  env->ReleaseByteArrayElements(address, addr, 0);
+  return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+}
+
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void*)classInitNative},
@@ -1929,7 +1946,8 @@ static JNINativeMethod sMethods[] = {
      (void*)createSocketChannelNative},
     {"requestMaximumTxDataLengthNative", "([B)V",
      (void*)requestMaximumTxDataLengthNative},
-    {"getLinkKeyNative", "([B)V", (void*) getLinkKeyNative}};
+    {"getLinkKeyNative", "([B)V", (void*) getLinkKeyNative},
+    {"getRssiNative", "([BI)Z", (void*)getRssiNative}};
 
 int register_com_android_bluetooth_btservice_AdapterService(JNIEnv* env) {
   return jniRegisterNativeMethods(
