@@ -452,6 +452,16 @@ public class AvrcpControllerService extends ProfileService {
             }
             return service.getSupportedFeatures(device);
         }
+
+        @Override
+        public int getRemoteVersion(BluetoothDevice device, AttributionSource source) {
+            Log.v(TAG, "Binder Call: getRemoteVersion");
+            AvrcpControllerService service = getService(source);
+            if(service == null) {
+                return 0;
+            }
+            return service.getRemoteVersion(device);
+        }
     }
 
 
@@ -525,6 +535,21 @@ public class AvrcpControllerService extends ProfileService {
     // Called by JNI
     private void setPlayerAppSettingRsp(byte[] address, byte accepted) {
         /* Do Nothing. */
+    }
+
+    // Called by JNI to notify Avrcp of a remote device's version
+    private void getPeerRcVersion(byte[] address, int version) {
+        BluetoothDevice device = getAnonymousDevice(address);
+        AvrcpControllerStateMachine stateMachine = getOrCreateStateMachine(device);
+        if (DBG) {
+            Log.d(TAG, "getPeerRcVersion(device=" + device + ", Remote AVRCP version="
+                    + Integer.toHexString((version >> 8) & 0xFF) + "."
+                    + Integer.toHexString(version & 0xFF) + ")");
+        }
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                    AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_VERSION, version);
+        }
     }
 
     // Called by JNI when remote wants to receive absolute volume notifications.
@@ -937,6 +962,16 @@ public class AvrcpControllerService extends ProfileService {
         AvrcpControllerStateMachine stateMachine = getStateMachine(device);
         if (stateMachine != null) {
             return stateMachine.getRemoteFeatures();
+        }
+        return 0;
+    }
+
+    public synchronized int getRemoteVersion(BluetoothDevice device) {
+        if (DBG) Log.d(TAG,"getRemoteVersion device " + device);
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            return stateMachine.getRemoteVersion();
         }
         return 0;
     }

@@ -96,6 +96,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_RECEIVED_COVER_ART_PSM = 220;
     static final int MESSAGE_PROCESS_UIDS_CHANGED = 221;
     static final int MESSAGE_PROCESS_RC_FEATURES = 222;
+    static final int MESSAGE_PROCESS_RC_VERSION = 223;
 
     //300->399 Events for Browsing
     static final int MESSAGE_GET_FOLDER_ITEMS = 300;
@@ -152,6 +153,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     private int mVolumeChangedNotificationsToIgnore = 0;
     private int mVolumeNotificationLabel = -1;
     private int mRemoteFeatures;
+    private int mRemoteVersion;
 
     GetFolderList mGetFolderList = null;
 
@@ -166,6 +168,7 @@ class AvrcpControllerStateMachine extends StateMachine {
         mDeviceAddress = Utils.getByteAddress(mDevice);
         mService = service;
         mRemoteFeatures = BluetoothAvrcpController.BTRC_FEAT_NONE;
+        mRemoteVersion = 0;
         mCoverArtPsm = 0;
         mCoverArtManager = service.getCoverArtManager();
         logD(device.toString());
@@ -250,6 +253,14 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     public synchronized int getRemoteFeatures() {
         return mRemoteFeatures;
+    }
+
+    public synchronized void setRemoteVersion(int remoteVersion) {
+        mRemoteVersion = remoteVersion;
+    }
+
+    public synchronized int getRemoteVersion() {
+        return mRemoteVersion;
     }
 
     /**
@@ -483,6 +494,9 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case MESSAGE_PROCESS_RC_FEATURES:
                     setRemoteFeatures(message.arg1);
                     break;
+                case MESSAGE_PROCESS_RC_VERSION:
+                    setRemoteVersion(message.arg1);
+                    break;
             }
             return true;
         }
@@ -564,6 +578,10 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                 case MESSAGE_PROCESS_RC_FEATURES:
                     setRemoteFeatures(msg.arg1);
+                    return true;
+
+                case MESSAGE_PROCESS_RC_VERSION:
+                    setRemoteVersion(msg.arg1);
                     return true;
 
                 case MSG_AVRCP_SET_REPEAT:

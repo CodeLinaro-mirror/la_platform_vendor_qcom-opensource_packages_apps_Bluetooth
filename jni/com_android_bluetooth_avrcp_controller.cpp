@@ -51,6 +51,7 @@ static jmethodID method_handleAddressedPlayerChanged;
 static jmethodID method_handleNowPlayingContentChanged;
 static jmethodID method_onAvailablePlayerChanged;
 static jmethodID method_getRcPsm;
+static jmethodID method_getPeerRcVersion;
 
 static jclass class_AvrcpItem;
 static jclass class_AvrcpPlayer;
@@ -793,6 +794,30 @@ static void btavrcp_get_rcpsm_callback(const RawAddress& bd_addr,
                                (jint)psm);
 }
 
+static void btavrcp_get_peer_rc_version_callback(const RawAddress& bd_addr,
+                                                 uint16_t version) {
+  ALOGE("%s -> version received of 0x%x", __func__, version);
+  std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbacksObj) {
+    ALOGE("%s: sCallbacksObj is null", __func__);
+    return;
+  }
+  if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jbyteArray> addr(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
+  if (!addr.get()) {
+    ALOGE("%s: Failed to allocate a new byte array", __func__);
+    return;
+  }
+
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
+                                   (jbyte*)&bd_addr.address);
+  sCallbackEnv->CallVoidMethod(sCallbacksObj, method_getPeerRcVersion, addr.get(),
+                               (jint)version);
+}
+
 static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     sizeof(sBluetoothAvrcpCallbacks),
     btavrcp_passthrough_response_callback,
@@ -815,7 +840,8 @@ static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     btavrcp_now_playing_content_changed_callback,
     btavrcp_available_player_changed_callback,
     btavrcp_get_rcpsm_callback,
-    btavrcp_uids_changed_callback};
+    btavrcp_uids_changed_callback,
+    btavrcp_get_peer_rc_version_callback};
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
   method_handlePassthroughRsp =
@@ -890,6 +916,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "handleNowPlayingContentChanged", "([B)V");
   method_onAvailablePlayerChanged =
       env->GetMethodID(clazz, "onAvailablePlayerChanged", "([B)V");
+  method_getPeerRcVersion = env->GetMethodID(clazz, "getPeerRcVersion", "([BI)V");
 
   ALOGI("%s: succeeds", __func__);
 }
