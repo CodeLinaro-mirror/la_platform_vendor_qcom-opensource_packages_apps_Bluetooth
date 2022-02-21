@@ -393,6 +393,14 @@ public class HeadsetStateMachine extends StateMachine {
         return  mIsBlacklistedForSCOAfterSLC;
     }
 
+    public boolean hasMessagesInQueue(int what) {
+        return super.hasMessages(what);
+    }
+
+    public boolean hasDeferredMessagesInQueue(int what) {
+        return super.hasDeferredMessages(what);
+    }
+
     /**
      * Base class for states used in this state machine to share common infrastructures
      */
@@ -1430,7 +1438,7 @@ public class HeadsetStateMachine extends StateMachine {
                 if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
                         // SCO disconnected, resume A2DP if there is no call
                         stateLogD("SCO disconnected, set A2DPsuspended to false");
-                        mHeadsetService.getHfpA2DPSyncInterface().releaseA2DP(mDevice);
+                        sendMessage(RESUME_A2DP);
                 }
             }
         }
@@ -1552,9 +1560,16 @@ public class HeadsetStateMachine extends StateMachine {
                     break;
                 case HeadsetHalConstants.AUDIO_STATE_DISCONNECTED:
                     if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
-                        // SCO disconnected, resume A2DP if there is no call
-                        stateLogD("SCO disconnected, set A2DPsuspended to false");
-                        mHeadsetService.getHfpA2DPSyncInterface().releaseA2DP(mDevice);
+                        /* If the call started/ended by the time A2DP suspend ack
+                         * is received, send the call indicators before resuming
+                         * A2DP.
+                         */
+                        if (mPendingCallStates.size() == 0) {
+                          stateLogD("processAudioEvent, resuming A2DP after SCO disconnected");
+                          mHeadsetService.getHfpA2DPSyncInterface().releaseA2DP(mDevice);
+                        } else {
+                          stateLogW("processAudioEvent,not resuming due to pending call states");
+                        }
                     }
                     break;
                 case HeadsetHalConstants.AUDIO_STATE_DISCONNECTING:
@@ -1668,18 +1683,12 @@ public class HeadsetStateMachine extends StateMachine {
             // If current device is TWSPLUS device and peer TWSPLUS device is already
             // has SCO, dont need to update teh Audio Manager
 
-            if (!ApmConstIntf.getLeAudioEnabled()) {
-                setAudioParameters();
-                mSystemInterface.getAudioManager().setBluetoothScoOn(true);
-            }
+            setAudioParameters();
+            mSystemInterface.getAudioManager().setBluetoothScoOn(true);
             Message m = obtainMessage(SCO_RETRIAL_NOT_REQ);
             sendMessageDelayed(m, SCO_RETRIAL_REQ_TIMEOUT);
 
             broadcastStateTransitions();
-            if (ApmConstIntf.getLeAudioEnabled()) {
-                setAudioParameters();
-                mSystemInterface.getAudioManager().setBluetoothScoOn(true);
-            }
         }
 
         @Override
