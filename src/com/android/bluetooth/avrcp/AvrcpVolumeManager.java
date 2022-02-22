@@ -230,7 +230,7 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
     synchronized void volumeDeviceSwitched(@Nullable BluetoothDevice device) {
         d("volumeDeviceSwitched: device=" + device);
 
-        if (mActiveDevices.contains(device)) {
+        if (device == null || mActiveDevices.contains(device)) {
             return;
         }
 
