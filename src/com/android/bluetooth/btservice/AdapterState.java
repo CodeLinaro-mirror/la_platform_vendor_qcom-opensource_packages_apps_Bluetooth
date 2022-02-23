@@ -69,6 +69,7 @@ final class AdapterState extends StateMachine {
     static final int BREDR_STOP_TIMEOUT = 10;
     static final int BLE_STOP_TIMEOUT = 11;
     static final int BLE_START_TIMEOUT = 12;
+    static final int START_PROFILE_SERVICE = 13;
 
     static final int BLE_START_TIMEOUT_DELAY = 4000;
     static final int BLE_STOP_TIMEOUT_DELAY = 2500;
@@ -181,6 +182,11 @@ final class AdapterState extends StateMachine {
                     transitionTo(mTurningBleOnState);
                     break;
 
+                case USER_TURN_ON:
+                    mAdapterService.bringUpBle();
+                    transitionTo(mTurningOnState);
+                    break;
+
                 default:
                     infoLog("Unhandled message - " + messageString(msg.what));
                     return false;
@@ -288,7 +294,24 @@ final class AdapterState extends StateMachine {
         public void enter() {
             super.enter();
             sendMessageDelayed(BREDR_START_TIMEOUT, BREDR_START_TIMEOUT_DELAY);
-            mAdapterService.startProfileServices();
+            /**
+              * Profile service shall be started after stack is ready(AbstractionLayer.BT_STATE_ON)
+              * For BLE supported case, stack state is ON before state is transited to BleOnState
+              * For BLE NOT supported case, enableNative is called when entering TurningOnState.
+              * And profile service shall be started when stack state is ready.
+              */
+            if (mAdapterService.isBleSupported()) {
+                mAdapterService.startProfileServices();
+            }
+
+            /**
+              * Normally enableNative is called when GattService is ON.
+              * However, GattService is removed when BLE is disabled.
+              * So it is necessary to call enableNative here in this case.
+              */
+            if (!mAdapterService.isBleSupported()) {
+                mAdapterService.enableNative();
+            }
         }
 
         @Override
@@ -307,6 +330,10 @@ final class AdapterState extends StateMachine {
                 case BREDR_START_TIMEOUT:
                     errorLog(messageString(msg.what));
                     transitionTo(mTurningOffState);
+                    break;
+
+                case START_PROFILE_SERVICE:
+                    mAdapterService.startProfileServices();
                     break;
 
                 default:
@@ -341,7 +368,10 @@ final class AdapterState extends StateMachine {
         public boolean processMessage(Message msg) {
             switch (msg.what) {
                 case BREDR_STOPPED:
-                    transitionTo(mBleOnState);
+                    if (mAdapterService.isBleSupported())
+                        transitionTo(mBleOnState);
+                    else
+                        transitionTo(mOffState);
                     break;
 
                 case BREDR_STOP_TIMEOUT:

@@ -147,6 +147,7 @@ public class AdapterService extends Service {
     static final String BLUETOOTH_BTSNOOP_LOG_MODE_PROPERTY = "persist.bluetooth.btsnooplogmode";
     static final String BLUETOOTH_BTSNOOP_DEFAULT_MODE_PROPERTY =
             "persist.bluetooth.btsnoopdefaultmode";
+    private static final String IS_BLE_SUPPORTED_PROPERTY = "persist.vendor.bt.is_ble_supported";
     private String mSnoopLogSettingAtEnable = "empty";
     private String mDefaultSnoopLogSettingAtEnable = "empty";
 
@@ -224,6 +225,7 @@ public class AdapterService extends Service {
     private DatabaseManager mDatabaseManager;
     private SilenceDeviceManager mSilenceDeviceManager;
     private AppOpsManager mAppOps;
+    private boolean mIsBleSupported;
 
     private BluetoothSocketManagerBinder mBluetoothSocketManagerBinder;
 
@@ -338,7 +340,9 @@ public class AdapterService extends Service {
                         setBluetoothClassFromConfig();
                         initProfileServices();
                         getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS);
-                        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE);
+                        if (isBleSupported()) {
+                            getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE);
+                        }
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
                     }
                     break;
@@ -447,6 +451,8 @@ public class AdapterService extends Service {
                 PackageManager.FEATURE_LEANBACK_ONLY);
         initNative(isGuest(), isNiapMode(), configCompareResult, isAtvDevice);
         mNativeAvailable = true;
+        mIsBleSupported = SystemProperties.getBoolean(IS_BLE_SUPPORTED_PROPERTY, true);
+        debugLog("mIsBleSupported is " + mIsBleSupported);
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
         mAppOps = getSystemService(AppOpsManager.class);
         //Load the name and address
@@ -579,16 +585,18 @@ public class AdapterService extends Service {
 
         mJniCallbacks.init(mBondStateMachine, mRemoteDevices);
 
-        try {
-            mBatteryStats.noteResetBleScan();
-        } catch (RemoteException e) {
-            Log.w(TAG, "RemoteException trying to send a reset to BatteryStats");
-        }
-        BluetoothStatsLog.write_non_chained(BluetoothStatsLog.BLE_SCAN_STATE_CHANGED, -1, null,
-                BluetoothStatsLog.BLE_SCAN_STATE_CHANGED__STATE__RESET, false, false, false);
+        if (isBleSupported()) {
+            try {
+                mBatteryStats.noteResetBleScan();
+            } catch (RemoteException e) {
+                Log.w(TAG, "RemoteException trying to send a reset to BatteryStats");
+            }
+            BluetoothStatsLog.write_non_chained(BluetoothStatsLog.BLE_SCAN_STATE_CHANGED, -1, null,
+                    BluetoothStatsLog.BLE_SCAN_STATE_CHANGED__STATE__RESET, false, false, false);
 
-        //Start Gatt service
-        setProfileServiceState(GattService.class, BluetoothAdapter.STATE_ON);
+            //Start Gatt service
+            setProfileServiceState(GattService.class, BluetoothAdapter.STATE_ON);
+        }
     }
 
     void bringDownBle() {
@@ -598,9 +606,19 @@ public class AdapterService extends Service {
     void stateChangeCallback(int status) {
         if (status == AbstractionLayer.BT_STATE_OFF) {
             debugLog("stateChangeCallback: disableNative() completed");
-            mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
+            if (isBleSupported()) {
+                debugLog("stateChangeCallback: disableNative() completed");
+                mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
+            } else {
+                debugLog("send BREDR_STOPPED due to BLE disabled");
+                mAdapterStateMachine.sendMessage(AdapterState.BREDR_STOPPED);
+            }
         } else if (status == AbstractionLayer.BT_STATE_ON) {
-            mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
+            if (isBleSupported()) {
+                mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
+            } else {
+                mAdapterStateMachine.sendMessage(AdapterState.START_PROFILE_SERVICE);
+            }
         } else {
             Log.e(TAG, "Incorrect status " + status + " in stateChangeCallback");
         }
@@ -2268,7 +2286,13 @@ public class AdapterService extends Service {
 
         debugLog("enable() - Enable called with quiet mode status =  " + quietMode);
         mQuietmode = quietMode;
-        mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_ON);
+        if (isBleSupported())
+            mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_ON);
+        else {
+            debugLog("enable() - send USER_TURN_ON due to BLE disabled");
+            mAdapterStateMachine.sendMessage(AdapterState.USER_TURN_ON);
+        }
+
         return true;
     }
 
@@ -3330,4 +3354,11 @@ public class AdapterService extends Service {
 
     private native void getLinkKeyNative(byte[] address);
     private native boolean readLocalOobDataNative();
+
+    // Check whether BLE is supported or not in BT controller.
+    //    true:  BLE is supported
+    //    false: BLE is unsupported
+    public boolean isBleSupported() {
+        return mIsBleSupported;
+    }
 }

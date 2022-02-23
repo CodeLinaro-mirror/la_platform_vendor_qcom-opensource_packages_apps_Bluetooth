@@ -56,6 +56,8 @@ import java.util.List;
 
 public class Config {
     private static final String TAG = "AdapterServiceConfig";
+    private static final String IS_BLE_SUPPORTED_PROPERTY = "persist.vendor.bt.is_ble_supported";
+    private static boolean mIsBleSupported = SystemProperties.getBoolean(IS_BLE_SUPPORTED_PROPERTY, true);
 
     private static class ProfileConfig {
         Class mClass;
@@ -127,6 +129,11 @@ public class Config {
         ArrayList<Class> profiles = new ArrayList<>(PROFILE_SERVICES_AND_FLAGS.length);
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = resources.getBoolean(config.mSupported);
+
+
+            if (!mIsBleSupported && config.mClass == GattService.class) {
+                continue;
+            }
 
             if (!supported && (config.mClass == HearingAidService.class) && isHearingAidSettingsEnabled(ctx)) {
                 Log.v(TAG, "Feature Flag enables support for HearingAidService");
