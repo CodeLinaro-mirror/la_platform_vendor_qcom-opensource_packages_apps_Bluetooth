@@ -2493,6 +2493,12 @@ public class HeadsetService extends ProfileService {
 
     private boolean shouldCallAudioBeActive() {
         boolean retVal = false;
+
+        if (!mAudioRouteAllowed) {
+            Log.w(TAG, "shouldCallAudioBeActive : false as audio route is not allowed");
+            return false;
+        }
+
         // When the call is active/held, the call audio must be active
         if (mSystemInterface.getHeadsetPhoneState().getNumActiveCall() > 0 ||
             mSystemInterface.getHeadsetPhoneState().getNumHeldCall() > 0 ) {
