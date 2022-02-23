@@ -606,22 +606,22 @@ final class RemoteDevices {
         }
     }
 
-    void aclStateChangeCallback(int status, byte[] address, int newState) {
+    void aclStateChangeCallback(int status, byte[] address, int newState, int link_type) {
         BluetoothDevice device = getDevice(address);
 
         if (device == null) {
             errorLog("aclStateChangeCallback: device is NULL, address="
-                    + Utils.getAddressStringFromByte(address) + ", newState=" + newState);
+                    + Utils.getAddressStringFromByte(address) + ", newState=" + newState
+                    + ", link_type=" + link_type);
             return;
         }
         int state = sAdapterService.getState();
 
         Intent intent = null;
         if (newState == AbstractionLayer.BT_ACL_STATE_CONNECTED) {
-            if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_TURNING_ON) {
+            if (link_type == BluetoothDevice.TRANSPORT_BREDR) {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_CONNECTED);
-            } else if (state == BluetoothAdapter.STATE_BLE_ON
-                    || state == BluetoothAdapter.STATE_BLE_TURNING_ON) {
+            } else {
                 intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_CONNECTED);
             }
             debugLog(
@@ -635,10 +635,9 @@ final class RemoteDevices {
                 intent.setPackage(sAdapterService.getString(R.string.pairing_ui_package));
                 sAdapterService.sendBroadcast(intent, sAdapterService.BLUETOOTH_PERM);
             }
-            if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_TURNING_OFF) {
+            if (link_type == BluetoothDevice.TRANSPORT_BREDR) {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-            } else if (state == BluetoothAdapter.STATE_BLE_ON
-                    || state == BluetoothAdapter.STATE_BLE_TURNING_OFF) {
+            } else {
                 intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_DISCONNECTED);
             }
             // Reset battery level on complete disconnection
