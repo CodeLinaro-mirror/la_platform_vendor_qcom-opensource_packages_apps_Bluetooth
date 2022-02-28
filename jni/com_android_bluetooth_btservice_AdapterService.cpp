@@ -287,7 +287,8 @@ static void bond_state_changed_callback(bt_status_t status, RawAddress* bd_addr,
 }
 
 static void acl_state_changed_callback(bt_status_t status, RawAddress* bd_addr,
-                                       bt_acl_state_t state, uint8_t link_type) {
+                                       bt_acl_state_t state, uint8_t link_type,
+                                       uint8_t hci_reason) {
   if (!bd_addr) {
     ALOGE("Address is null in %s", __func__);
     return;
@@ -306,7 +307,8 @@ static void acl_state_changed_callback(bt_status_t status, RawAddress* bd_addr,
                                    (jbyte*)bd_addr);
 
   sCallbackEnv->CallVoidMethod(sJniCallbacksObj, method_aclStateChangeCallback,
-                               (jint)status, addr.get(), (jint)state, (jint)link_type);
+                               (jint)status, addr.get(), (jint)state, (jint)link_type,
+                               (jint)hci_reason);
 }
 
 static void discovery_state_changed_callback(bt_discovery_state_t state) {
@@ -764,7 +766,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(jniCallbackClass, "bondStateChangeCallback", "(I[BI)V");
 
   method_aclStateChangeCallback =
-      env->GetMethodID(jniCallbackClass, "aclStateChangeCallback", "(I[BII)V");
+      env->GetMethodID(jniCallbackClass, "aclStateChangeCallback", "(I[BIII)V");
 
   method_setWakeAlarm = env->GetMethodID(clazz, "setWakeAlarm", "(JZ)Z");
   method_acquireWakeLock =
