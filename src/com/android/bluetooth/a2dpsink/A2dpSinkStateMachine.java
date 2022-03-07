@@ -143,10 +143,19 @@ public class A2dpSinkStateMachine extends StateMachine {
         @Override
         public void enter() {
             if (DBG) Log.d(TAG, "Enter Disconnected");
-            if (mMostRecentState != BluetoothProfile.STATE_DISCONNECTED) {
-                sendMessage(CLEANUP);
-            }
             onConnectionStateChanged(BluetoothProfile.STATE_DISCONNECTED);
+            /* Don't send message CLEANUP here
+             * Instead, CLEANUP is sent after profile is disconnected.
+             * Note,
+             * Event StackEvent.CONNECTION_STATE_DISCONNECTED is processed
+             * in Disconnecting state of statemachine for other profiles.
+             * E.g. PbapClientStateMachine, A2dpSinkStateMachine
+             * So it is correct to send message CLEANUP when entering Disconnected state
+             * since the profile is disconnected.
+             * However, event StackEvent.CONNECTION_STATE_DISCONNECTED is handled in
+             * Disconnected state. That means the profile is NOT disconnected when
+             * entering Disconnected state.
+             */
         }
 
         @Override
@@ -160,7 +169,7 @@ public class A2dpSinkStateMachine extends StateMachine {
                     transitionTo(mConnecting);
                     return true;
                 case CLEANUP:
-                    mService.removeStateMachine(A2dpSinkStateMachine.this);
+                    cleanUp();
                     return true;
             }
             return false;
@@ -192,6 +201,11 @@ public class A2dpSinkStateMachine extends StateMachine {
                             AudioFormat.ENCODING_PCM_16BIT, event.mCodecIndex);
                     break;
             }
+        }
+
+        void cleanUp() {
+            mAudioConfig = null;
+            mService.removeStateMachine(A2dpSinkStateMachine.this);
         }
     }
 

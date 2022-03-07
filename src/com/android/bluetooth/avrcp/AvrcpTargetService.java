@@ -121,6 +121,11 @@ public class AvrcpTargetService extends ProfileService {
                 boolean uids) {
             mNativeInterface.sendFolderUpdate(availablePlayers, addressedPlayers, uids);
         }
+
+        public void sendVolumeChanged(BluetoothDevice device, int volume, int maxVolume) {
+            sendVolumeChangedExt(device, volume, maxVolume);
+        }
+
     }
 
     private class AvrcpBroadcastReceiver extends BroadcastReceiver {
@@ -359,6 +364,23 @@ public class AvrcpTargetService extends ProfileService {
         }
         mNativeInterface.sendVolumeChanged(avrcpVolume);
     }
+
+    /**
+     * Set the volume on the remote device. Does nothing if the device doesn't support absolute
+     * volume.
+     */
+    public void sendVolumeChangedExt(BluetoothDevice device, int deviceVolume, int maxVolume) {
+        int avrcpVolume =
+                (int) Math.floor((double) deviceVolume * AVRCP_MAX_VOL / maxVolume);
+        if (avrcpVolume > AVRCP_MAX_VOL) avrcpVolume = AVRCP_MAX_VOL;
+        if (DEBUG) {
+            Log.d(TAG, "SendVolumeChangedExt: avrcpVolume=" + avrcpVolume
+                    + " deviceVolume=" + deviceVolume
+                    + " maxVolume=" + maxVolume);
+        }
+        mNativeInterface.sendVolumeChangedExt(device.getAddress(), avrcpVolume);
+    }
+
     public void setActivePlayerExt(String packagename, BluetoothDevice device) {
         if (DEBUG) {
             Log.d(TAG, "setActivePlayerExt(" + packagename + "," + device + ")");

@@ -405,6 +405,10 @@ class AvrcpControllerStateMachine extends StateMachine {
             mCar = null;
         }
 
+        mAvailablePlayerList.clear();
+
+        mBipStateMachine.doQuit();
+        mBipStateMachine = null;
         quitNow();
     }
 
