@@ -32,6 +32,7 @@ import android.telecom.ConnectionRequest;
 import android.telecom.ConnectionService;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.CallAudioState;
 import android.telecom.TelecomManager;
 import android.util.Log;
 
@@ -350,6 +351,7 @@ public class HfpClientConnectionService extends ConnectionService {
                 new PhoneAccount.Builder(handle, "HFP " + device.toString()).setAddress(addr)
                         .setSupportedUriSchemes(Arrays.asList(PhoneAccount.SCHEME_TEL))
                         .setCapabilities(capabilities)
+                        .setSupportedAudioRoutes(CallAudioState.ROUTE_SPEAKER)
                         .build();
         if (DBG) {
             Log.d(TAG, "phoneaccount: " + account);
@@ -358,8 +360,14 @@ public class HfpClientConnectionService extends ConnectionService {
     }
 
     public static boolean hasHfpClientEcc(BluetoothHeadsetClient client, BluetoothDevice device) {
-        Bundle features = client.getCurrentAgEvents(device);
+        Bundle features = client.getCurrentAgFeatures(device);
         return features != null && features.getBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_ECC,
                 false);
+    }
+
+    public static boolean hasHfpClient3Way(BluetoothHeadsetClient client, BluetoothDevice device) {
+        Bundle features = client.getCurrentAgFeatures(device);
+        return features != null && features.getBoolean(BluetoothHeadsetClient.
+                EXTRA_AG_FEATURE_3WAY_CALLING, false);
     }
 }

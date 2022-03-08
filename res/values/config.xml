@@ -14,34 +14,34 @@
 -->
 <resources>
     <bool name="profile_supported_a2dp">true</bool>
-    <bool name="profile_supported_ca">true</bool>
+    <bool name="profile_supported_ca">false</bool>
     <bool name="profile_supported_a2dp_sink">false</bool>
     <bool name="profile_supported_hs_hfp">true</bool>
-    <bool name="profile_supported_hfpclient">false</bool>
-    <bool name="profile_supported_hfp_incallservice">true</bool>
-    <bool name="profile_supported_hid_host">true</bool>
-    <bool name="profile_supported_opp">true</bool>
-    <bool name="profile_supported_pc">true</bool>
-    <bool name="profile_supported_pan">true</bool>
+    <bool name="profile_supported_hfpclient">true</bool>
+    <bool name="profile_supported_hfp_incallservice">false</bool>
+    <bool name="profile_supported_hid_host">false</bool>
+    <bool name="profile_supported_opp">false</bool>
+    <bool name="profile_supported_pc">false</bool>
+    <bool name="profile_supported_pan">false</bool>
     <bool name="profile_supported_pbap">true</bool>
     <bool name="profile_supported_gatt">true</bool>
-    <bool name="pbap_include_photos_in_vcard">true</bool>
-    <bool name="pbap_use_profile_for_owner_vcard">true</bool>
-    <bool name="profile_supported_map">true</bool>
+    <bool name="pbap_include_photos_in_vcard">false</bool>
+    <bool name="pbap_use_profile_for_owner_vcard">false</bool>
+    <bool name="profile_supported_map">false</bool>
     <bool name="profile_supported_avrcp_target">true</bool>
     <bool name="profile_supported_avrcp_controller">true</bool>
-    <bool name="profile_supported_bac">true</bool>
-    <bool name="profile_supported_sap">true</bool>
+    <bool name="profile_supported_bac">false</bool>
+    <bool name="profile_supported_sap">false</bool>
     <bool name="profile_supported_pbapclient">false</bool>
     <bool name="profile_supported_mapmce">false</bool>
-    <bool name="profile_supported_broadcast">true</bool>
-    <bool name="profile_supported_hid_device">true</bool>
-    <bool name="profile_supported_le_audio">true</bool>
+    <bool name="profile_supported_broadcast">false</bool>
+    <bool name="profile_supported_hid_device">false</bool>
+    <bool name="profile_supported_le_audio">false</bool>
     <bool name="profile_supported_ba">false</bool>
-    <bool name="profile_supported_group_client">true</bool>
-    <bool name="profile_supported_music_player_service">true</bool>
-    <bool name="profile_supported_cc_server">true</bool>
-    <bool name="avrcp_target_enable_bip">true</bool>
+    <bool name="profile_supported_group_client">false</bool>
+    <bool name="profile_supported_music_player_service">false</bool>
+    <bool name="profile_supported_cc_server">false</bool>
+    <bool name="avrcp_target_enable_bip">false</bool>
 
     <!-- If true, we will require location to be enabled on the device to
          fire Bluetooth LE scan result callbacks in addition to having one
@@ -84,7 +84,7 @@
     <bool name="a2dp_sink_automatically_request_audio_focus">false</bool>
 
     <!-- For enabling the hfp client connection service -->
-    <bool name="hfp_client_connection_service_enabled">false</bool>
+    <bool name="hfp_client_connection_service_enabled">true</bool>
 
     <!-- For supporting emergency call through the hfp client connection service  -->
     <bool name="hfp_client_connection_service_support_emergency_call">false</bool>
@@ -125,7 +125,7 @@
     <string name="pairing_ui_package">com.android.settings</string>
 
     <!-- Flag whether or not to keep polling AG with CLCC for call information every 2 seconds -->
-    <bool name="hfp_clcc_poll_during_call">true</bool>
+    <bool name="hfp_clcc_poll_during_call">false</bool>
 
      <!-- Reload supported Bluetooth Profiles while BLE is turning ON -->
      <bool name="reload_supported_profiles_when_enabled">true</bool>
