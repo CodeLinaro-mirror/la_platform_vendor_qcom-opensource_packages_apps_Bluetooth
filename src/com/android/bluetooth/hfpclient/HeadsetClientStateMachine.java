@@ -104,7 +104,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int EXPLICIT_CALL_TRANSFER = 18;
     public static final int DISABLE_NREC = 20;
     public static final int SEND_VENDOR_AT_COMMAND = 21;
-
+    public static final int SEND_CLCC = 22;
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
     public static final int QUERY_OPERATOR_NAME = 51;
@@ -1426,6 +1426,12 @@ public class HeadsetClientStateMachine extends StateMachine {
                     }
                     queryCallsStart();
                     break;
+                case SEND_CLCC:
+                    Log.d(TAG, "Connected: SEND_CLCC ");
+                    if (mCalls.size() > 0) {
+                        sendMessage(QUERY_CURRENT_CALLS);
+                    }
+                    break;
                 case ACTION_PLAYING_STATE_CHANGED:
                     int mA2dpState = message.arg1;
                     Log.d(TAG, "Connected: mA2dpState  " + mA2dpState);
@@ -2151,8 +2157,8 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
     public boolean isA2dpSuspendIssuedFromHeadset()
     {
-        //If Bluetooth SCO is present, A2DP Suspend must have been issued from Headset earlier
-        return mAudioManager.isBluetoothScoOn();
+        Log.d(TAG,"isA2dpSuspendIssuedFromHeadset() ");
+        return HeadsetService.getHeadsetService().isScoOrCallActive();
     }
     synchronized public boolean suspendA2DP() {
         /* set mA2dpSuspendIssued flag in begaining of suspendA2DP function
