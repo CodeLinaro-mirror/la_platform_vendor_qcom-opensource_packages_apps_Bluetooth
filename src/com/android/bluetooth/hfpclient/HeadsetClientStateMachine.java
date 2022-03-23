@@ -52,6 +52,7 @@ import android.os.ParcelUuid;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.Pair;
+import android.os.SystemProperties;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.BluetoothStatsLog;
@@ -1845,6 +1846,12 @@ public class HeadsetClientStateMachine extends StateMachine {
                      * StackEvent.EVENT_TYPE_AUDIO_STATE_CHANGED, that triggers State
                      * Machines state changing
                      */
+                    boolean mPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
+                    if (mPts) {
+                        // For PTS cases, don't apply SCO disconnect logic
+                        Log.d(TAG, "PTS mode= " + mPts);
+                        break;
+                    }
                     if (mNativeInterface.disconnectAudio(getByteAddress(mCurrentDevice))) {
                         routeHfpAudio(false);
                         returnAudioFocusIfNecessary();
