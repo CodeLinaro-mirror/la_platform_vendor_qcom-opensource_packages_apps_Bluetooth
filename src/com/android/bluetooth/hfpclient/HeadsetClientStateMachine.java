@@ -193,6 +193,9 @@ public class HeadsetClientStateMachine extends StateMachine {
     // currently connected device
     private BluetoothDevice mCurrentDevice = null;
 
+    // call ind received from companion
+    private int mCallIndRcvd = 0;
+
     // general peer features and call handling features
     private int mPeerFeatures;
     private int mChldFeatures;
@@ -767,6 +770,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         mA2dpSuspend = false;
         mA2dpSuspendIssued = false;
         mCallIsInSetup = false;
+        mCallIndRcvd = 0;
         mVoiceRecognitionActive = HeadsetClientHalConstants.VR_STATE_STOPPED;
 
         mAudioRouteAllowed = context.getResources().getBoolean(
@@ -925,6 +929,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             mIndicatorNetworkSignal = 0;
             mIndicatorBatteryLevel = 0;
             mInBandRing = false;
+            mCallIndRcvd = 0;
 
             mAudioWbs = false;
             setHeadsetAudioRouteAllowed(true);
@@ -1212,6 +1217,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         private void processOnCallEvent(int call, BluetoothDevice device) {
             Log.d(TAG, "Enter Connecting processOnCallEvent() Device: "+
                     device + "call = " + call);
+            mCallIndRcvd = call;
             if (call == 0) {
                 mCallIsInSetup = false;
             } else if (!mA2dpSuspendIssued) {
@@ -1681,6 +1687,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         private void processOnCallEvent(int call, BluetoothDevice device) {
             Log.d(TAG, "Enter Connected processOnCallEvent() device:" + device);
 
+            mCallIndRcvd = call;
             if (call == 0) {
                 mCallIsInSetup = false;
             } else if (!mA2dpSuspendIssued) {
@@ -1693,7 +1700,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                           + mA2dpSuspendIssued + " callsetup " + callsetup);
             if(callsetup == 0) {
                 mCallIsInSetup = false;
-                if(!IsInCall()) {
+                if(!IsInCall() && mCallIndRcvd == 0) {
                     releaseA2DP();
                 }
             } else if (!mA2dpSuspendIssued) {
@@ -1714,6 +1721,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                     mAudioWbs = true;
                     // fall through
                 case HeadsetClientHalConstants.AUDIO_STATE_CONNECTED:
+                    //To fill dialer UI with in-progress calls from companion
+                    sendMessage(QUERY_CURRENT_CALLS);
                     // SCO connected for client, set the routing allowed to false for AG
                     setHeadsetAudioRouteAllowed(false);
                     Log.d(TAG, "mAudioRouteAllowed=" + mAudioRouteAllowed);
@@ -1754,9 +1763,6 @@ public class HeadsetClientStateMachine extends StateMachine {
                     if(!mA2dpSuspendIssued) {
                         mA2dpSuspend = suspendA2DP();
                     }
-                    //To fill dialer UI with in-progress calls from companion
-                    sendMessage(QUERY_CURRENT_CALLS);
-
                     if(mA2dpSuspend) {
                        routeHfpAudio(true);
                     } else {
@@ -1943,7 +1949,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     Log.d(TAG, "SCO is disconnected for hfp client call");
                     routeHfpAudio(false);
                     returnAudioFocusIfNecessary();
-                    if(!IsInCall() && !mCallIsInSetup) {
+                    if(!IsInCall() && !mCallIsInSetup && mCallIndRcvd == 0) {
                         releaseA2DP();
                     }
                     // SCO Disconnected for client, set the routing allowed to true for AG
