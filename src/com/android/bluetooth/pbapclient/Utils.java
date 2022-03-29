@@ -17,6 +17,6 @@
 package com.android.bluetooth.pbapclient;
 
 class Utils {
-    static final boolean DBG = false;
-    static final boolean VDBG = false;
+    static final boolean DBG = true;
+    static final boolean VDBG = true;
 }
