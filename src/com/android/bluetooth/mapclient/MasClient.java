@@ -209,8 +209,7 @@ public class MasClient {
     private synchronized boolean connectSocket() {
         try {
             int l2capSocket = mSdpMasRecord.getL2capPsm();
-            boolean usel2cap = SystemProperties.getBoolean("persist.bt.mce.l2capsocket", false);
-            if ((l2capSocket != -1) && usel2cap) {
+            if (l2capSocket != -1) {
                 if (DBG) {
                     Log.d(TAG, "Connecting to OBEX on L2CAP channel " + l2capSocket);
                 }
