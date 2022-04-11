@@ -202,8 +202,12 @@ public class MasClient {
         // Perform forced cleanup, it is ok if the handler throws an exception this will free the
         // handler to complete what it is doing and finish with cleanup.
         mAborting = true;
-        closeSocket();
-        mHandler.getLooper().getThread().interrupt();
+        if (mSession != null) {
+            if (DBG) {
+                Log.d(TAG, "abort");
+            }
+            mHandler.obtainMessage(ABORT).sendToTarget();
+        }
     }
 
     private synchronized boolean connectSocket() {
