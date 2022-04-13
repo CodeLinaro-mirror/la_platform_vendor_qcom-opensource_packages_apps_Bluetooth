@@ -49,6 +49,7 @@ public class A2dpSinkService extends ProfileService {
             new ConcurrentHashMap<>(1);
 
     private final Object mStreamHandlerLock = new Object();
+    private static final Object mBtA2dpLock = new Object();
 
     private A2dpSinkStreamHandler mA2dpSinkStreamHandler;
     private static A2dpSinkService sService;
@@ -71,8 +72,10 @@ public class A2dpSinkService extends ProfileService {
     protected boolean stop() {
         setA2dpSinkService(null);
         cleanupNative();
-        for (A2dpSinkStateMachine stateMachine : mDeviceStateMap.values()) {
-            stateMachine.quitNow();
+        synchronized (mBtA2dpLock) {
+            for (A2dpSinkStateMachine stateMachine : mDeviceStateMap.values()) {
+                stateMachine.quitNow();
+            }
         }
         mDeviceStateMap.clear();
         synchronized (mStreamHandlerLock) {
@@ -314,7 +317,10 @@ public class A2dpSinkService extends ProfileService {
     }
 
     void removeStateMachine(A2dpSinkStateMachine stateMachine) {
-        mDeviceStateMap.remove(stateMachine.getDevice());
+        synchronized (mBtA2dpLock) {
+            stateMachine.quitNow();
+            mDeviceStateMap.remove(stateMachine.getDevice());
+        }
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
@@ -322,16 +328,20 @@ public class A2dpSinkService extends ProfileService {
     }
 
     protected A2dpSinkStateMachine getOrCreateStateMachine(BluetoothDevice device) {
-        A2dpSinkStateMachine newStateMachine = new A2dpSinkStateMachine(device, this);
-        A2dpSinkStateMachine existingStateMachine =
-                mDeviceStateMap.putIfAbsent(device, newStateMachine);
-        // Given null is not a valid value in our map, ConcurrentHashMap will return null if the
-        // key was absent and our new value was added. We should then start and return it.
-        if (existingStateMachine == null) {
-            newStateMachine.start();
-            return newStateMachine;
+        if (device == null) {
+                Log.e(TAG, "getOrCreateStateMachine failed: device cannot be null");
+                return null;
         }
-        return existingStateMachine;
+        synchronized (mBtA2dpLock) {
+            A2dpSinkStateMachine stateMachine = mDeviceStateMap.get(device);
+            if (stateMachine == null) {
+                if (DBG) Log.d(TAG, "Creating a new state machine for " + device);
+                stateMachine = new A2dpSinkStateMachine(device, this);
+                mDeviceStateMap.put(device, stateMachine);
+                stateMachine.start();
+            }
+            return stateMachine;
+        }
     }
 
     List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
