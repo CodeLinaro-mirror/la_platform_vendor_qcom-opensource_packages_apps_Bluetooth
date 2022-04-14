@@ -28,8 +28,6 @@ import android.bluetooth.BluetoothDevice;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothHeadset;
-import android.bluetooth.BluetoothHeadsetClient;
-import android.bluetooth.BluetoothHeadsetClientCall;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.IBluetoothHeadset;
@@ -234,7 +232,6 @@ public class HeadsetService extends ProfileService {
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(ACTION_ROAMING_STATE_CHANGED);
-        filter.addAction(BluetoothHeadsetClient.ACTION_CALL_CHANGED);
         registerReceiver(mHeadsetReceiver, filter);
         // Step 7: Mark service as started
 
@@ -576,18 +573,6 @@ public class HeadsetService extends ProfileService {
                     synchronized (mStateMachines) {
                         doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.UPDATE_ROAMING_STATE, intent));
                      }
-                    break;
-                }
-                case BluetoothHeadsetClient.ACTION_CALL_CHANGED: {
-                    Log.d(TAG, "HeadsetService - Received BluetoothHeadsetClient.ACTION_CALL_CHANGED ");
-                    BluetoothHeadsetClientCall call = intent.getParcelableExtra(BluetoothHeadsetClient.EXTRA_CALL);
-                    Log.d(TAG, "BluetoothHeadsetClientCall State " + call.getState());
-                    if(call.getState() == BluetoothHeadsetClientCall.CALL_STATE_TERMINATED) {
-                        // If HFP Client call has ended, update latest AG call state to Headset
-                        synchronized (mStateMachines) {
-                            doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessageDelayed(HeadsetStateMachine.QUERY_PHONE_STATE_AT_SLC, 500));
-                        }
-                    }
                     break;
                 }
                 default:
@@ -2508,6 +2493,12 @@ public class HeadsetService extends ProfileService {
 
     private boolean shouldCallAudioBeActive() {
         boolean retVal = false;
+
+        if (!mAudioRouteAllowed) {
+            Log.w(TAG, "shouldCallAudioBeActive : false as audio route is not allowed");
+            return false;
+        }
+
         // When the call is active/held, the call audio must be active
         if (mSystemInterface.getHeadsetPhoneState().getNumActiveCall() > 0 ||
             mSystemInterface.getHeadsetPhoneState().getNumHeldCall() > 0 ) {

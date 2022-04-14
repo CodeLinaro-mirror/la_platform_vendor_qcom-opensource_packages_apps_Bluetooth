@@ -33,6 +33,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
+import com.android.bluetooth.hfpclient.HeadsetClientService;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
@@ -257,6 +258,14 @@ public class HeadsetA2dpSync {
         if(mA2dpSuspendTriggered == A2DP_SUSPENDED_NOT_TRIGGERED) {
             return true;
         }
+
+        HeadsetClientService mHeadsetClientService = HeadsetClientService.getHeadsetClientService();
+        if (mHeadsetClientService != null && mHeadsetClientService.isHeadsetClientCallPresent()) {
+            mA2dpSuspendTriggered = A2DP_SUSPENDED_NOT_TRIGGERED;
+            Log.d(TAG," HFP Client Call present, bail out ");
+            return true;
+        }
+
         if (mHeadsetService.isInCall() || mHeadsetService.isRinging() ||
                                                  mHeadsetService.isAudioOn()) {
             Log.d(TAG," Call/Ring/SCO on for some other stateMachine, bail out ");
