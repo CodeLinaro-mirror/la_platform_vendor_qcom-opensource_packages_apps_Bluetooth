@@ -246,7 +246,7 @@ class AvrcpControllerBipObexHandler extends Handler {
 
     /** DisConnect BIP L2Cap connection and close Obex Client session.
      */
-    private void disconnectBip() {
+    private synchronized void disconnectBip() {
         if (VDBG) {
             Log.v(TAG, "disconnectBIP: ");
         }
