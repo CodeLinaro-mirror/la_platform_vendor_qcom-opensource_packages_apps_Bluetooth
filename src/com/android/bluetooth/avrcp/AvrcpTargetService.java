@@ -489,6 +489,10 @@ public class AvrcpTargetService extends ProfileService {
         return mMediaPlayerList.getStreamVolume(device);
     }
 
+    void setStreamVolume(BluetoothDevice device, int volume) {
+        mMediaPlayerList.setStreamVolume(device, volume);
+    }
+
     /**
      * Dump debugging information to the string builder
      */

@@ -86,6 +86,7 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
 
         d("switchVolumeDevice: savedVolume=" + savedVolume);
 
+        mAvrcpService.setStreamVolume(device, savedVolume);
         // If absolute volume for the device is supported, set the volume for the device
         if (mDeviceMap.get(device)) {
             int avrcpVolume = systemToAvrcpVolume(savedVolume);
