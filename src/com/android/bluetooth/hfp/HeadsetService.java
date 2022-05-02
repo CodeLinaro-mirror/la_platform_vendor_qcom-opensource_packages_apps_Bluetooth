@@ -2514,7 +2514,8 @@ public class HeadsetService extends ProfileService {
                     doForEachConnectedConnectingStateMachine(
                    stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
                         new HeadsetCallState(numActive, numHeld, callState, number, type, name)));
-                    if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
+                    if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging()
+                       || isAudioOn())) {
                         Log.i(TAG, "no call, sending resume A2DP message to state machines");
                         for (BluetoothDevice device : availableDevices) {
                             HeadsetStateMachine stateMachine = mStateMachines.get(device);
