@@ -1547,7 +1547,7 @@ public class A2dpService extends ProfileService {
         }
 
         long cs4 = codecConfig.getCodecSpecific4();
-            GattService mGattService = GattService.getGattService();
+        GattService mGattService = GattService.getGattService();
 
         if(cs4 > 0 && mGattService != null) {
             switch((int)(cs4 & APTX_MODE_MASK)) {
@@ -1556,7 +1556,6 @@ public class A2dpService extends ProfileService {
                   break;
 
                 case APTX_LL:
-                case APTX_ULL:
                   if((cs4 & APTX_SCAN_FILTER_MASK) == APTX_SCAN_FILTER_MASK) {
                     mGattService.setAptXLowLatencyMode(true);
                   } else {
@@ -1600,7 +1599,6 @@ public class A2dpService extends ProfileService {
                   mGattService.setAptXLowLatencyMode(false);
                   break;
                 case APTX_LL:
-                case APTX_ULL:
                   if((cs4 & APTX_SCAN_FILTER_MASK) == APTX_SCAN_FILTER_MASK) {
                     mGattService.setAptXLowLatencyMode(true);
                   } else {

@@ -998,11 +998,6 @@ public class HeadsetService extends ProfileService {
         @Override
         public void phoneStateChanged(int numActive, int numHeld, int callState, String number,
                 int type, String name, AttributionSource source) {
-            HeadsetService service = getService(source);
-            if (service == null) {
-                return;
-            }
-            service.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
             if (ApmConstIntf.getLeAudioEnabled()) {
                 Log.d(TAG, "Adv Audio enabled: phoneStateChanged");
                 CallControlIntf mCallControl = CallControlIntf.get();
@@ -1019,11 +1014,6 @@ public class HeadsetService extends ProfileService {
                CallControlIntf mCallControl = CallControlIntf.get();
                mCallControl.clccResponse(index, direction, status, mode, mpty, number, type);
             }
-            HeadsetService service = getService(source);
-            if (service == null) {
-                return;
-            }
-            service.clccResponse(index, direction, status, mode, mpty, number, type);
         }
 
         @Override
@@ -1071,24 +1061,25 @@ public class HeadsetService extends ProfileService {
             return service.isInbandRingingEnabled();
         }
 
+        @Override
         public void phoneStateChangedDsDa(int numActive, int numHeld, int callState, String number,
                 int type, String name, AttributionSource source) {
-            HeadsetService service = getService(source);
-            if (service == null) {
-                return;
-            }
-            service.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
-        }
+           HeadsetService service = getService(source);
+           if (service == null) {
+              return;
+           }
+           service.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
+       }
 
-        public void clccResponseDsDa(int index, int direction, int status, int mode, boolean mpty,
-                String number, int type, AttributionSource source) {
-
-            HeadsetService service = getService(source);
-            if (service == null) {
-                return;
-            }
-            service.clccResponse(index, direction, status, mode, mpty, number, type);
-        }
+       @Override
+       public void clccResponseDsDa(int index, int direction, int status, int mode, boolean mpty,
+              String number, int type, AttributionSource source) {
+          HeadsetService service = getService(source);
+          if (service == null) {
+             return;
+          }
+          service.clccResponse(index, direction, status, mode, mpty, number, type);
+       }
     }
 
     // API methods
@@ -1824,8 +1815,9 @@ public class HeadsetService extends ProfileService {
                     ActiveDeviceManagerServiceIntf.get();
             /*Precautionary Change: Force Active Device Manager
              * to always return false as same as Media Audio*/
-            return mActiveDeviceManager.setActiveDevice(device,
+            mActiveDeviceManager.setActiveDevice(device,
                     ApmConstIntf.AudioFeatures.CALL_AUDIO, false);
+            return true;
         } else {
             int ret = setActiveDeviceHF(device);
             if (ret == ActiveDeviceManagerServiceIntf.SHO_FAILED) {
@@ -2522,7 +2514,8 @@ public class HeadsetService extends ProfileService {
                     doForEachConnectedConnectingStateMachine(
                    stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
                         new HeadsetCallState(numActive, numHeld, callState, number, type, name)));
-                    if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
+                    if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging()
+                       || isAudioOn())) {
                         Log.i(TAG, "no call, sending resume A2DP message to state machines");
                         for (BluetoothDevice device : availableDevices) {
                             HeadsetStateMachine stateMachine = mStateMachines.get(device);
