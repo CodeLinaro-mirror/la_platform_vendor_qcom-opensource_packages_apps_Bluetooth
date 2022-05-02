@@ -139,6 +139,7 @@ public class HeadsetService extends ProfileService {
     private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
     private static final int AUDIO_CONNECTION_DELAY_DEFAULT = 100;
     private static final String ACTION_ROAMING_STATE_CHANGED = "android.bluetooth.action.ROAMING_STATE_CHANGED";
+    private static final String AG_CALL_DISCONNECTED = "22";
     @Override
     public IProfileServiceBinder initBinder() {
         return new BluetoothHeadsetBinder(this);
@@ -2087,6 +2088,13 @@ public class HeadsetService extends ProfileService {
     private void phoneStateChanged(int numActive, int numHeld, int callState, String number,
             int type, String name, boolean isVirtualCall) {
         enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, "Need MODIFY_PHONE_STATE permission");
+        if(callState == HeadsetHalConstants.CALL_STATE_DISCONNECTED)
+        {
+            Log.i(TAG, "Sending Broadcast after AG call disconnect to HFP Client");
+            Intent intent = new Intent(AG_CALL_DISCONNECTED);
+            sendBroadcastAsUser(intent, UserHandle.ALL, HeadsetService.BLUETOOTH_PERM);
+            Log.i(TAG, "Broadcast sent after AG call disconnect to HFP Client");
+        }
         synchronized (mStateMachines) {
             if (mStateMachinesThread == null) {
                 Log.w(TAG, "mStateMachinesThread is null, returning");
@@ -2306,6 +2314,12 @@ public class HeadsetService extends ProfileService {
 
     private boolean shouldCallAudioBeActive() {
         boolean retVal = false;
+
+        if (!mAudioRouteAllowed) {
+            Log.w(TAG, "shouldCallAudioBeActive : false as audio route is not allowed");
+            return false;
+        }
+
         // When the call is active/held, the call audio must be active
         if (mSystemInterface.getHeadsetPhoneState().getNumActiveCall() > 0 ||
             mSystemInterface.getHeadsetPhoneState().getNumHeldCall() > 0 ) {

@@ -17,6 +17,7 @@
 package com.android.bluetooth.hfpclient;
 
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHeadsetClientCall;
 import android.bluetooth.BluetoothProfile;
@@ -36,6 +37,7 @@ import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService;
+import com.android.bluetooth.hfp.HeadsetService;
 import android.bluetooth.BluetoothA2dp;
 
 import java.util.ArrayList;
@@ -70,6 +72,7 @@ public class HeadsetClientService extends ProfileService {
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
     private static final int MAX_HFP_CLIENTS_SUPPORTED = 1;
     private static final int CONNECT_AUDIO_DELAY = 5000;
+    private static final String AG_CALL_DISCONNECTED = "22";
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
 
     @Override
@@ -110,6 +113,8 @@ public class HeadsetClientService extends ProfileService {
         filter.addAction(ACTION_QUERY_NETWORK);
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(AG_CALL_DISCONNECTED);
+        filter.addAction(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED);
         registerReceiver(mBroadcastReceiver, filter);
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
@@ -239,6 +244,41 @@ public class HeadsetClientService extends ProfileService {
                   }
               }
            }
+           else if (action.equals(AG_CALL_DISCONNECTED)) {
+            Log.d(TAG, "Received AG_CALL_DISCONNECTED");
+            // If SCO is not present here with Headset, for eg, if AG call
+            // is on DUT speaker, we need to check if any active
+            // HFP Client call is present on companion after
+            // AG call is disconnected
+            if(HeadsetService.getHeadsetService().isAudioOn()) {
+                // Do not send CLCC if SCO is active
+                Log.d(TAG, "HeadsetService in AudioOn state, not sending CLCC");
+                return;
+            }
+            for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                if (sm != null) {
+                    sm.sendMessage(
+                            HeadsetClientStateMachine.SEND_CLCC);
+                }
+            }
+         }
+         else if (action.equals(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED)) {
+            Log.d(TAG, "Received BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED");
+            // Query HFP Client call information after AG SCO is disconnected
+            // CLCC response from Companion will be displayed on Dialer app
+            int currState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
+            if(currState != BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
+                // Do not send CLCC if Audio is not disconnected
+                Log.d(TAG, " Headset State is not BluetoothHeadset.STATE_AUDIO_DISCONNECTED");
+                return;
+            }
+            for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                if (sm != null) {
+                    sm.sendMessage(
+                            HeadsetClientStateMachine.SEND_CLCC);
+                }
+            }
+         }
         }
     };
 
@@ -727,7 +767,11 @@ public class HeadsetClientService extends ProfileService {
             Log.e(TAG, "Cannot allocate SM for device " + device);
             return false;
         }
-
+        HeadsetService service = HeadsetService.getHeadsetService();
+        if (service != null && service.isAudioOn()) {
+            Log.e(TAG, "SCO Connected for headsetService ignore connectAudio " + device);
+            return false;
+        }
         if (!sm.isConnected()) {
             return false;
         }
@@ -985,6 +1029,16 @@ public class HeadsetClientService extends ProfileService {
             return null;
         }
         return sm.getCurrentAgEvents();
+    }
+
+    public boolean isHeadsetClientCallPresent() {
+        boolean mIsInCall = false;
+        for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+            if (sm != null) {
+               mIsInCall |= sm.IsInCall();
+            }
+        }
+        return mIsInCall;
     }
 
     public Bundle getCurrentAgFeatures(BluetoothDevice device) {
