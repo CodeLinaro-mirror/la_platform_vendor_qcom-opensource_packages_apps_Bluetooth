@@ -21,11 +21,18 @@ import static android.Manifest.permission.BLUETOOTH_CONNECT;
 import android.bluetooth.BluetoothAvrcpController;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
+import android.car.Car;
+import android.car.CarNotConnectedException;
+import android.car.media.CarAudioManager;
 import android.content.Context;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.media.AudioManager;
 import android.net.Uri;
+import android.media.AudioAttributes;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.os.Message;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.support.v4.media.session.MediaSessionCompat;
@@ -87,6 +94,9 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_CURRENT_APPLICATION_SETTINGS = 218;
     static final int MESSAGE_PROCESS_AVAILABLE_PLAYER_CHANGED = 219;
     static final int MESSAGE_PROCESS_RECEIVED_COVER_ART_PSM = 220;
+    static final int MESSAGE_PROCESS_UIDS_CHANGED = 221;
+    static final int MESSAGE_PROCESS_RC_FEATURES = 222;
+    static final int MESSAGE_PROCESS_RC_VERSION = 223;
 
     //300->399 Events for Browsing
     static final int MESSAGE_GET_FOLDER_ITEMS = 300;
@@ -112,6 +122,10 @@ class AvrcpControllerStateMachine extends StateMachine {
     private static BluetoothDevice sActiveDevice;
     private final AudioManager mAudioManager;
     private final boolean mIsVolumeFixed;
+    private Car mCar;
+    private CarAudioManager mCarAudioManager;
+    private int mVolumeGroupId;
+    private int mMaxVolume;
 
     protected final BluetoothDevice mDevice;
     protected final byte[] mDeviceAddress;
@@ -131,10 +145,15 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     private AvrcpPlayer mAddressedPlayer;
     private int mAddressedPlayerId;
+    // assume that TG is database unaware player, set default value as zero
+    // refresh this value once we receive UIDS_CHANGED_EVENT interim/resp_changed from TG
+    private int mUidCounter = 0;
     private SparseArray<AvrcpPlayer> mAvailablePlayerList;
 
     private int mVolumeChangedNotificationsToIgnore = 0;
     private int mVolumeNotificationLabel = -1;
+    private int mRemoteFeatures;
+    private int mRemoteVersion;
 
     GetFolderList mGetFolderList = null;
 
@@ -148,6 +167,8 @@ class AvrcpControllerStateMachine extends StateMachine {
         mDevice = device;
         mDeviceAddress = Utils.getByteAddress(mDevice);
         mService = service;
+        mRemoteFeatures = BluetoothAvrcpController.BTRC_FEAT_NONE;
+        mRemoteVersion = 0;
         mCoverArtPsm = 0;
         mCoverArtManager = service.getCoverArtManager();
         logD(device.toString());
@@ -179,10 +200,28 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         mGetFolderList = new GetFolderList();
         addState(mGetFolderList, mConnected);
+
         mAudioManager = (AudioManager) service.getSystemService(Context.AUDIO_SERVICE);
-        mIsVolumeFixed = mAudioManager.isVolumeFixed();
+
+        if (mService.isAutomotive()) {
+            mCar = Car.createCar(service.getApplicationContext(), mConnection);
+            mCar.connect();
+            mIsVolumeFixed = false;
+        } else {
+            mIsVolumeFixed = mAudioManager.isVolumeFixed();
+        }
 
         setInitialState(mDisconnected);
+    }
+
+    public void doQuit() {
+        Log.d(TAG, "doQuit");
+        if (mCar != null && mCar.isConnected()) {
+            mCar.disconnect();
+            mCar = null;
+        }
+
+        quitNow();
     }
 
     BrowseTree.BrowseNode findNode(String parentMediaId) {
@@ -206,6 +245,22 @@ class AvrcpControllerStateMachine extends StateMachine {
      */
     public BluetoothDevice getDevice() {
         return mDevice;
+    }
+
+    public synchronized void setRemoteFeatures(int remoteFeatures) {
+        mRemoteFeatures = remoteFeatures;
+    }
+
+    public synchronized int getRemoteFeatures() {
+        return mRemoteFeatures;
+    }
+
+    public synchronized void setRemoteVersion(int remoteVersion) {
+        mRemoteVersion = remoteVersion;
+    }
+
+    public synchronized int getRemoteVersion() {
+        return mRemoteVersion;
     }
 
     /**
@@ -436,6 +491,12 @@ class AvrcpControllerStateMachine extends StateMachine {
                     // Wait until we're connected to process this
                     deferMessage(message);
                     break;
+                case MESSAGE_PROCESS_RC_FEATURES:
+                    setRemoteFeatures(message.arg1);
+                    break;
+                case MESSAGE_PROCESS_RC_VERSION:
+                    setRemoteVersion(message.arg1);
+                    break;
             }
             return true;
         }
@@ -513,6 +574,14 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                 case MSG_AVRCP_PASSTHRU:
                     passThru(msg.arg1);
+                    return true;
+
+                case MESSAGE_PROCESS_RC_FEATURES:
+                    setRemoteFeatures(msg.arg1);
+                    return true;
+
+                case MESSAGE_PROCESS_RC_VERSION:
+                    setRemoteVersion(msg.arg1);
                     return true;
 
                 case MSG_AVRCP_SET_REPEAT:
@@ -643,6 +712,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case MESSAGE_PROCESS_RECEIVED_COVER_ART_PSM:
                     mCoverArtPsm = msg.arg1;
                     connectCoverArt();
+                    return true;
+
+                case MESSAGE_PROCESS_UIDS_CHANGED:
+                    processUIDSChange(msg);
                     return true;
 
                 case MESSAGE_PROCESS_IMAGE_DOWNLOADED:
@@ -1032,14 +1105,14 @@ class AvrcpControllerStateMachine extends StateMachine {
                 mBrowseTree.getCurrentBrowsedFolder().setCached(false);
                 removeUnusedArtworkFromBrowseTree();
                 mService.changeFolderPathNative(
-                        mDeviceAddress,
+                        mDeviceAddress, mUidCounter,
                         AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_UP,
                         0);
 
             } else {
                 logD("NAVIGATING DOWN " + mNextStep.toString());
                 mService.changeFolderPathNative(
-                        mDeviceAddress,
+                        mDeviceAddress, mUidCounter,
                         AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_DOWN,
                         mNextStep.getBluetoothID());
             }
@@ -1066,6 +1139,25 @@ class AvrcpControllerStateMachine extends StateMachine {
             transitionTo(mDisconnected);
         }
     }
+
+    private final ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            try {
+                mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
+                mVolumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(AudioAttributes.USAGE_MEDIA);
+
+                mMaxVolume = mCarAudioManager.getGroupMaxVolume(mVolumeGroupId);
+            } catch (CarNotConnectedException e) {
+                Log.e(TAG, "Car is not connected!", e);
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.e(TAG, "Car service is disconnected");
+        }
+    };
 
     /**
      * Handle a request to align our local volume with the volume of a remote device. If
@@ -1096,31 +1188,91 @@ class AvrcpControllerStateMachine extends StateMachine {
      * @param absVol A volume level based on a domain of [0, ABS_VOL_MAX]
      */
     private void setAbsVolume(int absVol) {
-        int maxLocalVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        int curLocalVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        int reqLocalVolume = (maxLocalVolume * absVol) / ABS_VOL_BASE;
-        logD("setAbsVolme: absVol = " + absVol + ", reqLocal = " + reqLocalVolume
-                + ", curLocal = " + curLocalVolume + ", maxLocal = " + maxLocalVolume);
+        if (mService.isAutomotive()) {
+            int currIndex = 0;
+            try {
+                currIndex = mCarAudioManager.getGroupVolume(mVolumeGroupId);
+            } catch (CarNotConnectedException e) {
+                Log.e(TAG, "Car is not connected", e);
+            }
 
-        /*
-         * In some cases change in percentage is not sufficient enough to warrant
-         * change in index values which are in range of 0-15. For such cases
-         * no action is required
-         */
-        if (reqLocalVolume != curLocalVolume) {
-            mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, reqLocalVolume,
-                    AudioManager.FLAG_SHOW_UI);
+            int newIndex = (mMaxVolume * absVol) / ABS_VOL_BASE;
+            logD(" setAbsVolume =" + absVol + " maxVol = " + mMaxVolume
+                    + " cur = " + currIndex + " new = " + newIndex);
+
+            /*
+             * In some cases change in percentage is not sufficient enough to warrant
+             * change in index values which are in range of 0-15. For such cases
+             * no action is required
+             */
+            if (newIndex != currIndex) {
+                try {
+                    mCarAudioManager.setGroupVolume(mVolumeGroupId, newIndex,
+                            AudioManager.FLAG_SHOW_UI);
+                } catch (CarNotConnectedException e) {
+                    Log.e(TAG, "Car is not connected", e);
+                }
+            }
+        } else {
+            int maxLocalVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            int curLocalVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+            int reqLocalVolume = (maxLocalVolume * absVol) / ABS_VOL_BASE;
+            logD("setAbsVolme: absVol = " + absVol + ", reqLocal = " + reqLocalVolume
+                    + ", curLocal = " + curLocalVolume + ", maxLocal = " + maxLocalVolume);
+
+            if (reqLocalVolume != curLocalVolume) {
+                mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, reqLocalVolume,
+                        AudioManager.FLAG_SHOW_UI);
+            }
         }
     }
 
     private int getAbsVolume() {
-        if (mIsVolumeFixed) {
-            return ABS_VOL_BASE;
+        if (mService.isAutomotive()) {
+            int currIndex = 0;
+            int newIndex = 0;
+
+            try {
+                currIndex = mCarAudioManager.getGroupVolume(mVolumeGroupId);
+            } catch (CarNotConnectedException e) {
+                Log.e(TAG, "Car is not connected", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
+            }
+
+            if (mMaxVolume > 0) {
+                newIndex = (currIndex * ABS_VOL_BASE) / mMaxVolume;
+            } else {
+                Log.w(TAG, "Invalid mMaxVolume " + mMaxVolume);
+            }
+            logD("getAbsVolume newIndex is " + newIndex);
+            return newIndex;
+        } else {
+            if (mIsVolumeFixed) {
+                return ABS_VOL_BASE;
+            }
+            int maxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            int currIndex = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+            int newIndex = (currIndex * ABS_VOL_BASE) / maxVolume;
+            return newIndex;
         }
-        int maxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        int currIndex = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        int newIndex = (currIndex * ABS_VOL_BASE) / maxVolume;
-        return newIndex;
+    }
+
+    private void processUIDSChange(Message msg) {
+        BluetoothDevice device = (BluetoothDevice) msg.obj;
+        int uidCounter = msg.arg1;
+        if (DBG) {
+            Log.d(TAG, " processUIDSChange device: " + device + ", uidCounter: " + uidCounter);
+        }
+        mUidCounter = uidCounter;
+
+        refreshCoverArt();
+
+        // Refresh Root node and Now Playing List
+        mBrowseTree.mRootNode.setCached(false);
+        requestContents(mBrowseTree.mRootNode);
+        mBrowseTree.mNowPlayingNode.setCached(false);
+        requestContents(mBrowseTree.mNowPlayingNode);
     }
 
     private boolean shouldDownloadBrowsedImages() {
