@@ -289,8 +289,13 @@ final class MceStateMachine extends StateMachine {
         if (this.getCurrentState() == mConnected && !isAbort()) {
             Bmessage bmsg = new Bmessage();
             // Set type and status.
-            bmsg.setType(getDefaultMessageType());
-            bmsg.setStatus(Bmessage.Status.READ);
+            if (Utils.isPtsTestMode()) {
+                bmsg.setType(Bmessage.Type.SMS_GSM);
+            } else {
+                bmsg.setType(getDefaultMessageType());
+            }
+            bmsg.setStatus(Bmessage.Status.UNREAD);
+            bmsg.setFolder(FOLDER_OUTBOX);
 
             for (Uri contact : contacts) {
                 // Who to send the message to.
