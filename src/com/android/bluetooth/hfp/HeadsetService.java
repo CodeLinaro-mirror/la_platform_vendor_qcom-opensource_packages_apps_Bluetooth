@@ -2550,7 +2550,7 @@ public class HeadsetService extends ProfileService {
                     // trigger SCO after SCO disconnected with previous active
                     // device
                     Log.w(TAG, "onAudioStateChangedFromStateMachine:"
-                            + "shouldPersistAudio() returns"
+                            + "shouldPersistAudio() returns "
                             + shouldPersistAudio());
                     if (mAdapterService != null && mAdapterService.isTwsPlusDevice(device) &&
                                    isAudioOn()) {
