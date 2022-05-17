@@ -139,6 +139,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -162,6 +163,7 @@ public class AdapterService extends Service {
     private final ArrayList<String> mStartedProfiles = new ArrayList<>();
     private final ArrayList<ProfileService> mRegisteredProfiles = new ArrayList<>();
     private final ArrayList<ProfileService> mRunningProfiles = new ArrayList<>();
+    private final Map<BluetoothDevice, String> mBluetoothCallerNameMap = new HashMap<>();
 
     public static final String ACTION_LOAD_ADAPTER_PROPERTIES =
             "com.android.bluetooth.btservice.action.LOAD_ADAPTER_PROPERTIES";
@@ -1199,6 +1201,10 @@ public class AdapterService extends Service {
         return !mCleaningUp;
     }
 
+    private boolean isValidLinkKey(String linkKey, int keyType, int pinLen) {
+        return (linkKey.isEmpty() || keyType < 0 || pinLen < 0) ? false : true;
+    }
+
     /**
      * Handlers for incoming service calls
      */
@@ -1631,6 +1637,21 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public void getLinkKey(BluetoothDevice device, String caller) {
+            if (!callerIsSystemOrActiveUser(TAG, "getLinkKey")) {
+                Log.w(TAG, "getLinkKey() - Not allowed for non-active user");
+                return;
+            }
+
+            AdapterService service = getService();
+            if (service == null) {
+                return;
+            }
+            service.debugLog("getLinkKey(" + device + ")");
+            service.getLinkKey(device, caller);
+        }
+
+        @Override
         public boolean removeBond(BluetoothDevice device, AttributionSource attributionSource) {
             Attributable.setAttributionSource(device, attributionSource);
             AdapterService service = getService();
@@ -1692,6 +1713,32 @@ public class AdapterService extends Service {
             }
             enforceBluetoothPrivilegedPermission(service);
             service.generateLocalOobData(transport, callback);
+        }
+
+        @Override
+        public boolean loadRemoteOobData(BluetoothDevice device, int transport, OobData remoteP192Data,
+                OobData remoteP256Data, AttributionSource attributionSource) {
+            Attributable.setAttributionSource(device, attributionSource);
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveOrManagedUser(service, TAG, "createBond")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService createBond")) {
+                return false;
+            }
+
+            enforceBluetoothPrivilegedPermission(service);
+            return service.loadRemoteOobData(device, transport, remoteP192Data, remoteP256Data,
+                    attributionSource.getPackageName());
+        }
+
+        @Override
+        public boolean getRssi(BluetoothDevice device, int transport){
+            AdapterService service = getService();
+            if (service == null)
+                return false;
+
+            enforceBluetoothPrivilegedPermission(service);
+            return service.getRssi(device, transport);
         }
 
         @Override
@@ -2743,6 +2790,71 @@ public class AdapterService extends Service {
                 Log.e(TAG, "Failed to make callback", e);
             }
         }
+    }
+
+    void getLinkKey(BluetoothDevice device,     String caller) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
+        byte[] addr = Utils.getBytesFromAddress(device.getAddress());
+        Log.d(TAG, "getLinkKey callerName " + caller);
+        synchronized (mBluetoothCallerNameMap) {
+            mBluetoothCallerNameMap.put(device, caller);
+        }
+        getLinkKeyNative(addr);
+    }
+
+    void sendGetLinkKeyIntent(String linkKey, String address, boolean keyFound, int keyType) {
+        Intent intent = new Intent(BluetoothDevice.ACTION_LINKKEY);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, address);
+
+        if (keyFound) {
+            Log.d(TAG, "found linkkey " + keyFound);
+            intent.putExtra(BluetoothDevice.EXTRA_KEY_LINK_KEY, linkKey);
+            intent.putExtra(BluetoothDevice.EXTRA_KEY_LINK_KEY_TYPE, keyType);
+        } else {
+            Log.e(TAG, "Can not find linkkey");
+            intent.putExtra(BluetoothDevice.EXTRA_KEY_LINK_KEY, "");
+            intent.putExtra(BluetoothDevice.EXTRA_KEY_LINK_KEY_TYPE, BluetoothDevice.LKEY_TYPE_NO_LINK);
+        }
+
+        // send the intent to the caller application
+        synchronized (mBluetoothCallerNameMap) {
+            BluetoothDevice device = mRemoteDevices.getDevice(Utils.getBytesFromAddress(address));
+            String caller = mBluetoothCallerNameMap.get(device);
+            if (caller == null) {
+                Log.e(TAG, "Can not find caller");
+                return;
+            }
+            intent.setPackage(caller);
+            sendBroadcast(intent, android.Manifest.permission.BLUETOOTH_PRIVILEGED);
+        }
+    }
+
+    void onGetLinkKey(String linkKey, byte[] remoteAddr, boolean keyFound, int keyType) {
+        String address = Utils.getAddressStringFromByte(remoteAddr);
+
+        // Broadcast intent (to app)
+        sendGetLinkKeyIntent(linkKey, address, keyFound, keyType);
+    }
+
+    public boolean loadRemoteOobData(BluetoothDevice device, int transport, OobData remoteP192Data,
+        OobData remoteP256Data, String callingPackage) {
+        debugLog("start loadRemoteOobData");
+        if (!isPackageNameAccurate(this, callingPackage, Binder.getCallingUid())) {
+                return false;
+        }
+
+        byte[] addr = Utils.getBytesFromAddress(device.getAddress());
+
+        return loadRemoteOobDataNative(addr, transport, remoteP192Data, remoteP256Data);
+    }
+
+    public boolean getRssi(BluetoothDevice device, int transport) {
+        debugLog("getRssi");
+
+        byte[] addr = Utils.getBytesFromAddress(device.getAddress());
+
+        return getRssiNative(addr, transport);
     }
 
     public boolean isQuietModeEnabled() {
@@ -3925,6 +4037,10 @@ public class AdapterService extends Service {
     native void generateLocalOobDataNative(int transport);
 
     /*package*/
+    native boolean loadRemoteOobDataNative(byte[] address, int transport,
+            OobData p192Data, OobData p256Data);
+
+    /*package*/
     native boolean sdpSearchNative(byte[] address, byte[] uuid);
 
     /*package*/
@@ -3972,6 +4088,7 @@ public class AdapterService extends Service {
             int type, String serviceName, byte[] uuid, int port, int flag, int callingUid);
 
     /*package*/ native void requestMaximumTxDataLengthNative(byte[] address);
+    /*package*/ native boolean getRssiNative(byte[] address, int transport);
 
     // Returns if this is a mock object. This is currently used in testing so that we may not call
     // System.exit() while finalizing the object. Otherwise GC of mock objects unfortunately ends up
@@ -3982,4 +4099,6 @@ public class AdapterService extends Service {
     public boolean isMock() {
         return false;
     }
+
+    private native void getLinkKeyNative(byte[] address);
 }
