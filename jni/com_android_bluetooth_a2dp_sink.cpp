@@ -23,6 +23,7 @@
 #include "utils/Log.h"
 
 #include <string.h>
+#include <shared_mutex>
 
 namespace android {
 static jmethodID method_onConnectionStateChanged;
@@ -31,12 +32,15 @@ static jmethodID method_onAudioConfigChanged;
 
 static const btav_sink_interface_t* sBluetoothA2dpInterface = NULL;
 static jobject mCallbacksObj = NULL;
+static std::shared_mutex interface_mutex;
+static std::shared_mutex callbacks_mutex;
 
 static void bta2dp_connection_state_callback(const RawAddress& bd_addr,
                                              btav_connection_state_t state) {
+  std::shared_lock<std::shared_mutex> lock(callbacks_mutex);
   ALOGI("%s", __func__);
   CallbackEnv sCallbackEnv(__func__);
-  if (!sCallbackEnv.valid()) return;
+  if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
 
   ScopedLocalRef<jbyteArray> addr(
       sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
@@ -53,9 +57,10 @@ static void bta2dp_connection_state_callback(const RawAddress& bd_addr,
 
 static void bta2dp_audio_state_callback(const RawAddress& bd_addr,
                                         btav_audio_state_t state) {
+  std::shared_lock<std::shared_mutex> lock(callbacks_mutex);
   ALOGI("%s", __func__);
   CallbackEnv sCallbackEnv(__func__);
-  if (!sCallbackEnv.valid()) return;
+  if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
 
   ScopedLocalRef<jbyteArray> addr(
       sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
@@ -74,9 +79,10 @@ static void bta2dp_audio_config_callback(const RawAddress& bd_addr,
                                          uint32_t sample_rate,
                                          uint8_t channel_count,
                                          btav_a2dp_codec_index_t codec_index) {
+  std::shared_lock<std::shared_mutex> lock(callbacks_mutex);
   ALOGI("%s", __func__);
   CallbackEnv sCallbackEnv(__func__);
-  if (!sCallbackEnv.valid()) return;
+  if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
 
   ScopedLocalRef<jbyteArray> addr(
       sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
@@ -111,6 +117,9 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 }
 
 static void initNative(JNIEnv* env, jobject object) {
+  std::unique_lock<std::shared_mutex> interface_lock(interface_mutex);
+  std::unique_lock<std::shared_mutex> callbacks_lock(callbacks_mutex);
+
   const bt_interface_t* btInf = getBluetoothInterface();
   if (btInf == NULL) {
     ALOGE("Bluetooth module is not loaded");
@@ -148,6 +157,9 @@ static void initNative(JNIEnv* env, jobject object) {
 }
 
 static void cleanupNative(JNIEnv* env, jobject object) {
+  std::unique_lock<std::shared_mutex> interface_lock(interface_mutex);
+  std::unique_lock<std::shared_mutex> callbacks_lock(callbacks_mutex);
+
   const bt_interface_t* btInf = getBluetoothInterface();
 
   if (btInf == NULL) {
@@ -168,6 +180,7 @@ static void cleanupNative(JNIEnv* env, jobject object) {
 
 static jboolean connectA2dpNative(JNIEnv* env, jobject object,
                                   jbyteArray address) {
+  std::shared_lock<std::shared_mutex> lock(interface_mutex);
   ALOGI("%s: sBluetoothA2dpInterface: %p", __func__, sBluetoothA2dpInterface);
   if (!sBluetoothA2dpInterface) return JNI_FALSE;
 
@@ -189,6 +202,7 @@ static jboolean connectA2dpNative(JNIEnv* env, jobject object,
 
 static jboolean disconnectA2dpNative(JNIEnv* env, jobject object,
                                      jbyteArray address) {
+  std::shared_lock<std::shared_mutex> lock(interface_mutex);
   if (!sBluetoothA2dpInterface) return JNI_FALSE;
 
   jbyte* addr = env->GetByteArrayElements(address, NULL);
@@ -209,18 +223,21 @@ static jboolean disconnectA2dpNative(JNIEnv* env, jobject object,
 
 static void informAudioFocusStateNative(JNIEnv* env, jobject object,
                                         jint focus_state) {
+  std::shared_lock<std::shared_mutex> lock(interface_mutex);
   if (!sBluetoothA2dpInterface) return;
   sBluetoothA2dpInterface->set_audio_focus_state((uint8_t)focus_state);
 }
 
 static void informAudioTrackGainNative(JNIEnv* env, jobject object,
                                        jfloat gain) {
+  std::shared_lock<std::shared_mutex> lock(interface_mutex);
   if (!sBluetoothA2dpInterface) return;
   sBluetoothA2dpInterface->set_audio_track_gain((float)gain);
 }
 
 static jboolean setActiveDeviceNative(JNIEnv* env, jobject object,
                                       jbyteArray address) {
+  std::shared_lock<std::shared_mutex> lock(interface_mutex);
   if (!sBluetoothA2dpInterface) return JNI_FALSE;
 
   ALOGI("%s: sBluetoothA2dpInterface: %p", __func__, sBluetoothA2dpInterface);
