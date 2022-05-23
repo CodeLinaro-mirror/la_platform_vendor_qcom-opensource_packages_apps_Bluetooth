@@ -291,10 +291,10 @@ public class BluetoothInCallService extends InCallService {
         }
 
         public void onDetailsChanged(BluetoothCall call, Call.Details details) {
-            Log.i(TAG, "onDetailsChanged call: " + call + "details: " + details);
             if (mCallInfo.isNullCall(call)) {
                 return;
             }
+            Log.i(TAG, "onDetailsChanged call: " + call + "details: " + details);
             if (call.isExternalCall()) {
                 onCallRemoved(call);
             } else {
@@ -339,6 +339,9 @@ public class BluetoothInCallService extends InCallService {
         }
 
         public void onChildrenChanged(BluetoothCall call, List<BluetoothCall> children) {
+            if (mCallInfo.isNullCall(call)) {
+                return;
+            }
             if (call.isExternalCall()) {
                 return;
             }
