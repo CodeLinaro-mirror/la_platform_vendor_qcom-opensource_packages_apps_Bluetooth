@@ -1726,10 +1726,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // SCO connected for client, set the routing allowed to false for AG
                     setHeadsetAudioRouteAllowed(false);
                     Log.d(TAG, "mAudioRouteAllowed=" + mAudioRouteAllowed);
-                    // By default mAudioRouteAllowed will be false but lets check if we get SCO
-                    // connect request after call being ACTIVE then we must not reject SCO
-                    if (!mAudioRouteAllowed &&
-                        callsInState(BluetoothHeadsetClientCall.CALL_STATE_ACTIVE) == 0) {
+                    if (!mAudioRouteAllowed) {
                         sendMessageDelayed(HeadsetClientStateMachine.DISCONNECT_AUDIO,
                             SCO_REJECT_DELAY_MS);
                         // Don't continue connecting!
