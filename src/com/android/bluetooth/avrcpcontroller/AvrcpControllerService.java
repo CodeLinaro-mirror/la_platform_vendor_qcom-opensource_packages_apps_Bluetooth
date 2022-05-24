@@ -19,14 +19,19 @@ package com.android.bluetooth.avrcpcontroller;
 import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAvrcpPlayerSettings;
+import android.bluetooth.BluetoothAvrcpController;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothAvrcpController;
 import android.content.Attributable;
 import android.content.AttributionSource;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.support.v4.media.session.PlaybackStateCompat;
+import android.media.session.PlaybackState;
+import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -90,6 +95,16 @@ public class AvrcpControllerService extends ProfileService {
     public static final int PASS_THRU_CMD_ID_FORWARD = 0x4B;
     public static final int PASS_THRU_CMD_ID_BACKWARD = 0x4C;
 
+    /*
+     * AVRCP Error types as defined in spec. Also they should be in sync with btrc_status_t
+     * NOTE: Not all may be defined.
+     */
+    public static final int JNI_AVRC_STS_INVALID_CMD = 0x00;
+    public static final int JNI_AVRC_STS_INVALID_PARAMETER = 0x01;
+    public static final int JNI_AVRC_STS_NO_ERROR = 0x04;
+    public static final int JNI_AVRC_STS_INVALID_SCOPE = 0x0a;
+    public static final int JNI_AVRC_INV_RANGE = 0x0b;
+
     /* Key State Variables */
     public static final int KEY_STATE_PRESSED = 0;
     public static final int KEY_STATE_RELEASED = 1;
@@ -97,6 +112,32 @@ public class AvrcpControllerService extends ProfileService {
     /* Active Device State Variables */
     public static final int DEVICE_STATE_INACTIVE = 0;
     public static final int DEVICE_STATE_ACTIVE = 1;
+
+    /**
+     * intent used to broadcast the change in metadata state of playing track on the avrcp
+     * ag.
+     *
+     * <p>this intent will have the two extras:
+     * <ul>
+     *    <li> {@link #extra_metadata} - {@link mediametadata} containing the current metadata.</li>
+     *    <li> {@link #extra_playback} - {@link playbackstate} containing the current playback
+     *    state. </li>
+     * </ul>
+     */
+    public static final String ACTION_TRACK_EVENT =
+        "android.bluetooth.avrcp-controller.profile.action.TRACK_EVENT";
+
+    public static final String EXTRA_METADATA =
+        "android.bluetooth.avrcp-controller.profile.extra.METADATA";
+
+    public static final String ACTION_FOLDER_LIST =
+        "android.bluetooth.avrcp-controller.profile.action.FOLDER_LIST";
+
+    public static final String EXTRA_FOLDER_LIST =
+        "android.bluetooth.avrcp-controller.profile.extra.FOLDER_LIST";
+
+    public static final String EXTRA_FOLDER_ID =
+        "android.bluetooth.avrcp-controller.profile.extra.EXTRA_FOLDER_ID";
 
     static BrowseTree sBrowseTree;
     private static AvrcpControllerService sService;
@@ -158,7 +199,7 @@ public class AvrcpControllerService extends ProfileService {
         Intent stopIntent = new Intent(this, BluetoothMediaBrowserService.class);
         stopService(stopIntent);
         for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
-            stateMachine.quitNow();
+            stateMachine.doQuit();
         }
 
         sService = null;
@@ -429,6 +470,49 @@ public class AvrcpControllerService extends ProfileService {
             Log.w(TAG, "getPlayerSettings not implemented");
             return null;
         }
+
+        @Override
+        public void getPlaybackState(BluetoothDevice device, AttributionSource source) {
+            Attributable.setAttributionSource(device, source);
+            AvrcpControllerService service = getService(source);
+            if (service == null) {
+                return;
+            }
+            service.getPlaybackStateNative(Utils.getByteAddress(device));
+            return;
+        }
+
+        @Override
+        public int getSupportedFeatures(BluetoothDevice device, AttributionSource source) {
+            Log.v(TAG, "Binder Call: getSupportedFeatures");
+            AvrcpControllerService service = getService(source);
+            if(service == null) {
+                return BluetoothAvrcpController.BTRC_FEAT_NONE;
+            }
+            return service.getSupportedFeatures(device);
+        }
+
+        @Override
+        public int getRemoteVersion(BluetoothDevice device, AttributionSource source) {
+            Log.v(TAG, "Binder Call: getRemoteVersion");
+            AvrcpControllerService service = getService(source);
+            if(service == null) {
+                return 0;
+            }
+            return service.getRemoteVersion(device);
+        }
+
+        @Override
+        public void startFetchingAlbumArt(BluetoothDevice device, String type, String scheme,
+            String mimeType, int height, int width, int maxSize, AttributionSource source) {
+            Attributable.setAttributionSource(device, source);
+            AvrcpControllerService service = getService(source);
+            if (service == null) {
+                return;
+            }
+            service.startFetchingAlbumArt(device, type, scheme, mimeType, height, width, maxSize);
+            return;
+        }
     }
 
 
@@ -480,7 +564,12 @@ public class AvrcpControllerService extends ProfileService {
 
     // Called by JNI to notify Avrcp of features supported by the Remote device.
     private void getRcFeatures(byte[] address, int features) {
-        /* Do Nothing. */
+        BluetoothDevice device = getAnonymousDevice(address);
+        AvrcpControllerStateMachine stateMachine = getOrCreateStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                    AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_FEATURES, features);
+        }
     }
 
     // Called by JNI to notify Avrcp of a remote device's Cover Art PSM
@@ -497,6 +586,21 @@ public class AvrcpControllerService extends ProfileService {
     // Called by JNI
     private void setPlayerAppSettingRsp(byte[] address, byte accepted) {
         /* Do Nothing. */
+    }
+
+    // Called by JNI to notify Avrcp of a remote device's version
+    private void getPeerRcVersion(byte[] address, int version) {
+        BluetoothDevice device = getAnonymousDevice(address);
+        AvrcpControllerStateMachine stateMachine = getOrCreateStateMachine(device);
+        if (DBG) {
+            Log.d(TAG, "getPeerRcVersion(device=" + device + ", Remote AVRCP version="
+                    + Integer.toHexString((version >> 8) & 0xFF) + "."
+                    + Integer.toHexString(version & 0xFF) + ")");
+        }
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                    AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_VERSION, version);
+        }
     }
 
     // Called by JNI when remote wants to receive absolute volume notifications.
@@ -578,6 +682,18 @@ public class AvrcpControllerService extends ProfileService {
             stateMachine.sendMessage(
                     AvrcpControllerStateMachine.MESSAGE_PROCESS_PLAY_STATUS_CHANGED,
                     toPlaybackStateFromJni(playStatus));
+        }
+    }
+
+    private void onUidsChanged(byte[] address, int uidCounter) {
+        if (DBG) {
+            Log.d(TAG, "onUidsChanged uidCounter: " + uidCounter);
+        }
+        BluetoothDevice device = getAnonymousDevice(address);
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                    AvrcpControllerStateMachine.MESSAGE_PROCESS_UIDS_CHANGED, uidCounter, 0, device);
         }
     }
 
@@ -795,6 +911,33 @@ public class AvrcpControllerService extends ProfileService {
         }
     }
 
+    private void handleSearchRsp(byte[] address, int status, int uid, int items) {
+        if (DBG) {
+            Log.d(TAG, "handleSearchRsp status: " + status + ", uid: " + uid + ", items: " + items);
+        }
+        BluetoothDevice device = getAnonymousDevice(address);
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_SEARCH_RESP, status, items);
+        }
+    }
+
+    private void handleAddToNowPlayingRsp(byte[] address, int status) {
+        if (DBG) {
+            Log.d(TAG, "handleAddToNowPlayingRsp status" + status);
+        }
+        BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                    AvrcpControllerStateMachine.MESSAGE_PROCESS_ADD_TO_NOW_PLAYING, status, 0);
+        }
+    }
+
     /* Generic Profile Code */
 
     /**
@@ -890,6 +1033,53 @@ public class AvrcpControllerService extends ProfileService {
                 : stateMachine.getState();
     }
 
+    /*Java API*/
+    public synchronized int getSupportedFeatures(BluetoothDevice device) {
+        if (DBG) Log.d(TAG,"getSupportedFeatures device " + device);
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            return stateMachine.getRemoteFeatures();
+        }
+        return 0;
+    }
+
+    public synchronized int getRemoteVersion(BluetoothDevice device) {
+        if (DBG) Log.d(TAG,"getRemoteVersion device " + device);
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            return stateMachine.getRemoteVersion();
+        }
+        return 0;
+    }
+
+    public synchronized void startFetchingAlbumArt(BluetoothDevice device, String type, String scheme,
+            String mimeType, int height, int width, int maxSize) {
+        if (DBG) {
+            Log.d(TAG,"startFetchingAlbumArt mimeType " + mimeType + " pixel " + height + " * "
+                  + width + " maxSize: " + maxSize);
+        }
+
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGTYPE,
+                type);
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_SCHEME,
+                scheme);
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_MIMETYPE,
+                mimeType);
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGHEIGHT,
+                String.valueOf(height));
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGWIDTH,
+                String.valueOf(width));
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGMAXSIZE,
+                String.valueOf(maxSize));
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(AvrcpControllerStateMachine.MSG_AVRCP_FETCH_COVER_ART);
+        }
+    }
+
     @Override
     public void dump(StringBuilder sb) {
         super.dump(sb);
@@ -909,6 +1099,10 @@ public class AvrcpControllerService extends ProfileService {
         }
 
         sb.append("\n  " + BluetoothMediaBrowserService.dump() + "\n");
+    }
+
+    boolean isAutomotive() {
+        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 
     /*JNI*/
@@ -1006,10 +1200,11 @@ public class AvrcpControllerService extends ProfileService {
     /**
      * Change the current browsed folder
      *
+     * @param uidCounter uid counter
      * @param direction up/down
      * @param uid       folder unique id
      */
-    public native void changeFolderPathNative(byte[] address, byte direction, long uid);
+    public native void changeFolderPathNative(byte[] address, int uidCounter, byte direction, long uid);
 
     /**
      * Play item with provided uid
@@ -1033,4 +1228,78 @@ public class AvrcpControllerService extends ProfileService {
      * @param playerId player number
      */
     public native void setAddressedPlayerNative(byte[] address, int playerId);
+
+    /**
+     * Search
+     *
+     * @param address      address
+     * @param address      charset
+     * @param strLen       strLen
+     * @param pattern      pattern
+     */
+    public native static void searchNative(byte[] address, int charset, int strLen, String pattern);
+    /**
+     * Get Search List
+     *
+     * @param address      address
+     * @param address      start
+     * @param strLen       end
+     */
+    public native static void getSearchListNative(byte[] address, int start, int end);
+
+    /**
+     * add folder into now playing list
+     *
+     * @param scope          scope of item to played
+     * @param uid            song unique id
+     * @param uidCounter     counter
+     */
+    native static void addToNowPlayingNative(byte[] address, byte scope, long uid, int uidCounter);
+
+    /**
+     * Get item attributes with provided uid
+     *
+     * @param scope          scope of item to played
+     * @param uid            song unique id
+     * @param uidCounter     counter
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getItemAttributesNative(byte[] address, byte scope, long uid, int uidCounter,
+            byte numAttributes, int[] attribIds);
+
+    /**
+     * Get element attributes
+     *
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getElementAttributesNative(byte[] address, byte numAttributes, int[] attribIds);
+
+    /**
+     * Get folder items with specified range
+     *
+     * @param scope          scope of item to played
+     * @param start          start of range
+     * @param end            end of range
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getFolderItemsNative(byte[] address, byte scope, byte start, byte end,
+            byte numAttributes, int[] attribIds);
+
+    /**
+     * Request for continuing response
+     *
+     * @param pduId  ID of PDU data packet
+     */
+    native static void requestContinuingResponseNative(byte[] address, byte pduId);
+
+    /**
+     * Abort continuing response
+     *
+     * @param pduId  ID of PDU data packet
+     */
+    native static void abortContinuingResponseNative(byte[] address, byte pduId);
+
 }

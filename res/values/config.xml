@@ -77,7 +77,7 @@
     <bool name="avrcp_controller_enable_cover_art">true</bool>
 
     <!-- For enabling browsed cover art with the AVRCP Controller Cover Artwork feature -->
-    <bool name="avrcp_controller_cover_art_browsed_images">false</bool>
+    <bool name="avrcp_controller_cover_art_browsed_images">true</bool>
 
     <!-- For enabling the hfp client connection service -->
     <bool name="hfp_client_connection_service_enabled">false</bool>
