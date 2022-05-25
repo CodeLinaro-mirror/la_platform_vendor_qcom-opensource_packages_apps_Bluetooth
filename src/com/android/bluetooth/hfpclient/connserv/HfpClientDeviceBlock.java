@@ -120,8 +120,6 @@ public class HfpClientDeviceBlock {
 
         if (connection != null) {
             connection.onAdded();
-            /* Outgoing call from AG lets not allow SCO to be active on HF-client */
-            enableAudio(false, true);
             return connection;
         } else {
             Log.e(mTAG, "Call " + call + " ignored: connection does not exist");
