@@ -174,10 +174,9 @@ public class HfpClientDeviceBlock {
 
         if (connection == null) {
             if(call.getState() == BluetoothHeadsetClientCall.CALL_STATE_ACTIVE){
-                // We were told about the call after it became active, do not try to redirect audio.
-                // However, we should allow audio to be switched to this source after this point
-                Log.d(mTAG, "connected to already active call ");
-                enableAudio(true, false);
+            // We were told about the call after it became active
+            // Audio routing will be handled when the call state moves to active at telephony side
+                Log.d(mTAG, "connected to already active call");
             }
             // Create the connection here, trigger Telecom to bind to us.
             // Do not allow new calls while SCO channel is in use.
