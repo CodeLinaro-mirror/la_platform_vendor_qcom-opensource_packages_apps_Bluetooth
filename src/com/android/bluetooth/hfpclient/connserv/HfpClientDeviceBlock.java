@@ -250,7 +250,7 @@ public class HfpClientDeviceBlock {
             if(isOtherCallActiveOrHold) {
                 enableAudio(true, false);
             } else {
-                enableAudio(false, true);
+                enableAudio(false, false);
             }
         }
 
