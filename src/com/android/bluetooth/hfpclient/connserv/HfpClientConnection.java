@@ -26,6 +26,10 @@ import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.util.Log;
 
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+
 import java.util.UUID;
 
 public class HfpClientConnection extends Connection {
@@ -44,6 +48,9 @@ public class HfpClientConnection extends Connection {
     private boolean mLocalDisconnect;
     private boolean mClientHas3WayCalling;
     private boolean mAdded;
+
+    private static final int MSG_ENABLE_AUDIO_WITHOUT_REDIRECT = 2;
+
 
     // Constructor to be used when there's an existing call (such as that created on the AG or
     // when connection happens and we see calls for the first time).
@@ -333,4 +340,27 @@ public class HfpClientConnection extends Connection {
         return mHfpClientConnectionService;
     }
 
+    private class ConnectionHandler extends Handler {
+        public ConnectionHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MSG_ENABLE_AUDIO_WITHOUT_REDIRECT: {
+                    if (!mClosed) {
+                        if(mHfpClientConnectionService != null) {
+                            HfpClientDeviceBlock block = mHfpClientConnectionService.findBlockForDevice(mDevice);
+                            if(block != null ) {
+                                Log.d(TAG, "MSG_ENABLE_AUDIO_WITHOUT_REDIRECT ");
+                                block.enableAudio(true, false);
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
 }
