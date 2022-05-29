@@ -48,8 +48,10 @@ public class HfpClientConnection extends Connection {
     private boolean mLocalDisconnect;
     private boolean mClientHas3WayCalling;
     private boolean mAdded;
+    private ConnectionHandler mHandler;
 
     private static final int MSG_ENABLE_AUDIO_WITHOUT_REDIRECT = 2;
+    private static final int ENABLE_AUDIO_DELAY_MS = 1000;
 
 
     // Constructor to be used when there's an existing call (such as that created on the AG or
@@ -65,6 +67,7 @@ public class HfpClientConnection extends Connection {
         }
 
         mCurrentCall = call;
+        mHandler = new ConnectionHandler(context.getMainLooper());
         handleCallChanged();
         finishInitializing();
     }
@@ -88,6 +91,7 @@ public class HfpClientConnection extends Connection {
             return;
         }
 
+        mHandler = new ConnectionHandler(context.getMainLooper());
         setInitializing();
         setDialing();
         finishInitializing();
@@ -214,6 +218,29 @@ public class HfpClientConnection extends Connection {
 
     public synchronized BluetoothDevice getDevice() {
         return mDevice;
+    }
+
+    @Override
+    public void onStateChanged(int state) {
+        switch (state) {
+            case STATE_ACTIVE: {
+                // Don't enable audio immediately as we may still get audio connection attempts from
+                // the phone.
+                Log.d(TAG, "onStateChanged STATE_ACTIVE");
+                if (!mHandler.hasMessages(MSG_ENABLE_AUDIO_WITHOUT_REDIRECT)) {
+                    mHandler.sendEmptyMessageDelayed(
+                            MSG_ENABLE_AUDIO_WITHOUT_REDIRECT, ENABLE_AUDIO_DELAY_MS);
+                }
+                break;
+            }
+            case STATE_DISCONNECTED: {
+                Log.d(TAG, "onStateChanged STATE_DISCONNECTED");
+                mHandler.removeMessages(MSG_ENABLE_AUDIO_WITHOUT_REDIRECT);
+                break;
+            }
+            default:
+                Log.d(TAG, "onStateChanged No Action Taken " + state);
+        }
     }
 
     @Override
