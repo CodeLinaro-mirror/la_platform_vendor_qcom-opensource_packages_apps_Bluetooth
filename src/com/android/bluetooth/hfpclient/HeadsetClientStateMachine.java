@@ -932,6 +932,11 @@ public class HeadsetClientStateMachine extends StateMachine {
             mCallIndRcvd = 0;
 
             mAudioWbs = false;
+
+            mAudioRouteAllowed = mService.getResources().getBoolean(
+                 R.bool.headset_client_initial_audio_route_allowed);
+            Log.d(TAG, "Disconnected state mAudioRouteAllowed -> " + mAudioRouteAllowed);
+
             setHeadsetAudioRouteAllowed(true);
 
             // will be set on connect
