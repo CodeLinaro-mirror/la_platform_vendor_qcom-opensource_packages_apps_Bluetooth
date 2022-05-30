@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.avrcp;
@@ -42,6 +47,7 @@ import com.android.bluetooth.audio_util.MediaPlayerWrapper;
 import com.android.bluetooth.audio_util.Metadata;
 import com.android.bluetooth.audio_util.PlayStatus;
 import com.android.bluetooth.audio_util.PlayerInfo;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.ServiceFactory;
@@ -66,6 +72,8 @@ public class AvrcpTargetService extends ProfileService {
     private final BTAudioEventLogger mMediaKeyEventLogger = new BTAudioEventLogger(
             MEDIA_KEY_EVENT_LOGGER_SIZE, MEDIA_KEY_EVENT_LOGGER_TITLE);
 
+    private boolean mIsAvrcpEnabled;
+    private AdapterService mAdapterService;
     private AvrcpVersion mAvrcpVersion;
     private MediaPlayerList mMediaPlayerList;
     private AudioManager mAudioManager;
@@ -165,6 +173,12 @@ public class AvrcpTargetService extends ProfileService {
         return mAvrcpCoverArtService;
     }
 
+    private boolean isAvrcpEnabled() {
+        // By default, AVRCP is supported in new Bluetooth adapter.
+        return SystemProperties.getBoolean(AVRCP_ENABLE_PROPERTY, true) ||
+                mAdapterService.isNewAdapter();
+    }
+
     @Override
     public String getName() {
         return TAG;
@@ -179,7 +193,7 @@ public class AvrcpTargetService extends ProfileService {
     protected void setUserUnlocked(int userId) {
         Log.i(TAG, "User unlocked, initializing the service");
 
-        if (!SystemProperties.getBoolean(AVRCP_ENABLE_PROPERTY, true)) {
+        if (!mIsAvrcpEnabled) {
             Log.w(TAG, "Skipping initialization of the new AVRCP Target Player List");
             sInstance = null;
             return;
@@ -198,13 +212,16 @@ public class AvrcpTargetService extends ProfileService {
         }
 
         Log.i(TAG, "Starting the AVRCP Target Service");
-        mCurrentData = new MediaData(null, null, null);
-
-        if (!SystemProperties.getBoolean(AVRCP_ENABLE_PROPERTY, true)) {
+        mAdapterService = Objects.requireNonNull(AdapterService.getAdapterService(),
+                "AdapterService cannot be null when AvrcpTargetService starts");
+        mIsAvrcpEnabled = isAvrcpEnabled();
+        if (!mIsAvrcpEnabled) {
             Log.w(TAG, "Skipping initialization of the new AVRCP Target Service");
             sInstance = null;
             return true;
         }
+
+        mCurrentData = new MediaData(null, null, null);
 
         mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         sDeviceMaxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);

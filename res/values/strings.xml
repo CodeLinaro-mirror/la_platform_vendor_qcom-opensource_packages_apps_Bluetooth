@@ -12,6 +12,11 @@
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
      See the License for the specific language governing permissions and
      limitations under the License.
+
+     Changes from Qualcomm Innovation Center are provided under the following license:
+
+     Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+     SPDX-License-Identifier: BSD-3-Clause-Clear.
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!--
@@ -233,7 +238,8 @@
     <string name="sharedUserId" translatable="false"><xliff:g id="x" /></string>
     <!-- Do not translate. android:process of this application. -->
     <string name="process" translatable="false"><xliff:g id="x" /></string>
-
+    <!-- Do not translate. android:process of this application. -->
+    <string name="new_process" translatable="false"><xliff:g id="x" /></string>
 
     <string name="bluetooth_a2dp_sink_queue_name">Now Playing</string>
     <string name="bluetooth_map_settings_save">Save</string>

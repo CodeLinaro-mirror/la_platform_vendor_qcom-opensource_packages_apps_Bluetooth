@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.btservice;
@@ -20,6 +25,7 @@ import android.annotation.RequiresPermission;
 import android.app.ActivityThread;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAdapterExt;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothHearingAid;
@@ -146,6 +152,7 @@ class PhonePolicy {
                             intent).sendToTarget();
                     break;
                 case BluetoothAdapter.ACTION_STATE_CHANGED:
+                case BluetoothAdapterExt.ACTION_STATE_CHANGED:
                     // Only pass the message on if the adapter has actually changed state from
                     // non-ON to ON. NOTE: ON is the state depicting BREDR ON and not just BLE ON.
                     int newState = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1);
@@ -243,16 +250,18 @@ class PhonePolicy {
     // Policy API functions for lifecycle management (protected)
     protected void start() {
         IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
-        filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
-        filter.addAction(BluetoothDevice.ACTION_UUID);
-        filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
-        filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
-        filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
-        filter.addAction(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
-        filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_ACTIVE_DEVICE_CHANGED);
+        if (AdapterUtil.isAdapter1()) {
+            filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
+            filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+            filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
+            filter.addAction(BluetoothAdapterExt.ACTION_STATE_CHANGED);
+            filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
+            filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
+            filter.addAction(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
+            filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_ACTIVE_DEVICE_CHANGED);
+        } else {
+            filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
+        }
         mAdapterService.registerReceiver(mReceiver, filter);
     }
 

@@ -28,6 +28,11 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.opp;
@@ -56,6 +61,7 @@ import android.util.Log;
 
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.AdapterService;
 
 import java.io.IOException;
 
@@ -183,8 +189,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
         mSession = session;
 
         mBatch.registerListern(this);
-        mAdapter = BluetoothAdapter.getDefaultAdapter();
-
+        mAdapter = AdapterService.getAdapter();
     }
 
     public BluetoothOppTransfer(Context context, BluetoothOppBatch batch) {

@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 /**
@@ -52,6 +57,7 @@ public class AdapterApp extends Application {
         if (DBG) {
             Log.d(TAG, "onCreate");
         }
+        AdapterUtil.init(this);
         Config.init(this);
     }
 

@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.btservice;
@@ -21,6 +26,7 @@ import static android.Manifest.permission.BLUETOOTH_SCAN;
 
 import android.app.ActivityThread;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAdapterExt;
 import android.bluetooth.BluetoothAssignedNumbers;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
@@ -139,8 +145,8 @@ final class RemoteDevices {
     };
 
     RemoteDevices(AdapterService service, Looper looper) {
-        sAdapter = BluetoothAdapter.getDefaultAdapter();
         sAdapterService = service;
+        sAdapter = sAdapterService.getAdapter();
         sSdpTracker = new ArrayList<BluetoothDevice>();
         mDevices = new HashMap<String, DeviceProperties>();
         mDeviceQueue = new LinkedList<String>();
@@ -629,6 +635,11 @@ final class RemoteDevices {
             return;
         }
 
+        if (filterDevice(device)) {
+            warnLog("Not broadcast Device: " + device);
+            return;
+        }
+
         Intent intent = new Intent(BluetoothDevice.ACTION_FOUND);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.putExtra(BluetoothDevice.EXTRA_CLASS,
@@ -676,7 +687,8 @@ final class RemoteDevices {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_CONNECTED);
             } else if (state == BluetoothAdapter.STATE_BLE_ON
                     || state == BluetoothAdapter.STATE_BLE_TURNING_ON) {
-                intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_CONNECTED);
+                intent = AdapterUtil.newIntent(BluetoothAdapter.ACTION_BLE_ACL_CONNECTED,
+                        BluetoothAdapterExt.ACTION_BLE_ACL_CONNECTED);
             }
             debugLog(
                     "aclStateChangeCallback: Adapter State: " + BluetoothAdapter.nameForState(state)
@@ -693,7 +705,8 @@ final class RemoteDevices {
             if (link_type == BluetoothDevice.TRANSPORT_BREDR) {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_DISCONNECTED);
             } else if (link_type == BluetoothDevice.TRANSPORT_LE) {
-                intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_DISCONNECTED);
+                intent = AdapterUtil.newIntent(BluetoothAdapter.ACTION_BLE_ACL_DISCONNECTED,
+                        BluetoothAdapterExt.ACTION_BLE_ACL_DISCONNECTED);
             }
             // Reset battery level on complete disconnection
             if (sAdapterService.getConnectionState(device) == 0) {
@@ -949,6 +962,10 @@ final class RemoteDevices {
             return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
         }
         return batteryLevel * 100 / (numberOfLevels - 1);
+    }
+
+    private boolean filterDevice(BluetoothDevice device) {
+        return AdapterUtil.filterDevice(device);
     }
 
     private static void errorLog(String msg) {

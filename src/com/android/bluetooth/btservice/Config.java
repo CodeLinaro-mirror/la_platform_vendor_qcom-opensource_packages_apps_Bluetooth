@@ -12,11 +12,17 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.btservice;
 
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAdapterCommon;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothManager;
 import android.content.ContentResolver;
@@ -35,7 +41,6 @@ import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
-import com.android.bluetooth.gatt.GattService;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hfpclient.HeadsetClientService;
@@ -55,58 +60,63 @@ import java.util.List;
 public class Config {
     private static final String TAG = "AdapterServiceConfig";
 
+    private static final int ADAPTER_DEFAULT = BluetoothAdapterCommon.ADAPTER_DEFAULT;
+    private static final int ADAPTER_1 = BluetoothAdapterCommon.ADAPTER_1;
+
     private static class ProfileConfig {
         Class mClass;
         int mSupported;
+        int mProfileId;
         long mMask;
 
-        ProfileConfig(Class theClass, int supportedFlag, long mask) {
+        ProfileConfig(Class theClass, int supportedFlag, int profileId) {
             mClass = theClass;
             mSupported = supportedFlag;
-            mMask = mask;
+            mProfileId = profileId;
+            mMask = 1 << profileId;
         }
     }
 
     /**
      * List of profile services with the profile-supported resource flag and bit mask.
      */
-    private static final ProfileConfig[] PROFILE_SERVICES_AND_FLAGS = {
+    private static ProfileConfig[] PROFILE_SERVICES_AND_FLAGS = {
             new ProfileConfig(HeadsetService.class, R.bool.profile_supported_hs_hfp,
-                    (1 << BluetoothProfile.HEADSET)),
+                    BluetoothProfile.HEADSET),
             new ProfileConfig(A2dpService.class, R.bool.profile_supported_a2dp,
-                    (1 << BluetoothProfile.A2DP)),
+                    BluetoothProfile.A2DP),
             new ProfileConfig(A2dpSinkService.class, R.bool.profile_supported_a2dp_sink,
-                    (1 << BluetoothProfile.A2DP_SINK)),
+                    BluetoothProfile.A2DP_SINK),
             new ProfileConfig(HidHostService.class, R.bool.profile_supported_hid_host,
-                    (1 << BluetoothProfile.HID_HOST)),
+                    BluetoothProfile.HID_HOST),
             new ProfileConfig(PanService.class, R.bool.profile_supported_pan,
-                    (1 << BluetoothProfile.PAN)),
-            new ProfileConfig(GattService.class, R.bool.profile_supported_gatt,
-                    (1 << BluetoothProfile.GATT)),
+                    BluetoothProfile.PAN),
+            new ProfileConfig(AdapterUtil.getGattServiceClass(), R.bool.profile_supported_gatt,
+                    BluetoothProfile.GATT),
             new ProfileConfig(BluetoothMapService.class, R.bool.profile_supported_map,
-                    (1 << BluetoothProfile.MAP)),
+                    BluetoothProfile.MAP),
             new ProfileConfig(HeadsetClientService.class, R.bool.profile_supported_hfpclient,
-                    (1 << BluetoothProfile.HEADSET_CLIENT)),
+                    BluetoothProfile.HEADSET_CLIENT),
             new ProfileConfig(AvrcpTargetService.class, R.bool.profile_supported_avrcp_target,
-                    (1 << BluetoothProfile.AVRCP)),
+                    BluetoothProfile.AVRCP),
             new ProfileConfig(AvrcpControllerService.class,
                     R.bool.profile_supported_avrcp_controller,
-                    (1 << BluetoothProfile.AVRCP_CONTROLLER)),
+                    BluetoothProfile.AVRCP_CONTROLLER),
             new ProfileConfig(SapService.class, R.bool.profile_supported_sap,
-                    (1 << BluetoothProfile.SAP)),
+                    BluetoothProfile.SAP),
             new ProfileConfig(PbapClientService.class, R.bool.profile_supported_pbapclient,
-                    (1 << BluetoothProfile.PBAP_CLIENT)),
+                    BluetoothProfile.PBAP_CLIENT),
             new ProfileConfig(MapClientService.class, R.bool.profile_supported_mapmce,
-                    (1 << BluetoothProfile.MAP_CLIENT)),
+                    BluetoothProfile.MAP_CLIENT),
             new ProfileConfig(HidDeviceService.class, R.bool.profile_supported_hid_device,
-                    (1 << BluetoothProfile.HID_DEVICE)),
+                    BluetoothProfile.HID_DEVICE),
             new ProfileConfig(BluetoothOppService.class, R.bool.profile_supported_opp,
-                    (1 << BluetoothProfile.OPP)),
+                    BluetoothProfile.OPP),
             new ProfileConfig(BluetoothPbapService.class, R.bool.profile_supported_pbap,
-                    (1 << BluetoothProfile.PBAP)),
+                    BluetoothProfile.PBAP),
             new ProfileConfig(HearingAidService.class,
                     com.android.internal.R.bool.config_hearing_aid_profile_supported,
-                    (1 << BluetoothProfile.HEARING_AID))
+                    BluetoothProfile.HEARING_AID)
     };
 
     private static Class[] sSupportedProfiles = new Class[0];
@@ -137,6 +147,11 @@ public class Config {
                 supported = true;
                 Log.v(TAG, config.mClass.getSimpleName() + " Feature Flag set to " + supported
                         + " by components configuration");
+            }
+
+            if (supported &&
+                !AdapterUtil.isProfileSupported(config.mProfileId)) {
+                supported = false;
             }
 
             if (supported && !isProfileDisabled(ctx, config.mMask)) {

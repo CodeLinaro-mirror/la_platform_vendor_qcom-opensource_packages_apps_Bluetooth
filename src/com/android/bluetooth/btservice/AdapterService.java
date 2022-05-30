@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.btservice;
@@ -78,6 +83,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.PowerManager;
+import android.os.Process;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
@@ -104,6 +110,7 @@ import com.android.bluetooth.btservice.bluetoothkeystore.BluetoothKeystoreServic
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.btservice.storage.MetadataDatabase;
 import com.android.bluetooth.gatt.GattService;
+import com.android.bluetooth.gatt.GattExtService;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hfpclient.HeadsetClientService;
@@ -302,6 +309,18 @@ public class AdapterService extends Service {
 
     private volatile boolean mTestModeEnabled = false;
 
+    private int mAdapterIndex = 0;
+    private BluetoothAdapter mAdapter = null;
+
+    private void initAdapter() {
+        mAdapterIndex = AdapterUtil.getAdapterIndex();
+        mAdapter = AdapterUtil.getAdapter();
+    }
+
+    public static BluetoothAdapter getAdapter() {
+        return AdapterUtil.getAdapter();
+    }
+
     /**
      * Register a {@link ProfileService} with AdapterService.
      *
@@ -399,7 +418,7 @@ public class AdapterService extends Service {
                         return;
                     }
                     mRunningProfiles.add(profile);
-                    if (GattService.class.getSimpleName().equals(profile.getName())) {
+                    if (isGattService(profile.getName())) {
                         enableNative();
                     } else if (mRegisteredProfiles.size() == Config.getSupportedProfiles().length
                             && mRegisteredProfiles.size() == mRunningProfiles.size()) {
@@ -424,8 +443,8 @@ public class AdapterService extends Service {
                     }
                     mRunningProfiles.remove(profile);
                     // If only GATT is left, send BREDR_STOPPED.
-                    if ((mRunningProfiles.size() == 1 && (GattService.class.getSimpleName()
-                            .equals(mRunningProfiles.get(0).getName())))) {
+                    if ((mRunningProfiles.size() == 1 && (isGattService
+                            (mRunningProfiles.get(0).getName())))) {
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STOPPED);
                     } else if (mRunningProfiles.size() == 0) {
                         disableNative();
@@ -502,6 +521,7 @@ public class AdapterService extends Service {
     public void onCreate() {
         super.onCreate();
         debugLog("onCreate()");
+        initAdapter();
         mDeviceConfigListener.start();
         mRemoteDevices = new RemoteDevices(this, Looper.getMainLooper());
         mRemoteDevices.init();
@@ -510,7 +530,8 @@ public class AdapterService extends Service {
         mAdapterProperties = new AdapterProperties(this);
         mAdapterStateMachine = AdapterState.make(this);
         mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
-        mBluetoothKeystoreService = new BluetoothKeystoreService(isCommonCriteriaMode());
+        mBluetoothKeystoreService = new BluetoothKeystoreService(isCommonCriteriaMode(),
+                mAdapterIndex);
         mBluetoothKeystoreService.start();
         mActivityAttributionService = new ActivityAttributionService();
         mActivityAttributionService.start();
@@ -673,7 +694,7 @@ public class AdapterService extends Service {
                 BluetoothStatsLog.BLE_SCAN_STATE_CHANGED__STATE__RESET, false, false, false);
 
         //Start Gatt service
-        setProfileServiceState(GattService.class, BluetoothAdapter.STATE_ON);
+        setProfileServiceState(AdapterUtil.getGattServiceClass(), BluetoothAdapter.STATE_ON);
     }
 
     void bringDownBle() {
@@ -709,8 +730,8 @@ public class AdapterService extends Service {
     void startProfileServices() {
         debugLog("startCoreServices()");
         Class[] supportedProfileServices = Config.getSupportedProfiles();
-        if (supportedProfileServices.length == 1 && GattService.class.getSimpleName()
-                .equals(supportedProfileServices[0].getSimpleName())) {
+        if (supportedProfileServices.length == 1 && isGattService
+                (supportedProfileServices[0].getSimpleName())) {
             mAdapterProperties.onBluetoothReady();
             updateUuids();
             setBluetoothClassFromConfig();
@@ -727,7 +748,7 @@ public class AdapterService extends Service {
 
         Class[] supportedProfileServices = Config.getSupportedProfiles();
         if (supportedProfileServices.length == 1 && (mRunningProfiles.size() == 1
-                && GattService.class.getSimpleName().equals(mRunningProfiles.get(0).getName()))) {
+                && isGattService(mRunningProfiles.get(0).getName()))) {
             debugLog("stopProfileServices() - No profiles services to stop or already stopped.");
             mAdapterStateMachine.sendMessage(AdapterState.BREDR_STOPPED);
         } else {
@@ -741,10 +762,10 @@ public class AdapterService extends Service {
             debugLog("stopGattProfileService() - No profiles services to stop.");
             mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
         }
-        setProfileServiceState(GattService.class, BluetoothAdapter.STATE_OFF);
+        setProfileServiceState(AdapterUtil.getGattServiceClass(), BluetoothAdapter.STATE_OFF);
     }
 
-    private void invalidateBluetoothGetStateCache() {
+    public void invalidateBluetoothGetStateCache() {
         BluetoothAdapter.invalidateBluetoothGetStateCache();
     }
 
@@ -956,7 +977,7 @@ public class AdapterService extends Service {
 
     private void setAllProfileServiceStates(Class[] services, int state) {
         for (Class service : services) {
-            if (GattService.class.getSimpleName().equals(service.getSimpleName())) {
+            if (isGattService(service.getSimpleName())) {
                 continue;
             }
             setProfileServiceState(service, state);
@@ -1208,7 +1229,7 @@ public class AdapterService extends Service {
     /**
      * Handlers for incoming service calls
      */
-    private AdapterServiceBinder mBinder;
+    protected AdapterServiceBinder mBinder;
 
     /**
      * The Binder implementation must be declared to be a static class, with
@@ -1228,7 +1249,7 @@ public class AdapterService extends Service {
         AdapterServiceBinder(AdapterService svc) {
             mService = svc;
             mService.invalidateBluetoothGetStateCache();
-            BluetoothAdapter.getDefaultAdapter().disableBluetoothGetStateCache();
+            mService.getAdapter().disableBluetoothGetStateCache();
         }
 
         public void cleanup() {
@@ -1262,6 +1283,8 @@ public class AdapterService extends Service {
                 return false;
             }
 
+            service.handleDualAdapterMode(true);
+
             return service.enable(quietMode);
         }
 
@@ -1273,6 +1296,8 @@ public class AdapterService extends Service {
                             service, attributionSource, "AdapterService disable")) {
                 return false;
             }
+
+            service.handleDualAdapterMode(false);
 
             return service.disable();
         }
@@ -1747,7 +1772,7 @@ public class AdapterService extends Service {
             if (service == null) {
                 return 0;
             }
-            return Config.getSupportedProfilesBitMask();
+            return service.getSupportedProfiles();
         }
 
         @Override
@@ -2857,6 +2882,11 @@ public class AdapterService extends Service {
         return getRssiNative(addr, transport);
     }
 
+    public long getSupportedProfiles() {
+        debugLog("getSupportedProfiles");
+        return Config.getSupportedProfilesBitMask();
+    }
+
     public boolean isQuietModeEnabled() {
         debugLog("isQuetModeEnabled() - Enabled = " + mQuietmode);
         return mQuietmode;
@@ -3362,6 +3392,16 @@ public class AdapterService extends Service {
     }
 
     /**
+     * Get the maximum number of connected audio devices.
+     *
+     * @return the maximum number of connected audio devices
+     */
+    public int getMaxConnectedAudioDevices(int profile) {
+        return mAdapterProperties.getMaxConnectedAudioDevices(
+                getSupportedProfiles(), profile);
+    }
+
+    /**
      * Check whether A2DP offload is enabled.
      *
      * @return true if A2DP offload is enabled
@@ -3751,6 +3791,8 @@ public class AdapterService extends Service {
             "INIT_logging_debug_disabled_for_tags";
     private static final String BTAA_HCI_LOG_FLAG = "INIT_btaa_hci";
 
+    private static final String BT_HCI_ADAPTER_FLAG = "--hci";
+
     private String[] getInitFlags() {
         ArrayList<String> initFlags = new ArrayList<>();
         if (DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_BLUETOOTH, GD_CORE_FLAG, false)) {
@@ -3801,6 +3843,7 @@ public class AdapterService extends Service {
         if (DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_BLUETOOTH, BTAA_HCI_LOG_FLAG, false)) {
             initFlags.add(String.format("%s=%s", BTAA_HCI_LOG_FLAG, "true"));
         }
+        initFlags.add(String.format("%s=%d", BT_HCI_ADAPTER_FLAG, mAdapterIndex));
         return initFlags.toArray(new String[0]);
     }
 
@@ -3987,6 +4030,39 @@ public class AdapterService extends Service {
             return 0;
         }
         return getMetricIdNative(Utils.getByteAddress(device));
+    }
+
+    private boolean isGattService(String name) {
+        return AdapterUtil.isAdapter1() ?
+                GattExtService.class.getSimpleName().equals(name) :
+                GattService.class.getSimpleName().equals(name);
+    }
+
+    public boolean isNewAdapter() {
+        return AdapterUtil.isAdapter1();
+    }
+
+    private int getAdapterIndex() {
+        return mAdapterIndex;
+    }
+
+    private void handleDualAdapterMode(boolean enable) {
+        if (AdapterUtil.isDualAdapterMode()) {
+            if (AdapterUtil.isAdapterDefault()) {
+                // In dual adapter mode, default adapter enable/disable
+                // new adapter concurrently.
+                if (enable) {
+                    AdapterExt.enable();
+                } else {
+                    AdapterExt.disable();
+                }
+            }
+        }
+    }
+
+    public void notifyNewAdapterState(boolean isOn) {
+        mAdapterStateMachine.sendMessage(AdapterState.NEW_ADAPTER_STATE_CHANGED,
+                isOn ? 1 : 0);
     }
 
     static native void classInitNative();

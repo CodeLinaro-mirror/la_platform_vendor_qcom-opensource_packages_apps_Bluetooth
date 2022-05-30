@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.btservice.bluetoothkeystore;
@@ -70,6 +75,7 @@ public class BluetoothKeystoreService {
     private static BluetoothKeystoreService sBluetoothKeystoreService;
     private boolean mCleaningUp;
     private boolean mIsCommonCriteriaMode;
+    private int mAdapterIndex;
 
     private static final String CIPHER_ALGORITHM = "AES/GCM/NoPadding";
     private static final int GCM_TAG_LENGTH = 128;
@@ -83,19 +89,27 @@ public class BluetoothKeystoreService {
 
     private static final String CONFIG_FILE_HASH = "hash";
 
-    private static final String CONFIG_CHECKSUM_ENCRYPTION_PATH =
-            "/data/misc/bluedroid/bt_config.checksum.encrypted";
-    private static final String CONFIG_FILE_ENCRYPTION_PATH =
-            "/data/misc/bluedroid/bt_config.conf.encrypted";
-    private static final String CONFIG_BACKUP_ENCRYPTION_PATH =
-            "/data/misc/bluedroid/bt_config.bak.encrypted";
+    private static final String CONFIG_PATH_FORMAT = "%s%s";
+    private static final String CONFIG_PATH = "/data/misc/bluedroid/";
+    private static final String NEW_CONFIG_PATH = "/data/misc/bluedroid/new/";
 
-    private static final String CONFIG_FILE_PATH = "/data/misc/bluedroid/bt_config.conf";
-    private static final String CONFIG_BACKUP_PATH = "/data/misc/bluedroid/bt_config.bak";
-    private static final String CONFIG_FILE_CHECKSUM_PATH =
-            "/data/misc/bluedroid/bt_config.conf.encrypted-checksum";
-    private static final String CONFIG_BACKUP_CHECKSUM_PATH =
-            "/data/misc/bluedroid/bt_config.bak.encrypted-checksum";
+    private static final String CONFIG_CHECKSUM_ENCRYPTION_FILE = "bt_config.checksum.encrypted";
+    private static final String CONFIG_FILE_ENCRYPTION_FILE = "bt_config.conf.encrypted";
+    private static final String CONFIG_BACKUP_ENCRYPTION_FILE = "bt_config.bak.encrypted";
+
+    private static final String CONFIG_FILE = "bt_config.conf";
+    private static final String CONFIG_BACKUP_FILE = "bt_config.bak";
+    private static final String CONFIG_FILE_CHECKSUM_FILE = "bt_config.conf.encrypted-checksum";
+    private static final String CONFIG_BACKUP_CHECKSUM_FILE = "bt_config.bak.encrypted-checksum";
+
+    private static String CONFIG_CHECKSUM_ENCRYPTION_PATH;
+    private static String CONFIG_FILE_ENCRYPTION_PATH;
+    private static String CONFIG_BACKUP_ENCRYPTION_PATH;
+
+    private static String CONFIG_FILE_PATH;
+    private static String CONFIG_BACKUP_PATH;
+    private static String CONFIG_FILE_CHECKSUM_PATH;
+    private static String CONFIG_BACKUP_CHECKSUM_PATH;
 
     private static final int BUFFER_SIZE = 400 * 10;
 
@@ -119,10 +133,51 @@ public class BluetoothKeystoreService {
     private Base64.Encoder mEncoder = Base64.getEncoder();
 
     public BluetoothKeystoreService(boolean isCommonCriteriaMode) {
-        debugLog("new BluetoothKeystoreService isCommonCriteriaMode: " + isCommonCriteriaMode);
+        this(isCommonCriteriaMode, 0);
+    }
+
+    public BluetoothKeystoreService(boolean isCommonCriteriaMode,
+            int adapterIndex) {
+        debugLog("new BluetoothKeystoreService isCommonCriteriaMode: " +
+                isCommonCriteriaMode + ", adapterIndex: " + adapterIndex);
         mIsCommonCriteriaMode = isCommonCriteriaMode;
+        mAdapterIndex = adapterIndex;
         mCompareResult = CONFIG_COMPARE_INIT;
+        initConfigFile(adapterIndex);
         startThread();
+    }
+
+    private void initConfigFile(int adapterIndex) {
+        String path = (adapterIndex == 0) ? CONFIG_PATH : NEW_CONFIG_PATH;
+
+        /**
+         * Initialize config file according to Bluetooth adapter index (0|1).
+         * E.g.
+         *   adapter0: /data/misc/bluedroid/bt_config.conf
+         *   adapter1: /data/misc/bluedroid/new/bt_config.conf
+         */
+        CONFIG_CHECKSUM_ENCRYPTION_PATH = String.format(CONFIG_PATH_FORMAT,
+                path, CONFIG_CHECKSUM_ENCRYPTION_FILE);
+
+        CONFIG_FILE_ENCRYPTION_PATH = String.format(CONFIG_PATH_FORMAT,
+                path, CONFIG_FILE_ENCRYPTION_FILE);
+
+        CONFIG_BACKUP_ENCRYPTION_PATH = String.format(CONFIG_PATH_FORMAT,
+               path, CONFIG_BACKUP_ENCRYPTION_FILE);
+
+        CONFIG_FILE_PATH = String.format(CONFIG_PATH_FORMAT,
+               path, CONFIG_FILE);
+
+        CONFIG_BACKUP_PATH = String.format(CONFIG_PATH_FORMAT,
+               path, CONFIG_BACKUP_FILE);
+
+        CONFIG_FILE_CHECKSUM_PATH = String.format(CONFIG_PATH_FORMAT,
+               path, CONFIG_FILE_CHECKSUM_FILE);
+
+        CONFIG_BACKUP_CHECKSUM_PATH = String.format(CONFIG_PATH_FORMAT,
+               path, CONFIG_BACKUP_CHECKSUM_FILE);
+
+        debugLog("initConfigFile CONFIG_FILE_PATH: " + CONFIG_FILE_PATH);
     }
 
     /**

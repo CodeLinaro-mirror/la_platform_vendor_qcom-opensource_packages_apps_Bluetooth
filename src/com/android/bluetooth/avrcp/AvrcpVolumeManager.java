@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.avrcp;
@@ -28,6 +33,7 @@ import android.media.AudioManager;
 import android.util.Log;
 
 import com.android.bluetooth.audio_util.BTAudioEventLogger;
+import com.android.bluetooth.btservice.AdapterService;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -57,6 +63,7 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
     HashMap<BluetoothDevice, Integer> mVolumeMap = new HashMap();
     BluetoothDevice mCurrentDevice = null;
     boolean mAbsoluteVolumeSupported = false;
+    private BluetoothAdapter mAdapter;
 
     static int avrcpToSystemVolume(int avrcpVolume) {
         return (int) Math.floor((double) avrcpVolume * sDeviceMaxVolume / AVRCP_MAX_VOL);
@@ -99,6 +106,7 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
         mNativeInterface = nativeInterface;
         sDeviceMaxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         sNewDeviceVolume = sDeviceMaxVolume / 2;
+        mAdapter = AdapterService.getAdapter();
 
         mAudioManager.registerAudioDeviceCallback(this, null);
 
@@ -110,7 +118,7 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
         for (Map.Entry<String, ?> entry : allKeys.entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
-            BluetoothDevice d = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(key);
+            BluetoothDevice d = mAdapter.getRemoteDevice(key);
 
             if (value instanceof Integer && d.getBondState() == BluetoothDevice.BOND_BONDED) {
                 mVolumeMap.put(d, (Integer) value);
@@ -283,8 +291,7 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
         Map<String, ?> allKeys = getVolumeMap().getAll();
         for (Map.Entry<String, ?> entry : allKeys.entrySet()) {
             Object value = entry.getValue();
-            BluetoothDevice d = BluetoothAdapter.getDefaultAdapter()
-                    .getRemoteDevice(entry.getKey());
+            BluetoothDevice d = mAdapter.getRemoteDevice(entry.getKey());
 
             String deviceName = d.getName();
             if (deviceName == null) {

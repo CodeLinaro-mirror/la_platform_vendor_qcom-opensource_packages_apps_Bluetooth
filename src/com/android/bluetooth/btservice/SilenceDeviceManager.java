@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.btservice;
@@ -226,10 +231,12 @@ public class SilenceDeviceManager {
         }
         mHandler = new SilenceDeviceManagerHandler(mLooper);
         IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
-        filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
+        if (AdapterUtil.isAdapter1()) {
+            filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+            filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
+            filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
+            filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
+        }
         mAdapterService.registerReceiver(mReceiver, filter);
     }
 

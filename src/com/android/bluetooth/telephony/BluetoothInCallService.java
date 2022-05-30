@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.telephony;
@@ -121,6 +126,8 @@ public class BluetoothInCallService extends InCallService {
     private static BluetoothInCallService sInstance = null;
 
     public CallInfo mCallInfo = new CallInfo();
+
+    private BluetoothAdapter mAdapter;
 
     /**
      * Listens to connections and disconnections of bluetooth headsets.  We need to save the current
@@ -295,8 +302,7 @@ public class BluetoothInCallService extends InCallService {
     @Override
     public IBinder onBind(Intent intent) {
         Log.i(TAG, "onBind. Intent: " + intent);
-        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
+        if (mAdapter == null || !mAdapter.isEnabled()) {
             Log.i(TAG, "Bluetooth is off");
             ComponentName componentName
                     = new ComponentName(getPackageName(), this.getClass().getName());
@@ -315,8 +321,7 @@ public class BluetoothInCallService extends InCallService {
     @Override
     public boolean onUnbind(Intent intent) {
         Log.i(TAG, "onUnbind. Intent: " + intent);
-        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
+        if (mAdapter == null || !mAdapter.isEnabled()) {
             Log.i(TAG, "Bluetooth is off when unbind, disable BluetoothInCallService");
             AdapterService adapterService = AdapterService.getAdapterService();
             adapterService.enableBluetoothInCallService(false);
@@ -557,8 +562,8 @@ public class BluetoothInCallService extends InCallService {
     public void onCreate() {
         Log.d(TAG, "onCreate");
         super.onCreate();
-        BluetoothAdapter.getDefaultAdapter()
-                .getProfileProxy(this, mProfileListener, BluetoothProfile.HEADSET);
+        mAdapter = AdapterService.getAdapter();
+        mAdapter.getProfileProxy(this, mProfileListener, BluetoothProfile.HEADSET);
         mBluetoothAdapterReceiver = new BluetoothAdapterReceiver();
         IntentFilter intentFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
         registerReceiver(mBluetoothAdapterReceiver, intentFilter);

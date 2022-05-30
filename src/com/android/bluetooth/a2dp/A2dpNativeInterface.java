@@ -18,6 +18,11 @@
  * Defines the native inteface that is used by state machine/service to
  * send or receive messages from the native stack. This file is registered
  * for the native methods in the corresponding JNI C++ file.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 package com.android.bluetooth.a2dp;
 
@@ -30,6 +35,7 @@ import android.bluetooth.BluetoothDevice;
 import android.util.Log;
 
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -51,7 +57,7 @@ public class A2dpNativeInterface {
 
     @VisibleForTesting
     private A2dpNativeInterface() {
-        mAdapter = BluetoothAdapter.getDefaultAdapter();
+        mAdapter = AdapterService.getAdapter();
         if (mAdapter == null) {
             Log.wtf(TAG, "No Bluetooth Adapter Available");
         }

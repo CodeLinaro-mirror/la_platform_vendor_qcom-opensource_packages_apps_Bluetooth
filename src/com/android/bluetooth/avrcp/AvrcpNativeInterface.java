@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.avrcp;
@@ -25,6 +30,7 @@ import com.android.bluetooth.audio_util.ListItem;
 import com.android.bluetooth.audio_util.Metadata;
 import com.android.bluetooth.audio_util.PlayStatus;
 import com.android.bluetooth.audio_util.PlayerInfo;
+import com.android.bluetooth.btservice.AdapterService;
 
 import java.util.List;
 
@@ -38,6 +44,7 @@ public class AvrcpNativeInterface {
 
     private static AvrcpNativeInterface sInstance;
     private AvrcpTargetService mAvrcpService;
+    private BluetoothAdapter mAdapter;
 
     static {
         classInitNative();
@@ -54,6 +61,7 @@ public class AvrcpNativeInterface {
     void init(AvrcpTargetService service) {
         d("Init AvrcpNativeInterface");
         mAvrcpService = service;
+        mAdapter = AdapterService.getAdapter();
         initNative();
     }
 
@@ -209,14 +217,14 @@ public class AvrcpNativeInterface {
 
     void setActiveDevice(String bdaddr) {
         BluetoothDevice device =
-                BluetoothAdapter.getDefaultAdapter().getRemoteDevice(bdaddr.toUpperCase());
+                mAdapter.getRemoteDevice(bdaddr.toUpperCase());
         d("setActiveDevice: device=" + device);
         mAvrcpService.setActiveDevice(device);
     }
 
     void deviceConnected(String bdaddr, boolean absoluteVolume) {
         BluetoothDevice device =
-                BluetoothAdapter.getDefaultAdapter().getRemoteDevice(bdaddr.toUpperCase());
+                mAdapter.getRemoteDevice(bdaddr.toUpperCase());
         d("deviceConnected: device=" + device + " absoluteVolume=" + absoluteVolume);
         if (mAvrcpService == null) {
             Log.w(TAG, "deviceConnected: AvrcpTargetService is null");
@@ -228,7 +236,7 @@ public class AvrcpNativeInterface {
 
     void deviceDisconnected(String bdaddr) {
         BluetoothDevice device =
-                BluetoothAdapter.getDefaultAdapter().getRemoteDevice(bdaddr.toUpperCase());
+                mAdapter.getRemoteDevice(bdaddr.toUpperCase());
         d("deviceDisconnected: device=" + device);
         if (mAvrcpService == null) {
             Log.w(TAG, "deviceDisconnected: AvrcpTargetService is null");

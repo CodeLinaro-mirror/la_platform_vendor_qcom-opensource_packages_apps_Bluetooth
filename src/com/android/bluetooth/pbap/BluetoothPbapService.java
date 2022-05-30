@@ -63,6 +63,7 @@ import com.android.bluetooth.ObexServerSockets;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.AdapterUtil;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.sdp.SdpManager;
@@ -778,7 +779,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public void checkOrGetPhonebookPermission(PbapStateMachine stateMachine) {
         BluetoothDevice device = stateMachine.getRemoteDevice();
-        int permission = device.getPhonebookAccessPermission();
+        int permission = getPhonebookAccessPermission(device);
         if (DEBUG) {
             Log.d(TAG, "getPhonebookAccessPermission() = " + permission);
         }
@@ -878,5 +879,15 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         if (VERBOSE)
             Log.v(TAG, "Local Phone Details- Number:" + sLocalPhoneNum
                     + ", Name:" + sLocalPhoneName);
+    }
+
+    private int getPhonebookAccessPermission(BluetoothDevice device) {
+        boolean allowPbapAccess = AdapterUtil.allowPbapAccessPermission();
+        if (DEBUG) {
+            Log.d(TAG, "allowPbapAccessPermission = " + allowPbapAccess);
+        }
+        return allowPbapAccess ?
+                BluetoothDevice.ACCESS_ALLOWED :
+                device.getPhonebookAccessPermission();
     }
 }

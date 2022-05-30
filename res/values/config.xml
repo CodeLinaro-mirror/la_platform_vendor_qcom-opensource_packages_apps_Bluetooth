@@ -11,6 +11,11 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+   Changes from Qualcomm Innovation Center are provided under the following license:
+
+   Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+   SPDX-License-Identifier: BSD-3-Clause-Clear.
 -->
 <resources>
     <bool name="profile_supported_a2dp">true</bool>
@@ -135,4 +140,9 @@
      -->
     <bool name="enable_gd_up_to_scanning_layer">false</bool>
 
+    <!-- [Dual Bluetooth] Flag whether or not to filter local counterpart Bluetooth device -->
+    <bool name="filter_device">false</bool>
+
+    <!-- [Dual Bluetooth] Flag whether or not to allow phonebook access permission -->
+    <bool name="allow_pbap_access_permission">false</bool>
 </resources>
