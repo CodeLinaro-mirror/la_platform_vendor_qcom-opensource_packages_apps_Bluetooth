@@ -69,11 +69,12 @@ public class MasClient {
     private static final int MAP_FEATURE_NOTIFICATION = 0x00000002;
     private static final int MAP_FEATURE_BROWSING = 0x00000004;
     private static final int MAP_FEATURE_UPLOADING = 0x00000008;
+    private static final int MAP_FEATURE_DELETE_BIT = 0x00000010;
     private static final int MAP_FEATURE_EXTENDED_EVENT_REPORT_1_1 = 0x00000040;
     static final int MAP_SUPPORTED_FEATURES =
             MAP_FEATURE_NOTIFICATION_REGISTRATION | MAP_FEATURE_NOTIFICATION
             | MAP_FEATURE_BROWSING | MAP_FEATURE_UPLOADING
-            | MAP_FEATURE_EXTENDED_EVENT_REPORT_1_1;
+            | MAP_FEATURE_EXTENDED_EVENT_REPORT_1_1 | MAP_FEATURE_DELETE_BIT;
 
     private final StateMachine mCallback;
     private Handler mHandler;
