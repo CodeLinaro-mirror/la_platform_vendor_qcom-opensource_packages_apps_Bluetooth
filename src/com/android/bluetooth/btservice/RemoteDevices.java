@@ -74,6 +74,7 @@ import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothStatsLog;
+import com.android.bluetooth.CsipWrapper;
 import com.android.bluetooth.R;
 import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.Utils;
@@ -102,6 +103,7 @@ final class RemoteDevices {
 
     private static BluetoothAdapter sAdapter;
     private static AdapterService sAdapterService;
+    private static boolean isServiceInit = false;
     private static ArrayList<BluetoothDevice> sSdpTracker;
     private final Object mObject = new Object();
 
@@ -110,7 +112,7 @@ final class RemoteDevices {
 
     private final HashMap<String, DeviceProperties> mDevices;
     private Queue<String> mDeviceQueue;
-
+    private CsipWrapper mCsipWrapper;
     private final Handler mHandler;
     private class RemoteDevicesHandler extends Handler {
 
@@ -187,6 +189,7 @@ final class RemoteDevices {
         mDevices = new HashMap<String, DeviceProperties>();
         mDeviceQueue = new LinkedList<String>();
         mHandler = new RemoteDevicesHandler(looper);
+        mCsipWrapper = CsipWrapper.getInstance();
     }
 
     /**
@@ -271,6 +274,13 @@ final class RemoteDevices {
                             return prop;
                         }
                     }
+
+                    BluetoothDevice newdevice = getDevice(Utils.addressToBytes(deleteKey));
+                    DeviceProperties deviceProperties = getDeviceProperties(newdevice);
+                    if (deviceProperties != null && deviceProperties.isBonding()) {
+                        debugLog("Bonding device " + deleteKey + " Don't remove from property map");
+                        return prop;
+                    }
                     debugLog("Removing device " + deleteKey + " from property map");
                     mDevices.remove(deleteKey);
                 }
@@ -305,6 +315,7 @@ final class RemoteDevices {
         @VisibleForTesting boolean mAdvAudioUpdateProp;
         @VisibleForTesting byte[] mMapBdAddress;
         @VisibleForTesting HashMap<ParcelUuid, Integer> uuidsByTransport;
+        private boolean mIsCoordinatedSetMember;
 
         DeviceProperties() {
             mBondState = BluetoothDevice.BOND_NONE;
@@ -560,6 +571,15 @@ final class RemoteDevices {
             }
         }
 
+        /**
+         * @return the mIsCoordinatedSetMember
+        */
+        private boolean isCoordinatedSetMember() {
+            synchronized (mObject) {
+                return mIsCoordinatedSetMember;
+            }
+        }
+
         void setDefaultBDAddrValidType() {
             synchronized (mObject) {
               this.mBdAddrValid = 1;
@@ -726,7 +746,6 @@ final class RemoteDevices {
             errorLog("No properties to update");
             return;
         }
-
         for (int j = 0; j < types.length; j++) {
             type = types[j];
             val = values[j];
@@ -769,17 +788,18 @@ final class RemoteDevices {
                               break;
                             }
                             int tmpBluetoothClass = device.getBluetoothClass();
-                            debugLog("Remote after adv audio class is:"
+                            debugLog("BT_PROPERTY_CLASS_OF_DEVICE:"
                                 + tmpBluetoothClass + " " + bdDevice);
-                            device.mBluetoothClass = Utils.byteArrayToInt(val);
+                            device.mBluetoothClass = newClass;
                             if (tmpBluetoothClass
-                                != BluetoothClass.Device.Major.UNCATEGORIZED) {
-                              if ((tmpBluetoothClass & (BluetoothClass.Service.GROUP))
-                                  == BluetoothClass.Service.GROUP) {
-                                debugLog("Remote after adv audio class is:"
-                                    + device.mBluetoothClass + device);
-                                device.mBluetoothClass |= BluetoothClass.Service.GROUP;
-                                  }
+                                        != BluetoothClass.Device.Major.UNCATEGORIZED
+                                        && mCsipWrapper.isCsipEnabled() ) {
+                                if ((tmpBluetoothClass & BluetoothClass.Service.LE_AUDIO)
+                                        == BluetoothClass.Service.LE_AUDIO) {
+                                    debugLog("Updated Adv class is:"
+                                        + device.mBluetoothClass + " "+ device);
+                                    device.mBluetoothClass |= BluetoothClass.Service.LE_AUDIO;
+                                }
                             }
                             intent = new Intent(BluetoothDevice.ACTION_CLASS_CHANGED);
                             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, bdDevice);
@@ -876,31 +896,10 @@ final class RemoteDevices {
                             device.mRssi = val[0];
                             break;
                         case AbstractionLayer.BT_PROPERTY_REMOTE_DEVICE_GROUP:
-                            try {
-                                Method mLoadGroups = null;
-                                Class<?> grpSvcCls = Class.forName(
-                                    "com.android.bluetooth.groupclient.GroupService");
-                                if (grpSvcCls != null) {
-                                    mLoadGroups = grpSvcCls.getMethod(
-                                        "loadDeviceGroupFromBondedDevice",
-                                        BluetoothDevice.class, String.class);
-                                    if (mLoadGroups != null) {
-                                        mLoadGroups.invoke(null, bdDevice, new String(val));
-                                    }
-                                }
-                            } catch (NoSuchMethodException|IllegalAccessException|
-                                     InvocationTargetException|ClassNotFoundException e) {
-                                 Log.e(TAG, "Exception in reading groups: " + e);
-                            }
+                            mCsipWrapper.loadDeviceGroupFromBondedDevice(bdDevice, new String(val));
                             break;
                         case AbstractionLayer.BT_PROPERTY_GROUP_EIR_DATA:
-                            Object mGroupService = new ServiceFactory().getGroupService();
-                            if (mGroupService != null) {
-                                ArrayList<Object> args = new ArrayList<Object>(
-                                        Arrays.asList(bdDevice, new String(val)));
-                                new ReflectionUtils().invokeMethod(
-                                        mGroupService, "handleEIRGroupData", args);
-                            }
+                            mCsipWrapper.handleEIRGroupData(bdDevice, new String(val));
                             break;
                         case AbstractionLayer.BT_PROPERTY_ADV_AUDIO_UUID_BY_TRANSPORT:
                         {
@@ -960,6 +959,9 @@ final class RemoteDevices {
                             }
                         }
                         break;
+                        case AbstractionLayer.BT_PROPERTY_REMOTE_IS_COORDINATED_SET_MEMBER:
+                            device.mIsCoordinatedSetMember = (boolean) (val[0] != 0);
+                            break;
                     }
                 }
             }
@@ -983,7 +985,8 @@ final class RemoteDevices {
                 new BluetoothClass(deviceProp.mBluetoothClass));
         intent.putExtra(BluetoothDevice.EXTRA_RSSI, deviceProp.mRssi);
         intent.putExtra(BluetoothDevice.EXTRA_NAME, deviceProp.mName);
-
+        intent.putExtra(BluetoothDevice.EXTRA_IS_COORDINATED_SET_MEMBER,
+                deviceProp.mIsCoordinatedSetMember);
         final ArrayList<DiscoveringPackage> packages = sAdapterService.getDiscoveringPackages();
         synchronized (packages) {
             for (DiscoveringPackage pkg : packages) {

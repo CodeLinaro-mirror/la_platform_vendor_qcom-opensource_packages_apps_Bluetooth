@@ -92,6 +92,25 @@ public class VolumeManagerIntf {
         }
     }
 
+    public void setLeAudioVolume (int volume) {
+        if(VolumeManager == null)
+            return;
+
+        Class[] arg = new Class[1];
+        arg[0] = Integer.class;
+
+        try {
+            Method setLeAudioVolume = VolumeManager.getDeclaredMethod("setLeAudioVolume", arg);
+            setLeAudioVolume.invoke(mVolumeManager, volume);
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+    }
+
     public void updateMediaStreamVolume (int volume) {
         if(VolumeManager == null)
             return;

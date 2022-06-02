@@ -80,11 +80,13 @@ public final class AbstractionLayer {
     static final int BT_PROPERTY_REMOTE_FRIENDLY_NAME = 0x0A;
     static final int BT_PROPERTY_REMOTE_RSSI = 0x0B;
 
+    static final int BT_PROPERTY_REMOTE_IS_COORDINATED_SET_MEMBER = 0x11;
+
     static final int BT_PROPERTY_REMOTE_VERSION_INFO = 0x0C;
     static final int BT_PROPERTY_LOCAL_LE_FEATURES = 0x0D;
 
     static final int BT_PROPERTY_DYNAMIC_AUDIO_BUFFER = 0x10;
-    static final int BT_PROPERTY_REMOTE_DEVICE_GROUP = 0x11;
+    static final int BT_PROPERTY_REMOTE_DEVICE_GROUP = 0x12;
 
     public static final int BT_DEVICE_TYPE_BREDR = 0x01;
     public static final int BT_DEVICE_TYPE_BLE = 0x02;

@@ -45,6 +45,8 @@ cc_library_shared {
         "com_android_bluetooth_pan.cpp",
         "com_android_bluetooth_gatt.cpp",
         "com_android_bluetooth_sdp.cpp",
+        "com_android_bluetooth_csip_client.cpp",
+        "com_android_bluetooth_csip_setcoordinator.cpp",
     ],
     header_libs: ["libbluetooth_headers", "libnativehelper_header_only"],
     include_dirs: [

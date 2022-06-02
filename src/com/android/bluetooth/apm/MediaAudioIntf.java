@@ -32,6 +32,8 @@ package com.android.bluetooth.apm;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothCodecConfig;
 import android.bluetooth.BluetoothCodecStatus;
+import android.bluetooth.BluetoothLeAudioCodecStatus;
+import android.bluetooth.BluetoothLeAudioCodecConfig;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
@@ -315,6 +317,28 @@ public class MediaAudioIntf {
         return null;
     }
 
+    public BluetoothLeAudioCodecStatus getLeAudioCodecStatus(int groupId) {
+        if(MediaAudio == null)
+            return null;
+
+        Class[] arg = new Class[1];
+        arg[0] = Integer.class;
+
+        try {
+            Method getLeAudioCodecStatus = MediaAudio.getDeclaredMethod("getLeAudioCodecStatus", arg);
+            BluetoothLeAudioCodecStatus ret =
+                    (BluetoothLeAudioCodecStatus)getLeAudioCodecStatus.invoke(mMediaAudio, groupId);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+        return null;
+    }
+
     public void setCodecConfigPreference(BluetoothDevice device,
                                              BluetoothCodecConfig codecConfig) {
         if(MediaAudio == null)
@@ -327,6 +351,32 @@ public class MediaAudioIntf {
         try {
             Method setCodecConfigPreference = MediaAudio.getDeclaredMethod("setCodecConfigPreference", arg);
             setCodecConfigPreference.invoke(mMediaAudio, device, codecConfig);
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+    }
+
+    public void setLeAudioCodecConfigPreference(int groupId,
+                             BluetoothLeAudioCodecConfig inputCodecConfig,
+                             BluetoothLeAudioCodecConfig outputCodecConfig) {
+        if(MediaAudio == null)
+            return;
+
+        Class[] arg = new Class[3];
+        arg[0] = Integer.class;
+        arg[1] = BluetoothLeAudioCodecConfig.class;
+        arg[2] = BluetoothLeAudioCodecConfig.class;
+
+        try {
+            Method setLeAudioCodecConfigPreference =
+                  MediaAudio.getDeclaredMethod("setLeAudioCodecConfigPreference", arg);
+            setLeAudioCodecConfigPreference.invoke(mMediaAudio, groupId,
+                                                   inputCodecConfig,
+                                                   outputCodecConfig);
         } catch(IllegalAccessException e) {
             Log.i(TAG, "Exception" + e);
         } catch(NoSuchMethodException e) {

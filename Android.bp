@@ -5,6 +5,7 @@ soong_config_module_type_import {
     from: "device/qcom/qssi/Android.bp",
     module_types: [
          "bredr_vs_btadva_java_defaults",
+         "aosp_vs_qva_java_defaults"
     ],
 }
 
@@ -20,6 +21,20 @@ bredr_vs_btadva_java_defaults {
    }
 }
 
+aosp_vs_qva_java_defaults {
+    name: "qva_java_defaults",
+    soong_config_variables: {
+        aosp_or_qva: {
+           qva: {
+             static_libs: [
+                "bluetooth-protos-lite",
+             ],
+           }
+        }
+    }
+}
+
+
 // MAP API module
 
 java_library {
@@ -33,7 +48,7 @@ java_library {
 android_app {
     name: "Bluetooth",
 
-    defaults: ["btadva_java_defaults"],
+    defaults: ["btadva_java_defaults", "qva_java_defaults"],
     srcs: [
         "src/**/*.java",
         ":vendor_qcom_opensource_commonsys_bluetooth_ext_packages_apps_bluetooth_ext",
@@ -41,20 +56,20 @@ android_app {
     ],
     platform_apis: true,
     certificate: "platform",
+    aaptflags: [ "--custom-package", "com.android.bluetooth" ],
 
     jni_libs: ["libbluetooth_qti_jni"],
     libs: [
-        "com.android.obex",
         "telephony-common",
         "services.net",
     ],
     static_libs: [
         "com.android.vcard",
+        "com.android.obex",
         "bluetooth.mapsapi",
         "sap-api-java-static",
         "services.net",
         "libprotobuf-java-lite",
-        "bluetooth-protos-lite",
         "androidx.core_core",
         "androidx.lifecycle_lifecycle-livedata",
         "androidx.room_room-runtime",

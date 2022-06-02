@@ -14,6 +14,41 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 package com.android.bluetooth.btservice.storage;
 
 import android.bluetooth.BluetoothA2dp;
@@ -309,7 +344,8 @@ public class DatabaseManager {
      * {@link BluetoothProfile#PAN}, {@link BluetoothProfile#PBAP},
      * {@link BluetoothProfile#PBAP_CLIENT}, {@link BluetoothProfile#MAP},
      * {@link BluetoothProfile#MAP_CLIENT}, {@link BluetoothProfile#SAP},
-     * {@link BluetoothProfile#HEARING_AID}
+     * {@link BluetoothProfile#HEARING_AID}, {@link BluetoothProfile#CSIP_SET_COORDINATOR},
+     * {@link BluetoothProfile#LE_AUDIO_BROADCAST_ASSISTANT},
      * @param newConnectionPolicy the connectionPolicy to set; one of
      * {@link BluetoothProfile.CONNECTION_POLICY_UNKNOWN},
      * {@link BluetoothProfile.CONNECTION_POLICY_FORBIDDEN},
@@ -318,6 +354,9 @@ public class DatabaseManager {
     @VisibleForTesting
     public boolean setProfileConnectionPolicy(BluetoothDevice device, int profile,
             int newConnectionPolicy) {
+
+        Log.v(TAG, "setProfileConnectionPolicy: " + device + ", profile=" + profile
+                    + ", newConnectionPolicy = " + newConnectionPolicy);
         synchronized (mMetadataCache) {
             if (device == null) {
                 Log.e(TAG, "setProfileConnectionPolicy: device is null");
@@ -339,17 +378,22 @@ public class DatabaseManager {
                 }
                 createMetadata(address, false);
             }
+
             Metadata data = mMetadataCache.get(address);
             int oldConnectionPolicy = data.getProfileConnectionPolicy(profile);
+
+            Log.v(TAG, "setProfileConnectionPolicy: " + address + ", profile=" + profile
+                    + ", oldConnectionPolicy = " + oldConnectionPolicy);
             if (oldConnectionPolicy == newConnectionPolicy) {
                 Log.v(TAG, "setProfileConnectionPolicy connection policy not changed.");
                 return true;
             }
+
             String profileStr = BluetoothProfile.getProfileName(profile);
-            //logMetadataChange(address, profileStr + " connection policy changed: "
-              //      + ": " + oldConnectionPolicy + " -> " + newConnectionPolicy);
             data.setProfileConnectionPolicy(profile, newConnectionPolicy);
             updateDatabase(data);
+            Log.v(TAG, "setProfileConnectionPolicy: " + address + ", profile=" + profile
+                    + ", newConnectionPolicy = " + newConnectionPolicy);
             return true;
         }
     }
@@ -364,7 +408,8 @@ public class DatabaseManager {
      * {@link BluetoothProfile#PAN}, {@link BluetoothProfile#PBAP},
      * {@link BluetoothProfile#PBAP_CLIENT}, {@link BluetoothProfile#MAP},
      * {@link BluetoothProfile#MAP_CLIENT}, {@link BluetoothProfile#SAP},
-     * {@link BluetoothProfile#HEARING_AID}
+     * {@link BluetoothProfile#HEARING_AID}, {@link BluetoothProfile#CSIP_SET_COORDINATOR},
+     * {@link BluetoothProfile#LE_AUDIO_BROADCAST_ASSISTANT}
      * @return the profile connection policy of the device; one of
      * {@link BluetoothProfile.CONNECTION_POLICY_UNKNOWN},
      * {@link BluetoothProfile.CONNECTION_POLICY_FORBIDDEN},
@@ -1231,6 +1276,8 @@ public class DatabaseManager {
             data.setProfileConnectionPolicy(BluetoothProfile.SAP, sapConnectionPolicy);
             data.setProfileConnectionPolicy(BluetoothProfile.HEARING_AID,
                     hearingaidConnectionPolicy);
+            data.setProfileConnectionPolicy(BluetoothProfile.LE_AUDIO,
+                    BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
             data.a2dpSupportsOptionalCodecs = a2dpSupportsOptionalCodec;
             data.a2dpOptionalCodecsEnabled = a2dpOptionalCodecEnabled;
             mMetadataCache.put(address, data);

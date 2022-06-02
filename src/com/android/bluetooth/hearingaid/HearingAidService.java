@@ -856,7 +856,7 @@ public class HearingAidService extends ProfileService {
                         BluetoothMetricsProto.ProfileId.HEARING_AID);
             }
             if (!mHiSyncIdConnectedMap.getOrDefault(myHiSyncId, false)) {
-                if(ApmConstIntf.getLeAudioEnabled()) {
+                if(ApmConstIntf.getQtiLeAudioEnabled()) {
                     ActiveDeviceManagerServiceIntf mActiveDeviceManager = 
                             ActiveDeviceManagerServiceIntf.get();
                     mActiveDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
@@ -869,7 +869,7 @@ public class HearingAidService extends ProfileService {
         }
         if (fromState == BluetoothProfile.STATE_CONNECTED && getConnectedDevices().isEmpty()) {
             ActiveDeviceManagerServiceIntf service = ActiveDeviceManagerServiceIntf.get();
-            if(ApmConstIntf.getLeAudioEnabled()) {
+            if(ApmConstIntf.getQtiLeAudioEnabled()) {
                 ActiveDeviceManagerServiceIntf mActiveDeviceManager = 
                         ActiveDeviceManagerServiceIntf.get();
                 if (mActiveDeviceManager.getActiveProfile(ApmConstIntf.AudioFeatures.MEDIA_AUDIO) !=
@@ -1018,7 +1018,7 @@ public class HearingAidService extends ProfileService {
         @Override
         public void setActiveDevice(BluetoothDevice device, AttributionSource source,
                 SynchronousResultReceiver receiver) {
-            if(ApmConstIntf.getLeAudioEnabled()) {
+            if(ApmConstIntf.getQtiLeAudioEnabled()) {
                 ActiveDeviceManagerServiceIntf mActiveDeviceManager = 
                         ActiveDeviceManagerServiceIntf.get();
                 if (device == null) {

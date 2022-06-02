@@ -202,7 +202,7 @@ public class HeadsetSystemInterface {
         // Close the virtual call if active. Virtual call should be
         // terminated for CHUP callback event
         if (mHeadsetService.isVirtualCallStarted()) {
-            if(ApmConstIntf.getLeAudioEnabled()) {
+            if(ApmConstIntf.getQtiLeAudioEnabled()) {
                 Log.d(TAG, "hangupCall remoteDisconnectVirtualVoiceCall Adv Audio enabled");
                 CallAudioIntf mCallAudio = CallAudioIntf.get();
                 if(mCallAudio != null) {
@@ -236,7 +236,7 @@ public class HeadsetSystemInterface {
         // Close the virtual call if active. Virtual call should be
         // terminated for CHUP callback event
         if (mHeadsetService.isVirtualCallStarted()) {
-            if(ApmConstIntf.getLeAudioEnabled()) {
+            if(ApmConstIntf.getQtiLeAudioEnabled()) {
                 Log.d(TAG, "terminateCall remoteDisconnectVirtualVoiceCall Adv Audio enabled");
                 CallAudioIntf mCallAudio = CallAudioIntf.get();
                 if(mCallAudio != null) {

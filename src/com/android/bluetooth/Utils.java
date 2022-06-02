@@ -81,6 +81,7 @@ import java.nio.charset.CharsetDecoder;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -329,7 +330,10 @@ public final class Utils {
 
         for (AssociationInfo association : cdm.getAllAssociations()) {
             if (association.getPackageName().equals(callingPackage)
-                    && association.getDeviceMacAddress().equals(device.getAddress())) {
+                    && !association.isSelfManaged() && device.getAddress() != null
+                    && association.getDeviceMacAddress() != null
+                    && device.getAddress().equalsIgnoreCase(
+                            association.getDeviceMacAddress().toString())) {
                 return true;
             }
         }
@@ -947,4 +951,17 @@ public final class Utils {
             android.Manifest.permission.BLUETOOTH_ADMIN, "Need BLUETOOTH ADMIN permission");
     }
 
+    /**
+     * Checks that value is present as at least one of the elements of the array.
+     * @param array the array to check in
+     * @param value the value to check for
+     * @return true if the value is present in the array
+     */
+    public static <T> boolean arrayContains(@Nullable T[] array, T value) {
+        if (array == null) return false;
+        for (T element : array) {
+            if (Objects.equals(element, value)) return true;
+        }
+        return false;
+    }
 }

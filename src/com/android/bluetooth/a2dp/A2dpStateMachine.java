@@ -247,8 +247,10 @@ final class A2dpStateMachine extends StateMachine {
                     if (mA2dpService.okToConnect(mDevice, false)) {
                         Log.i(TAG, "Incoming A2DP Connecting request accepted: " + mDevice);
                         transitionTo(mConnecting);
-                        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
-                        mMediaAudio.autoConnect(mDevice);
+                        if (mA2dpService.isQtiLeAudioEnabled()) {
+                            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+                            mMediaAudio.autoConnect(mDevice);
+                        }
                     } else {
                         // Reject the connection and stay in Disconnected state itself
                         Log.w(TAG, "Incoming A2DP Connecting request rejected: " + mDevice);
@@ -260,8 +262,10 @@ final class A2dpStateMachine extends StateMachine {
                     if (mA2dpService.okToConnect(mDevice, false)) {
                         Log.i(TAG, "Incoming A2DP Connected request accepted: " + mDevice);
                         transitionTo(mConnected);
-                        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
-                        mMediaAudio.autoConnect(mDevice);
+                        if (mA2dpService.isQtiLeAudioEnabled()) {
+                            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+                            mMediaAudio.autoConnect(mDevice);
+                        }
                     } else {
                         // Reject the connection and stay in Disconnected state itself
                         Log.w(TAG, "Incoming A2DP Connected request rejected: " + mDevice);
@@ -457,8 +461,10 @@ final class A2dpStateMachine extends StateMachine {
                     if (mA2dpService.okToConnect(mDevice, false)) {
                         Log.w(TAG, "Disconnecting interrupted: device is connected: " + mDevice);
                         transitionTo(mConnected);
-                        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
-                        mMediaAudio.autoConnect(mDevice);
+                        if (mA2dpService.isQtiLeAudioEnabled()) {
+                            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+                            mMediaAudio.autoConnect(mDevice);
+                        }
                     } else {
                         // Reject the connection and stay in Disconnecting state
                         Log.w(TAG, "Incoming A2DP Connected request rejected: " + mDevice);
@@ -469,8 +475,10 @@ final class A2dpStateMachine extends StateMachine {
                     if (mA2dpService.okToConnect(mDevice, false)) {
                         Log.i(TAG, "Disconnecting interrupted: try to reconnect: " + mDevice);
                         transitionTo(mConnecting);
-                        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
-                        mMediaAudio.autoConnect(mDevice);
+                        if (mA2dpService.isQtiLeAudioEnabled()) {
+                            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+                            mMediaAudio.autoConnect(mDevice);
+                        }
                     } else {
                         // Reject the connection and stay in Disconnecting state
                         Log.w(TAG, "Incoming A2DP Connecting request rejected: " + mDevice);
@@ -767,7 +775,7 @@ final class A2dpStateMachine extends StateMachine {
         log("Connection state " + mDevice + ": " + profileStateToString(prevState)
                     + "->" + profileStateToString(newState));
 
-        if(mA2dpService.isLeAudioEnabled()) {
+        if(mA2dpService.isQtiLeAudioEnabled()) {
             mA2dpService.updateConnState(mDevice, newState);
             return;
         }
@@ -786,7 +794,7 @@ final class A2dpStateMachine extends StateMachine {
         log("A2DP Playing state : device: " + mDevice + " State:" + audioStateToString(prevState)
                 + "->" + audioStateToString(newState));
 
-        if(mA2dpService.isLeAudioEnabled()) {
+        if(mA2dpService.isQtiLeAudioEnabled()) {
             mA2dpService.updateStreamState(mDevice, newState);
             return;
         }

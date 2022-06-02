@@ -107,6 +107,7 @@ public class ScanManager {
     private Set<ScanClient> mRegularScanClients;
     private Set<ScanClient> mBatchClients;
     private Set<ScanClient> mSuspendedScanClients;
+    private Set<ScanClient> mPendingScanClients;
     private HashMap<Integer, Integer> mPriorityMap = new HashMap<Integer, Integer>();
 
     private CountDownLatch mLatch;
@@ -144,6 +145,8 @@ public class ScanManager {
         mRegularScanClients =
                 Collections.newSetFromMap(new ConcurrentHashMap<ScanClient, Boolean>());
         mBatchClients = Collections.newSetFromMap(new ConcurrentHashMap<ScanClient, Boolean>());
+        mPendingScanClients =
+                Collections.newSetFromMap(new ConcurrentHashMap<ScanClient, Boolean>());
         mSuspendedScanClients =
                 Collections.newSetFromMap(new ConcurrentHashMap<ScanClient, Boolean>());
         mService = service;
@@ -179,6 +182,7 @@ public class ScanManager {
         mRegularScanClients.clear();
         mBatchClients.clear();
         mSuspendedScanClients.clear();
+        mPendingScanClients.clear();
         mScanNative.cleanup();
 
         if (mActivityManager != null) {
@@ -233,6 +237,19 @@ public class ScanManager {
         return mBatchClients;
     }
 
+    /**
+     * Returns the pending scan queue.
+     */
+    Set<ScanClient> getPendingScanQueue() {
+        return mPendingScanClients;
+    }
+
+    /**
+     * Adding the pending scan to the queue.
+     */
+    void addPendingScanToQueue(ScanClient client) {
+        mPendingScanClients.add(client);
+    }
     /**
      * Returns a set of full batch scan clients.
      */
@@ -385,6 +402,8 @@ public class ScanManager {
                 return;
             }
 
+            if (mPendingScanClients.contains(client))
+                mPendingScanClients.remove(client);
             // Begin scan operations.
             if (isBatchClient(client)) {
                 mBatchClients.add(client);

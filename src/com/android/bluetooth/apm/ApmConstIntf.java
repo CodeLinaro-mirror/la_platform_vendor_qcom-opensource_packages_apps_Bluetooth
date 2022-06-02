@@ -179,13 +179,13 @@ public class ApmConstIntf {
         }
     }
 
-    public static boolean getLeAudioEnabled() {
+    public static boolean getQtiLeAudioEnabled() {
         if(ApmConst == null)
             return false;
 
         try {
-            Method getLeAudioEnabled = ApmConst.getDeclaredMethod("getLeAudioEnabled");
-            Boolean ret = (Boolean)getLeAudioEnabled.invoke(null);
+            Method getQtiLeAudioEnabled = ApmConst.getDeclaredMethod("getQtiLeAudioEnabled");
+            Boolean ret = (Boolean)getQtiLeAudioEnabled.invoke(null);
             return ret;
         } catch(IllegalAccessException e) {
             Log.i(TAG, "Exception" + e);
@@ -196,5 +196,24 @@ public class ApmConstIntf {
         }
 
         return false;
+    }
+
+    public static boolean getActiveLeMedia() {
+        if(ApmConst == null)
+            return false;
+
+        try {
+            Method getActiveLeMedia = ApmConst.getDeclaredMethod("getActiveLeMedia");
+            Boolean ret = (Boolean)getActiveLeMedia.invoke(null);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return true;
     }
 }

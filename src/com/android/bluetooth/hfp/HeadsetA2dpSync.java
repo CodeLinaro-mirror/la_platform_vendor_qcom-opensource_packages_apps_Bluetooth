@@ -131,7 +131,7 @@ public class HeadsetA2dpSync {
      */
 
     public void updateSuspendState() {
-      if(ApmConstIntf.getLeAudioEnabled()) {
+      if(ApmConstIntf.getQtiLeAudioEnabled()) {
           ActiveDeviceManagerServiceIntf mActiveDeviceManager =
                   ActiveDeviceManagerServiceIntf.get();
           /*Precautionary Change: Force Active Device Manager
@@ -267,7 +267,7 @@ public class HeadsetA2dpSync {
         // A2DP Suspend was triggered by HFP.
         mA2dpSuspendTriggered = A2DP_SUSPENDED_NOT_TRIGGERED;
 
-        if(ApmConstIntf.getLeAudioEnabled()) {
+        if(ApmConstIntf.getQtiLeAudioEnabled()) {
             ActiveDeviceManagerServiceIntf mActiveDeviceManager =
                     ActiveDeviceManagerServiceIntf.get();
             /*Precautionary Change: Force Active Device Manager

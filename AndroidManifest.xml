@@ -1,9 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+ *
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="com.android.bluetooth"
+  package="com.android.bluetooth.services"
   android:sharedUserId="android.uid.bluetooth">
-
-    <original-package android:name="com.android.bluetooth" />
 
     <!-- Allows access to the Bluetooth Share Manager -->
     <permission android:name="android.permission.ACCESS_BLUETOOTH_SHARE"
@@ -90,8 +124,7 @@
     <uses-sdk android:minSdkVersion="14"/>
     <!-- For PBAP Owner Vcard Info -->
     <uses-permission android:name="android.permission.READ_PROFILE"/>
-    <application
-        android:name=".btservice.AdapterApp"
+    <application android:name="com.android.bluetooth.btservice.AdapterApp"
         android:icon="@mipmap/bt_share"
         android:persistent="false"
         android:label="@string/app_name"
@@ -99,8 +132,7 @@
         android:usesCleartextTraffic="false"
         android:directBootAware="true"
         android:defaultToDeviceProtectedStorage="true">
-        <uses-library android:name="javax.obex" />
-        <provider android:name=".opp.BluetoothOppProvider"
+        <provider android:name="com.android.bluetooth.opp.BluetoothOppProvider"
             android:authorities="com.android.bluetooth.opp"
             android:exported="true"
             android:process="@string/process">
@@ -108,7 +140,7 @@
                     android:pathPrefix="/btopp"
                     android:permission="android.permission.ACCESS_BLUETOOTH_SHARE" />
         </provider>
-        <provider android:name=".opp.BluetoothOppFileProvider"
+        <provider android:name="com.android.bluetooth.opp.BluetoothOppFileProvider"
             android:authorities="com.android.bluetooth.opp.fileprovider"
             android:grantUriPermissions="true"
             android:exported="false">
@@ -118,7 +150,7 @@
         </provider>
         <service
             android:process="@string/process"
-            android:name = ".btservice.AdapterService"
+            android:name="com.android.bluetooth.btservice.AdapterService"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetooth" />
@@ -126,13 +158,13 @@
         </service>
         <service
             android:process="@string/process"
-            android:name=".opp.BluetoothOppService"
+            android:name="com.android.bluetooth.opp.BluetoothOppService"
             android:permission="android.permission.ACCESS_BLUETOOTH_SHARE"
             android:enabled="@bool/profile_supported_opp"/>
         <receiver
             android:process="@string/process"
             android:exported="true"
-            android:name=".opp.BluetoothOppReceiver"
+            android:name="com.android.bluetooth.opp.BluetoothOppReceiver"
             android:enabled="@bool/profile_supported_opp">
             <intent-filter>
                 <action android:name="android.btopp.intent.action.OPEN_RECEIVED_FILES" />
@@ -141,7 +173,7 @@
          <receiver
             android:process="@string/process"
             android:exported="true"
-            android:name=".opp.BluetoothOppHandoverReceiver"
+            android:name="com.android.bluetooth.opp.BluetoothOppHandoverReceiver"
             android:permission="com.android.permission.ALLOWLIST_BLUETOOTH_DEVICE">
             <intent-filter>
                 <action android:name="android.btopp.intent.action.ACCEPTLIST_DEVICE" />
@@ -158,7 +190,7 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </receiver>
-        <activity android:name=".opp.BluetoothOppLauncherActivity"
+        <activity android:name="com.android.bluetooth.opp.BluetoothOppLauncherActivity"
             android:exported="true"
             android:process="@string/process"
             android:theme="@android:style/Theme.Material.Light.Dialog"
@@ -200,36 +232,36 @@
                 <data android:mimeType="vnd.android.cursor.item/vnd.android.btopp" />
             </intent-filter>
         </activity>
-        <activity android:name=".opp.BluetoothOppBtEnableActivity"
+        <activity android:name="com.android.bluetooth.opp.BluetoothOppBtEnableActivity"
                   android:process="@string/process"
                   android:excludeFromRecents="true"
                   android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
                   android:enabled="@bool/profile_supported_opp">
         </activity>
-        <activity android:name=".opp.BluetoothOppBtErrorActivity"
+        <activity android:name="com.android.bluetooth.opp.BluetoothOppBtErrorActivity"
                   android:process="@string/process"
                   android:excludeFromRecents="true"
                   android:theme="@android:style/Theme.Material.Light.Dialog.Alert">
         </activity>
-        <activity android:name=".opp.BluetoothOppBtEnablingActivity"
+        <activity android:name="com.android.bluetooth.opp.BluetoothOppBtEnablingActivity"
                   android:process="@string/process"
                   android:excludeFromRecents="true"
                   android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
                   android:enabled="@bool/profile_supported_opp">
         </activity>
-        <activity android:name=".opp.BluetoothOppIncomingFileConfirmActivity"
+        <activity android:name="com.android.bluetooth.opp.BluetoothOppIncomingFileConfirmActivity"
                   android:process="@string/process"
                   android:excludeFromRecents="true"
                   android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
                   android:enabled="@bool/profile_supported_opp">
         </activity>
-        <activity android:name=".opp.BluetoothOppTransferActivity"
+        <activity android:name="com.android.bluetooth.opp.BluetoothOppTransferActivity"
                   android:process="@string/process"
                   android:excludeFromRecents="true"
                   android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
                   android:enabled="@bool/profile_supported_opp">
         </activity>
-        <activity android:name=".opp.BluetoothOppTransferHistory"
+        <activity android:name="com.android.bluetooth.opp.BluetoothOppTransferHistory"
                   android:exported="true"
                   android:process="@string/process"
                   android:label=""
@@ -242,7 +274,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".pbap.BluetoothPbapActivity"
+        <activity android:name="com.android.bluetooth.pbap.BluetoothPbapActivity"
             android:exported="true"
             android:process="@string/process"
             android:excludeFromRecents="true"
@@ -255,7 +287,7 @@
         <service
             android:process="@string/process"
             android:permission="android.permission.BLUETOOTH_PRIVILEGED"
-            android:name=".pbap.BluetoothPbapService"
+            android:name="com.android.bluetooth.pbap.BluetoothPbapService"
             android:exported="true"
             android:enabled="@bool/profile_supported_pbap" >
             <intent-filter>
@@ -264,7 +296,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name=".map.BluetoothMapService"
+            android:name="com.android.bluetooth.map.BluetoothMapService"
             android:exported="true"
             android:enabled="@bool/profile_supported_map" >
             <intent-filter>
@@ -273,14 +305,14 @@
                 <action android:name="com.android.bluetooth.map.USER_CONFIRM_TIMEOUT"/>
             </intent-filter>
         </service>
-         <activity android:name=".map.BluetoothMapSettings"
+         <activity android:name="com.android.bluetooth.map.BluetoothMapSettings"
                   android:process="@string/process"
                   android:label="@string/bluetooth_map_settings_title"
                   android:excludeFromRecents="true"
                   android:configChanges="orientation|keyboardHidden"
                   android:enabled="@bool/profile_supported_map">
         </activity>
-        <provider android:name=".map.MmsFileProvider"
+        <provider android:name="com.android.bluetooth.map.MmsFileProvider"
                   android:authorities="com.android.bluetooth.map.MmsFileProvider"
                   android:enabled="true"
                   android:grantUriPermissions="true"
@@ -288,7 +320,7 @@
         </provider>
         <service
             android:process="@string/process"
-            android:name=".mapclient.MapClientService"
+            android:name="com.android.bluetooth.mapclient.MapClientService"
             android:exported="true"
             android:enabled="@bool/profile_supported_mapmce" >
             <intent-filter>
@@ -297,7 +329,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name=".sap.SapService"
+            android:name="com.android.bluetooth.sap.SapService"
             android:exported="true"
             android:enabled="@bool/profile_supported_sap" >
             <intent-filter>
@@ -306,7 +338,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".gatt.GattService"
+            android:name="com.android.bluetooth.gatt.GattService"
             android:exported="true"
             android:enabled="@bool/profile_supported_gatt">
             <intent-filter>
@@ -315,7 +347,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".hfp.HeadsetService"
+             android:name="com.android.bluetooth.hfp.HeadsetService"
             android:exported="true"
             android:enabled="@bool/profile_supported_hs_hfp">
             <intent-filter>
@@ -324,7 +356,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".broadcast.BroadcastService"
+            android:name = "com.android.bluetooth.broadcast.BroadcastService"
             android:exported="true"
             android:enabled="@bool/profile_supported_broadcast">
             <intent-filter>
@@ -333,7 +365,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".a2dp.A2dpService"
+            android:name = "com.android.bluetooth.a2dp.A2dpService"
             android:exported="true"
             android:enabled="@bool/profile_supported_a2dp">
             <intent-filter>
@@ -342,13 +374,13 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".mcp.McpService"
+            android:name = "com.android.bluetooth.mcp.McpService"
             android:exported="true"
             android:enabled="@bool/profile_supported_music_player_service">
         </service>
         <service
             android:process="@string/process"
-            android:name = ".acm.AcmService"
+            android:name = "com.android.bluetooth.acm.AcmService"
             android:exported="false"
             android:enabled="@bool/profile_supported_ca">
             <intent-filter>
@@ -357,7 +389,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".a2dpsink.A2dpSinkService"
+            android:name = "com.android.bluetooth.a2dpsink.A2dpSinkService"
             android:exported="true"
             android:enabled="@bool/profile_supported_a2dp_sink">
             <intent-filter>
@@ -366,7 +398,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name=".avrcpcontroller.BluetoothMediaBrowserService"
+            android:name="com.android.bluetooth.avrcpcontroller.BluetoothMediaBrowserService"
             android:exported="true"
             android:enabled="@bool/profile_supported_a2dp_sink"
             android:label="@string/a2dp_sink_mbs_label">
@@ -376,7 +408,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".avrcp.AvrcpTargetService"
+            android:name = "com.android.bluetooth.avrcp.AvrcpTargetService"
             android:exported="true"
             android:enabled = "@bool/profile_supported_avrcp_target" >
             <intent-filter>
@@ -385,7 +417,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".avrcpcontroller.AvrcpControllerService"
+            android:name = "com.android.bluetooth.avrcpcontroller.AvrcpControllerService"
             android:exported="true"
             android:enabled="@bool/profile_supported_avrcp_controller">
             <intent-filter>
@@ -394,7 +426,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".apm.StreamAudioService"
+            android:name = "com.android.bluetooth.apm.StreamAudioService"
             android:exported="true"
             android:enabled="@bool/profile_supported_le_audio">
             <intent-filter>
@@ -403,7 +435,25 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".ba.BATService"
+            android:name = "com.android.bluetooth.le_audio.LeAudioService"
+            android:enabled="@bool/profile_supported_le_audio"
+            android:exported = "true">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothLeAudio" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
+            android:name = "com.android.bluetooth.lebroadcast.BassClientService"
+            android:exported = "true"
+            android:enabled="@bool/profile_supported_bass_client">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothLeBroadcastAssistant" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
+            android:name = "com.android.bluetooth.ba.BATService"
             android:exported="true"
             android:enabled="@bool/profile_supported_ba">
             <intent-filter>
@@ -412,7 +462,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".hid.HidHostService"
+            android:name = "com.android.bluetooth.hid.HidHostService"
             android:exported="true"
             android:enabled="@bool/profile_supported_hid_host">
             <intent-filter>
@@ -421,7 +471,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".hid.HidDeviceService"
+            android:name = "com.android.bluetooth.hid.HidDeviceService"
             android:exported="true"
             android:enabled="@bool/profile_supported_hid_device">
             <intent-filter>
@@ -430,7 +480,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".pan.PanService"
+            android:name = "com.android.bluetooth.pan.PanService"
             android:exported="true"
             android:enabled="@bool/profile_supported_pan">
             <intent-filter>
@@ -439,7 +489,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".hfpclient.HeadsetClientService"
+            android:name = "com.android.bluetooth.hfpclient.HeadsetClientService"
             android:exported="true"
             android:enabled="@bool/profile_supported_hfpclient">
             <intent-filter>
@@ -448,7 +498,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name=".hfpclient.connserv.HfpClientConnectionService"
+            android:name="com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService"
             android:exported="true"
             android:permission="android.permission.BIND_CONNECTION_SERVICE"
             android:enabled="@bool/hfp_client_connection_service_enabled">
@@ -459,12 +509,12 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".pc.PCService"
+            android:name = "com.android.bluetooth.pc.PCService"
             android:exported="true">
         </service>
         <service
             android:process="@string/process"
-            android:name = ".pbapclient.PbapClientService"
+            android:name = "com.android.bluetooth.pbapclient.PbapClientService"
             android:exported="true"
             android:enabled="@bool/profile_supported_pbapclient">
             <intent-filter>
@@ -473,7 +523,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".bc.BCService"
+            android:name = "com.android.bluetooth.bc.BCService"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothSyncHelper" />
@@ -481,12 +531,12 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".cc.CCService"
+            android:name = "com.android.bluetooth.cc.CCService"
             android:exported="true">
         </service>
         <service
             android:process="@string/process"
-            android:name = ".hearingaid.HearingAidService"
+            android:name = "com.android.bluetooth.hearingaid.HearingAidService"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothHearingAid" />
@@ -494,16 +544,26 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".groupclient.GroupService"
+            android:name = "com.android.bluetooth.groupclient.GroupService"
+            android:enabled="@bool/profile_supported_group_client"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothDeviceGroup" />
             </intent-filter>
         </service>
+        <service
+            android:process="@string/process"
+            android:name = "com.android.bluetooth.csip.CsipSetCoordinatorService"
+            android:enabled="@bool/profile_supported_csip_set_coordinator"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothCsipSetCoordinator" />
+            </intent-filter>
+        </service>
         <!-- Authenticator for PBAP account. -->
         <service
             android:process="@string/process"
-            android:name=".pbapclient.AuthenticationService"
+            android:name="com.android.bluetooth.pbapclient.AuthenticationService"
             android:exported="true"
             android:enabled="@bool/profile_supported_pbapclient">
             <intent-filter>
@@ -514,7 +574,7 @@
                 android:resource="@xml/authenticator" />
         </service>
         <service
-            android:name=".telephony.BluetoothInCallService"
+            android:name="com.android.bluetooth.telephony.BluetoothInCallService"
             android:permission="android.permission.BIND_INCALL_SERVICE"
             android:process="@string/process"
             android:enabled="@bool/profile_supported_hfp_incallservice"

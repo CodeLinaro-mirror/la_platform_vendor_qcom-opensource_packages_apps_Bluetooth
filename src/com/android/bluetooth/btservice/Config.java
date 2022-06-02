@@ -14,6 +14,41 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 package com.android.bluetooth.btservice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothCodecConfig;
@@ -33,12 +68,15 @@ import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
+import com.android.bluetooth.csip.CsipSetCoordinatorService;
 import com.android.bluetooth.gatt.GattService;
+import com.android.bluetooth.groupclient.GroupService;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hfpclient.HeadsetClientService;
 import com.android.bluetooth.hid.HidDeviceService;
 import com.android.bluetooth.hid.HidHostService;
+import com.android.bluetooth.lebroadcast.BassClientService;
 import com.android.bluetooth.map.BluetoothMapService;
 import com.android.bluetooth.mapclient.MapClientService;
 import com.android.bluetooth.opp.BluetoothOppService;
@@ -49,11 +87,13 @@ import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.sap.SapService;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.ba.BATService;
+import com.android.bluetooth.le_audio.LeAudioService;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import android.text.TextUtils;
 public class Config {
     private static final String TAG = "AdapterServiceConfig";
     private static final boolean DBG = true;
@@ -66,9 +106,9 @@ public class Config {
     private static Class mBroadcastClass = null;
     private static Class mPCServiceClass = null;
     private static Class mCcServiceClass = null;
-    private static Class mGroupServiceClass = null;
     private static ArrayList<Class> profiles = new ArrayList<>();
-    private static boolean mIsA2dpSink, mIsBAEnabled, mIsSplitA2dpEnabled;
+    private static boolean mIsA2dpSink, mIsBAEnabled, mIsSplitA2dpEnabled,
+            mIsGroupSerEnabled, mIsCsipServiceEnabled;
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -79,8 +119,6 @@ public class Config {
                 "com.android.bluetooth.pc.PCService");
         mCcServiceClass = ReflectionUtils.getRequiredClass(
                 "com.android.bluetooth.cc.CCService");
-        mGroupServiceClass = ReflectionUtils.getRequiredClass(
-                "com.android.bluetooth.groupclient.GroupService");
     }
 
     private static class ProfileConfig {
@@ -137,6 +175,8 @@ public class Config {
                     (1 << BluetoothProfile.HEARING_AID)),
             new ProfileConfig(BATService.class, R.bool.profile_supported_ba,
                     (1 << BATService.BA_TRANSMITTER)),
+            new ProfileConfig(BassClientService.class, R.bool.profile_supported_bass_client,
+                    (1 << BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT)),
     };
 
     /* List of Unicast Advance Audio Profiles */
@@ -167,15 +207,21 @@ public class Config {
     private static ArrayList<ProfileConfig> commonAdvAudioProfiles =
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
-                    new ProfileConfig(mGroupServiceClass,
+                    new ProfileConfig(GroupService.class,
                             R.bool.profile_supported_group_client,
                             (1 << BluetoothProfile.GROUP_CLIENT)),
+                    new ProfileConfig(CsipSetCoordinatorService.class,
+                            R.bool.profile_supported_csip_set_coordinator,
+                            (1 << BluetoothProfile.CSIP_SET_COORDINATOR)),
                     new ProfileConfig(ApmConstIntf.CoordinatedAudioService,
                             R.bool.profile_supported_ca,
                             (1 << ApmConstIntf.COORDINATED_AUDIO_UNICAST)),
                     new ProfileConfig(ApmConstIntf.StreamAudioService,
                             R.bool.profile_supported_le_audio,
-                            (1 << ApmConstIntf.LE_AUDIO_UNICAST))
+                            (1 << ApmConstIntf.LE_AUDIO_UNICAST)),
+                    new ProfileConfig(LeAudioService.class,
+                            R.bool.profile_supported_le_audio,
+                            (1 << BluetoothProfile.LE_AUDIO))
             ));
 
     private static Class[] sSupportedProfiles = new Class[0];
@@ -204,6 +250,14 @@ public class Config {
             } else {
                 supported = resources.getBoolean(config.mSupported);
             }
+            if (!supported && (config.mClass == HearingAidService.class)) {
+                String value = SystemProperties.get
+                    ("persist.sys.fflag.override.settings_bluetooth_hearing_aid");
+                if (!TextUtils.isEmpty(value)) {
+                   supported = Boolean.parseBoolean(value);
+                }
+                if (DBG) Log.d(TAG, "enables support for HearingAidService" + supported);
+            }
 
             if (!supported && (config.mClass == HearingAidService.class) && FeatureFlagUtils
                                 .isEnabled(ctx, FeatureFlagUtils.HEARING_AID_SETTINGS)) {
@@ -213,10 +267,10 @@ public class Config {
 
             if (supported && !isProfileDisabled(ctx, config.mMask)) {
                 if (!addAudioProfiles(config.mClass.getSimpleName())) {
-                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
+                    if (DBG) Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
                     continue;
                 }
-                Log.v(TAG, "Adding " + config.mClass.getSimpleName());
+                if (DBG) Log.d(TAG, "Adding " + config.mClass.getSimpleName());
                 profiles.add(config.mClass);
             }
         }
@@ -251,14 +305,18 @@ public class Config {
                 if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
                 if (supported) {
-                    if ((config.mClass == mGroupServiceClass ||
-                            config.mClass == ApmConstIntf.CoordinatedAudioService) &&
+                    if ((config.mClass == ApmConstIntf.CoordinatedAudioService) &&
                         (((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) == 0) &&
                          ((adv_audio_feature_mask & ADV_AUDIO_BCA_FEAT_MASK) == 0))) {
                         continue;
                     }
-                    Log.d(TAG, "Adding " + config.mClass.getSimpleName());
-                    advAudioProfiles.add(config.mClass);
+                    String serviceName = config.mClass.getSimpleName();
+                    if (addAudioProfiles(serviceName)) {
+                       if (DBG) Log.d(TAG, "Adding " + serviceName);
+                        advAudioProfiles.add(config.mClass);
+                    } else {
+                        if(DBG) Log.d(TAG, "Not added " + serviceName);
+                    }
                 }
             }
         }
@@ -385,7 +443,7 @@ public class Config {
 
     /* Returns true if advance audio project is available */
     public static boolean isAdvAudioAvailable() {
-        return (mGroupServiceClass != null ? true : false);
+        return (mCcServiceClass != null ? true : false);
     }
 
     static Class[] getSupportedProfiles() {
@@ -441,6 +499,10 @@ public class Config {
             return false;
         if (serviceName.equals("BATService")) {
             return mIsBAEnabled && mIsSplitA2dpEnabled;
+        } if (serviceName.equals("GroupService")) {
+            return mIsGroupSerEnabled;
+        } if (serviceName.equals("CsipSetCoordinatorService")) {
+            return mIsCsipServiceEnabled;
         }
 
         // always return true for other profiles
@@ -450,6 +512,12 @@ public class Config {
     private static void getAudioProperties() {
         mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", false);
         mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
+        boolean isCsipQti = SystemProperties.getBoolean("ro.vendor.bluetooth.csip_qti", false);
+        if (isCsipQti) {
+            mIsGroupSerEnabled = true;
+        } else {
+            mIsCsipServiceEnabled = true;
+        }
         // Split A2dp will be enabled by default
         mIsSplitA2dpEnabled = true;
         AdapterService adapterService = AdapterService.getAdapterService();
@@ -460,7 +528,12 @@ public class Config {
         }
         if (DBG) {
             Log.d(TAG, "getAudioProperties mIsA2dpSink " + mIsA2dpSink + " mIsBAEnabled "
-                + mIsBAEnabled + " mIsSplitA2dpEnabled " + mIsSplitA2dpEnabled);
+                + mIsBAEnabled + " mIsSplitA2dpEnabled " + mIsSplitA2dpEnabled
+                + " isCsipQti " + isCsipQti);
         }
+    }
+
+    public static boolean getIsCsipQti() {
+        return mIsGroupSerEnabled;
     }
 }

@@ -37,6 +37,7 @@ import android.bluetooth.BluetoothPbap;
 import android.bluetooth.BluetoothPbapClient;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothSap;
+import android.bluetooth.BluetoothLeAudio;
 import android.bluetooth.BufferConstraint;
 import android.bluetooth.BufferConstraints;
 import android.content.BroadcastReceiver;
@@ -225,6 +226,9 @@ class AdapterProperties {
                 case BluetoothPbap.ACTION_CONNECTION_STATE_CHANGED:
                     sendConnectionStateChange(BluetoothProfile.PBAP, intent);
                     break;
+                case BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED:
+                    sendConnectionStateChange(BluetoothProfile.LE_AUDIO, intent);
+                    break;
                 default:
                     Log.w(TAG, "Received unknown intent " + intent);
                     break;
@@ -286,6 +290,7 @@ class AdapterProperties {
         filter.addAction(BluetoothMapClient.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothSap.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothPbapClient.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
         mService.registerReceiver(mReceiver, filter);
         mReceiverRegistered = true;
         //invalidateBluetoothCaches();

@@ -14,6 +14,41 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 package com.android.bluetooth.btservice.storage;
 
 import android.bluetooth.BluetoothProfile;
@@ -36,6 +71,9 @@ class ProfilePrioritiesEntity {
     public int hearing_aid_connection_policy;
     public int map_client_connection_policy;
     public int bc_profile_priority;
+    public int csip_set_coordinator_connection_policy;
+    public int le_audio_connection_policy;
+    public int bass_client_connection_policy;
 
     ProfilePrioritiesEntity() {
         a2dp_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
@@ -51,12 +89,16 @@ class ProfilePrioritiesEntity {
         hearing_aid_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
         map_client_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
         bc_profile_priority = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        csip_set_coordinator_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        le_audio_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        bass_client_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
     }
 
     public String toString() {
         StringBuilder builder = new StringBuilder();
         builder.append("A2DP=").append(a2dp_connection_policy)
                 .append("|A2DP_SINK=").append(a2dp_sink_connection_policy)
+                .append("|CSIP_SET_COORDINATOR=").append(csip_set_coordinator_connection_policy)
                 .append("|HEADSET=").append(hfp_connection_policy)
                 .append("|HEADSET_CLIENT=").append(hfp_client_connection_policy)
                 .append("|HID_HOST=").append(hid_host_connection_policy)
@@ -66,7 +108,9 @@ class ProfilePrioritiesEntity {
                 .append("|MAP=").append(map_connection_policy)
                 .append("|MAP_CLIENT=").append(map_client_connection_policy)
                 .append("|SAP=").append(sap_connection_policy)
-                .append("|HEARING_AID=").append(hearing_aid_connection_policy);
+                .append("|HEARING_AID=").append(hearing_aid_connection_policy)
+                .append("|LE_AUDIO=").append(le_audio_connection_policy)
+                .append("|LE_BROADCAST_ASSISTANT=").append(bass_client_connection_policy);
 
         return builder.toString();
     }
