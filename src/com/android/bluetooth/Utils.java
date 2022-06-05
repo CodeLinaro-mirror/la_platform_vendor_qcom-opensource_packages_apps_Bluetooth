@@ -93,6 +93,9 @@ public final class Utils {
     private static final String KEY_TEMP_ALLOW_LIST_DURATION_MS = "temp_allow_list_duration_ms";
     private static final long DEFAULT_TEMP_ALLOW_LIST_DURATION_MS = 20_000;
 
+    // Property to indicate whether SCO is connected or not
+    public static String PROP_SCO_CONNECTION_STATUS = "persist.bluetooth.sco.connected";
+
     static final int BD_ADDR_LEN = 6; // bytes
     static final int BD_UUID_LEN = 16; // bytes
 
