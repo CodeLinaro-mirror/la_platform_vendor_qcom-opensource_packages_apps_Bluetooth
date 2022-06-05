@@ -60,6 +60,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.util.Log;
 import android.util.Pair;
 
@@ -906,8 +907,10 @@ public class HeadsetClientStateMachine extends StateMachine {
         logD("hfp_enable=" + enable);
         if (enable && !sAudioIsRouted) {
             mAudioManager.setParameters("hfp_enable=true");
+            SystemProperties.set(Utils.PROP_SCO_CONNECTION_STATUS, "true");
         } else if (!enable) {
             mAudioManager.setParameters("hfp_enable=false");
+            SystemProperties.set(Utils.PROP_SCO_CONNECTION_STATUS, "false");
         }
         sAudioIsRouted = enable;
     }
