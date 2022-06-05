@@ -18,12 +18,15 @@ package com.android.bluetooth.btservice;
 
 import android.bluetooth.BluetoothAdapter;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.telephony.BluetoothInCallService;
 import com.android.bluetooth.statemachine.State;
 import com.android.bluetooth.statemachine.StateMachine;
+import com.android.bluetooth.Utils;
+
 
 /**
  * This state machine handles Bluetooth Adapter State.
@@ -228,6 +231,10 @@ final class AdapterState extends StateMachine {
         public void enter() {
             super.enter();
             mAdapterService.enableBluetoothInCallService(true);
+
+            // This is to ensure property value is reset in followng corner case
+            // Bluetooth proecess is crashed when SCO is connected
+            SystemProperties.set(Utils.PROP_SCO_CONNECTION_STATUS, "false");
         }
 
         @Override
