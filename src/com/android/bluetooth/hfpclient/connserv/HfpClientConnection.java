@@ -168,12 +168,7 @@ public class HfpClientConnection extends Connection {
                 break;
             case BluetoothHeadsetClientCall.CALL_STATE_DIALING:
             case BluetoothHeadsetClientCall.CALL_STATE_ALERTING:
-                if (mHfpClientConnectionService != null) {
-                    HfpClientDeviceBlock block = mHfpClientConnectionService.findBlockForDevice(mDevice);
-                    if (block != null) {
-                        block.enableAudio(true, false);
-                    }
-                }
+                enableAudio(true, false);
                 setDialing();
                 break;
             case BluetoothHeadsetClientCall.CALL_STATE_INCOMING:
@@ -194,6 +189,19 @@ public class HfpClientConnection extends Connection {
                 Log.wtf(TAG, "Unexpected phone state " + state);
         }
         mPreviousCallState = state;
+    }
+
+    /* setAllowed - set the audio routing allowed flag for hfp client call.
+     * reRoute - route the audio to watch if companion failed to establish
+     * the SCO connection for hfp client call.
+     */
+    private void enableAudio(boolean setAllowed, boolean reRoute) {
+        if(mHfpClientConnectionService != null){
+            HfpClientDeviceBlock block = mHfpClientConnectionService.findBlockForDevice(mDevice);
+            if(block != null ){
+                block.enableAudio(setAllowed, reRoute);
+            }
+        }
     }
 
     public synchronized void close(int cause) {
@@ -307,12 +315,7 @@ public class HfpClientConnection extends Connection {
             /* We have to make sure that we allow incoming SCO connection from AG
              * or we may also initiate one if AG hasn't done yet
              */
-            if(mHfpClientConnectionService != null){
-                HfpClientDeviceBlock block = mHfpClientConnectionService.findBlockForDevice(mDevice);
-                if(block != null ){
-                    block.enableAudio(true, true);
-                }
-            }
+            enableAudio(true, true);
             mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
         }
     }
@@ -323,12 +326,7 @@ public class HfpClientConnection extends Connection {
             Log.d(TAG, "onAnswer videoState" + mCurrentCall);
         }
         if (!mClosed) {
-            if(mHfpClientConnectionService != null){
-                HfpClientDeviceBlock block = mHfpClientConnectionService.findBlockForDevice(mDevice);
-                if(block != null ){
-                    block.enableAudio(true, true);
-                }
-            }
+            enableAudio(true, true);
             mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
         }
     }
@@ -377,13 +375,8 @@ public class HfpClientConnection extends Connection {
             switch (msg.what) {
                 case MSG_ENABLE_AUDIO_WITHOUT_REDIRECT: {
                     if (!mClosed) {
-                        if(mHfpClientConnectionService != null) {
-                            HfpClientDeviceBlock block = mHfpClientConnectionService.findBlockForDevice(mDevice);
-                            if(block != null ) {
-                                Log.d(TAG, "MSG_ENABLE_AUDIO_WITHOUT_REDIRECT ");
-                                block.enableAudio(true, false);
-                            }
-                        }
+                        Log.d(TAG, "MSG_ENABLE_AUDIO_WITHOUT_REDIRECT ");
+                        enableAudio(true, false);
                     }
                     break;
                 }
