@@ -95,6 +95,8 @@ public class BluetoothInCallService extends InCallService {
 
     private static final int DISCONNECT_TONE_TIMEOUT_SECONDS = 1;
 
+    private String hfpclass = "com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService";
+
     private int mNumActiveCalls = 0;
     private int mNumHeldCalls = 0;
     private int mNumChildrenOfActiveCall = 0;
@@ -257,7 +259,7 @@ public class BluetoothInCallService extends InCallService {
                    if (details.getState() == Call.STATE_DISCONNECTING) {
                      Log.i(TAG, "Ignore Call STATE_DISCONNECTING");
                    } else {
-                     updateHeadsetWithCallState(false /* force */);
+                     updateHeadsetWithCallState(call, false /* force */);
                    }
                 }
             }
@@ -377,6 +379,10 @@ public class BluetoothInCallService extends InCallService {
             if (mCallInfo.isNullCall(call)) {
                 return false;
             }
+            if(checkIfCallIsHfpClientCall(call)) {
+                Log.i(TAG, "HFP Client call is ringing, ignore answerCall");
+                return false;
+            }
             call.answer(VideoProfile.STATE_AUDIO_ONLY);
             return true;
         }
@@ -391,6 +397,11 @@ public class BluetoothInCallService extends InCallService {
             if (mCallInfo.isNullCall(call)) {
                 return false;
             }
+            if(checkIfCallIsHfpClientCall(call)) {
+                Log.i(TAG, "HFP Client call, ignore hangup");
+                return false;
+            }
+
             // release the parent if there is a conference call
             BluetoothCall conferenceCall = getBluetoothCallById(call.getParentId());
             if (!mCallInfo.isNullCall(conferenceCall)
@@ -611,7 +622,8 @@ public class BluetoothInCallService extends InCallService {
             call.registerCallback(callback);
 
             mBluetoothCallHashMap.put(call.getTelecomCallId(), call);
-            updateHeadsetWithCallState(false /* force */);
+            updateHeadsetWithCallState(call, false /* force */);
+
         }
     }
 
@@ -656,7 +668,7 @@ public class BluetoothInCallService extends InCallService {
         }
 
         mClccIndexMap.remove(call);
-        updateHeadsetWithCallState(false /* force */);
+        updateHeadsetWithCallState(call, false /* force */);
     }
 
     @Override
@@ -981,6 +993,37 @@ public class BluetoothInCallService extends InCallService {
             }
         }
         return false;
+    }
+
+    /**
+     * check if the call is with hfpClient phone account.
+     * return true if call is HfpClientCall.
+     */
+    private boolean checkIfCallIsHfpClientCall(BluetoothCall call) {
+        if((call != null) && (call.getAccountHandle() != null) &&
+          (call.getAccountHandle().getComponentName() != null) ) {
+            Log.i(TAG," checkIfCallIsHfpClientCall : " + call.getAccountHandle().getComponentName());
+            String cname = call.getAccountHandle().getComponentName().getClassName();
+            Log.i(TAG," checkIfCallIsHfpClientCall : " + cname);
+            if(cname != null) {
+                if(cname.equals(hfpclass)){
+                     Log.i(TAG," checkIfCallIsHfpClientCall : true");
+                     return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void updateHeadsetWithCallState(BluetoothCall call, boolean force) {
+        Log.i(TAG, "updateHeadsetWithCallState with call parameter");
+
+        if(checkIfCallIsHfpClientCall(call)) {
+            Log.i(TAG,"hfpclient call, do not update call status to headset");
+            return;
+
+        }
+        updateHeadsetWithCallState(force);
     }
 
     /**
