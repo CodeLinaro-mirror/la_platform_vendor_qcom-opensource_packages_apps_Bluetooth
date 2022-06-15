@@ -849,7 +849,9 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
 
                 case MESSAGE_GET_FOLDER_ITEMS:
-                    transitionTo(mGetFolderList);
+                    if (mBrowsingConnected) {
+                        transitionTo(mGetFolderList);
+                    }
                     return true;
 
                 case MESSAGE_PLAY_ITEM:
@@ -901,8 +903,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
 
                 case MSG_AVRCP_GET_FOLDER_ITEMS_PTS:
-                    getFolderItems((Bundle) msg.obj);
-                    transitionTo(mGetFolderList);
+                    if (mBrowsingConnected) {
+                        getFolderItems((Bundle) msg.obj);
+                        transitionTo(mGetFolderList);
+                    }
                     return true;
 
                 case MSG_AVRCP_REQUEST_CONTINUING_RESPONSE:
