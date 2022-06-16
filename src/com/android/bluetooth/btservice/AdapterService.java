@@ -1563,6 +1563,7 @@ public class AdapterService extends Service {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothPrivilegedPermission(service);
             return service.setDiscoverableTimeout(timeout);
         }
 
@@ -2655,7 +2656,7 @@ public class AdapterService extends Service {
     }
 
     boolean setScanMode(int mode, int duration) {
-        enforceBluetoothPermission(this);
+        enforceBluetoothPrivilegedPermission(this);
 
         setDiscoverableTimeout(duration);
 
