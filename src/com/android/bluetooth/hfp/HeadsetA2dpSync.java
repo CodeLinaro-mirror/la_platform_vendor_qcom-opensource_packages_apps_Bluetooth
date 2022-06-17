@@ -162,7 +162,7 @@ public class HeadsetA2dpSync {
         }
 
         Log.d(TAG," suspendA2DP currPlayingState = "+ a2dpState + " for reason " + reason
-              + "mA2dpSuspendTriggered = " + mA2dpSuspendTriggered + " for device " + device);
+              + " mA2dpSuspendTriggered = " + mA2dpSuspendTriggered + " for device " + device);
         mBroadcastService = mAdapterService.getBroadcastService();
         mBroadcastIsActive = mAdapterService.getBroadcastActive();
         mBroadcastIsStreaming = mAdapterService.getBroadcastStreaming();

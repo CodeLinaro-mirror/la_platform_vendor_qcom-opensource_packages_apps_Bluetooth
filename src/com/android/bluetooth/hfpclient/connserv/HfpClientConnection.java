@@ -157,6 +157,12 @@ public class HfpClientConnection extends Connection {
                 break;
             case BluetoothHeadsetClientCall.CALL_STATE_DIALING:
             case BluetoothHeadsetClientCall.CALL_STATE_ALERTING:
+                if (mHfpClientConnectionService != null) {
+                    HfpClientDeviceBlock block = mHfpClientConnectionService.findBlockForDevice(mDevice);
+                    if (block != null) {
+                        block.enableAudio(true, false);
+                    }
+                }
                 setDialing();
                 break;
             case BluetoothHeadsetClientCall.CALL_STATE_INCOMING:
