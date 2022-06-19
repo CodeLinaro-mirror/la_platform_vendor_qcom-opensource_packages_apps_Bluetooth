@@ -2519,7 +2519,8 @@ public class HeadsetStateMachine extends StateMachine {
                   it.remove();
                }
             }
-            mHeadsetService.getHfpA2DPSyncInterface().releaseA2DP(mDevice);
+            Log.d(TAG, "Resume A2DP by sending RESUME_A2DP message");
+            sendMessage(RESUME_A2DP);
         }
         Log.d(TAG, "Exit processIntentA2dpPlayStateChanged()");
     }
