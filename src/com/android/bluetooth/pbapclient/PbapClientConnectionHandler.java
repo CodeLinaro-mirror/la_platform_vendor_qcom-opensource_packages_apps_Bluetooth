@@ -368,6 +368,8 @@ class PbapClientConnectionHandler extends Handler {
         // Perform forced cleanup, it is ok if the handler throws an exception this will free the
         // handler to complete what it is doing and finish with cleanup.
         closeSocket();
+        removeAccount(mAccount);
+        removeCallLog(mAccount);
         this.getLooper().getThread().interrupt();
     }
 
