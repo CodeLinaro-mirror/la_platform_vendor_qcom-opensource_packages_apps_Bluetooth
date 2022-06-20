@@ -1072,7 +1072,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                         BluetoothProfile.STATE_DISCONNECTED);
             } else {
                 String prevStateName = mPrevState == null ? "null" : mPrevState.getName();
-                Log.e(TAG, "Connected: Illegal state transition from " + prevStateName
+                Log.e(TAG, "Connecting: Illegal state transition from " + prevStateName
                         + " to Connecting, mCurrentDevice=" + mCurrentDevice);
             }
         }
