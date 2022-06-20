@@ -1268,7 +1268,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             } else if (mPrevState != mAudioOn) {
                 String prevStateName = mPrevState == null ? "null" : mPrevState.getName();
                 Log.e(TAG, "Connected: Illegal state transition from " + prevStateName
-                        + " to Connecting, mCurrentDevice=" + mCurrentDevice);
+                        + " to Connected, mCurrentDevice=" + mCurrentDevice);
             }
         }
 
