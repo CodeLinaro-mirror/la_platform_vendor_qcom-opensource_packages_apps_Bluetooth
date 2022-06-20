@@ -68,8 +68,9 @@ public class AvrcpCoverArtManager {
     // More types refer to class BipEncoding
     public static final String MIMETYPE_DEFAULT = "JPEG";
 
-    public static final int IMAGE_HEIGHT_DEFAULT = 500;
-    public static final int IMAGE_WIDTH_DEFAULT = 500;
+    // AVRCP 1.6.2 defined "thumbnail" size is guaranteed so we'll do that for now
+    public static final int IMAGE_HEIGHT_DEFAULT = 200;
+    public static final int IMAGE_WIDTH_DEFAULT = 200;
     public static final int IMAGE_MAXSIZE_DEFAULT = 200000;
 
     private final AvrcpControllerService mService;
