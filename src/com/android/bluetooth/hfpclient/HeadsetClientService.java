@@ -1070,6 +1070,10 @@ public class HeadsetClientService extends ProfileService {
         return mIsInCall;
     }
 
+    public void queryCallsOnCompanion() {
+        // TODO: Add function to query calls on Companion 
+    }
+
     public Bundle getCurrentAgFeatures(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         HeadsetClientStateMachine sm = getStateMachine(device);
