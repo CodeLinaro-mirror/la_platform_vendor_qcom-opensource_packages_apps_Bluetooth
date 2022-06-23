@@ -404,6 +404,8 @@ public class Config {
             return false;
         if ((serviceName.equals("A2dpService")) && (isA2dpSink))
             return false;
+        if ((serviceName.equals("HeadsetService")) && (isA2dpSink))
+            return false;
 
         boolean isBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
         boolean isBCEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bc", true);
