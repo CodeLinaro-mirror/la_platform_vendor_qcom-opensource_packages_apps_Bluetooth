@@ -95,6 +95,7 @@ static jmethodID method_onLockStatusChanged;
 static jmethodID method_onLockAvailable;
 static jmethodID method_onSetSirkChanged;
 static jmethodID method_onSetSizeChanged;
+static jmethodID method_onRsiDataFound;
 
 static const btcsip_interface_t* sBluetoothCsipInterface = NULL;
 static jobject mCallbacksObj = NULL;
@@ -133,6 +134,9 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
   method_onSetSizeChanged =
       env->GetMethodID(clazz, "onSetSizeChanged", "(IILjava/lang/String;)V");
+
+  method_onRsiDataFound =
+      env->GetMethodID(clazz, "onRsiDataFound", "([BLjava/lang/String;)V");
 
   ALOGI("%s: succeeds", __func__);
 }
@@ -274,6 +278,25 @@ static void set_sirk_changed_callback(uint8_t set_id, uint8_t* sirk,
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onSetSirkChanged, set_id, jb.get(), address.get());
 }
 
+/** Callback when new SIRK of coordinated set has been found
+ */
+static void rsi_data_found_callback(uint8_t* rsi,
+        const RawAddress& bd_addr) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  if (!mCallbacksObj) {
+    ALOGE("mCallbacksObj is NULL. Return.");
+    return;
+  }
+  ScopedLocalRef<jbyteArray> jb(sCallbackEnv.get(), NULL);
+  jb.reset(sCallbackEnv->NewByteArray(6));
+  sCallbackEnv->SetByteArrayRegion(jb.get(), 0, 6, (jbyte*)rsi);
+  // address
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bd_addr));
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onRsiDataFound, jb.get(), address.get());
+}
+
 static btcsip_callbacks_t sBluetoothCsipCallbacks = {
   sizeof(sBluetoothCsipCallbacks),
   csip_app_registered_callback,
@@ -284,6 +307,7 @@ static btcsip_callbacks_t sBluetoothCsipCallbacks = {
   lock_available_callback,
   set_size_changed_callback,
   set_sirk_changed_callback,
+  rsi_data_found_callback,
 };
 
 static void initNative(JNIEnv* env, jobject object) {
@@ -399,6 +423,14 @@ static void setLockValueNative(JNIEnv* env, jobject object, jint app_id,
   sBluetoothCsipInterface->set_lock_value(app_id, set_id, value, lock_list);
 }
 
+static void setOpportunisticScanNative(JNIEnv* env, jobject obj, jboolean isStart) {
+  ALOGV("%s:  isStart : %d", __func__, isStart);
+  if (!sBluetoothCsipInterface) {
+    return;
+  }
+  sBluetoothCsipInterface->set_opportunistic_scan(isStart == JNI_TRUE ? 1 : 0);
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void*)classInitNative},
     {"initNative", "()V", (void*)initNative},
@@ -408,6 +440,7 @@ static JNINativeMethod sMethods[] = {
     {"registerCsipAppNative", "(JJ)V", (void*)registerCsipAppNative},
     {"unregisterCsipAppNative", "(I)V", (void*)unregisterCsipAppNative},
     {"setLockValueNative", "(III[Ljava/lang/String;)V", (void*)setLockValueNative},
+    {"setOpportunisticScanNative", "(Z)V", (void*)setOpportunisticScanNative}
 };
 
 int register_com_android_bluetooth_csip_setcoordinator(JNIEnv* env) {

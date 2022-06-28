@@ -204,8 +204,11 @@ public class GroupService extends ProfileService {
             Log.w(TAG, "stop() called already..");
             return true;
         }
-
-        unregisterReceiver(mReceiver);
+        try {
+            unregisterReceiver(mReceiver);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, e.getMessage());
+        }
 
         // Cleanup native interface
         mGroupNativeInterface.cleanup();
@@ -845,6 +848,7 @@ public class GroupService extends ProfileService {
             if (cSet.getDeviceGroupMembers().size() == 0) {
                 Log.i(TAG, "Last device unpaired. Removing Device Group from database");
                 mCoordinatedSets.remove(cSet);
+                setSirkMap.remove(setId);
             }
         }
     }

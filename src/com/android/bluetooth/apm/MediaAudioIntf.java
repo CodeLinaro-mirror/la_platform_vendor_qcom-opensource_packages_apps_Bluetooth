@@ -656,4 +656,26 @@ public class MediaAudioIntf {
             Log.i(TAG, "Exception" + e);
         }
     }
+
+    public void onLeCodecConfigChange(BluetoothDevice device,
+            BluetoothLeAudioCodecStatus codecStatus, int profile) {
+        if(MediaAudio == null)
+            return;
+
+        Class[] arg = new Class[3];
+        arg[0] = BluetoothDevice.class;
+        arg[1] = BluetoothLeAudioCodecStatus.class;
+        arg[2] = Integer.class;
+
+        try {
+            Method onLeCodecConfigChange = MediaAudio.getDeclaredMethod("onLeCodecConfigChange", arg);
+            onLeCodecConfigChange.invoke(mMediaAudio, device, codecStatus, profile);
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+    }
 }

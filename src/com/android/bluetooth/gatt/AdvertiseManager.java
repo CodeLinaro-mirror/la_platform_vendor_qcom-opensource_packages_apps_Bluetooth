@@ -32,6 +32,7 @@ import com.android.bluetooth.btservice.AdapterService;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.NoSuchElementException;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -247,9 +248,13 @@ class AdvertiseManager {
             return;
         }
 
-        Integer advertiserId = adv.id;
-        binder.unlinkToDeath(adv.deathRecipient, 0);
+        try {
+            binder.unlinkToDeath(adv.deathRecipient, 0);
+        } catch (NoSuchElementException e) {
+            Log.i(TAG, "stopAdvertisingSet() - link does not exist");
+        }
 
+        Integer advertiserId = adv.id;
         if (advertiserId < 0) {
             Log.i(TAG, "stopAdvertisingSet() - advertiser not finished registration yet");
             // Advertiser will be freed once initiated in onAdvertisingSetStarted()
@@ -443,7 +448,11 @@ class AdvertiseManager {
             Integer advertiser_id = entry.getValue().id;
             IAdvertisingSetCallback callback = entry.getValue().callback;
             IBinder binder = toBinder(callback);
-            binder.unlinkToDeath(entry.getValue().deathRecipient, 0);
+            try {
+                binder.unlinkToDeath(entry.getValue().deathRecipient, 0);
+            } catch (NoSuchElementException e) {
+                Log.i(TAG, "stopAdvertisingSets() - link does not exist");
+            }
             it.remove();
 
             if (advertiser_id < 0) {

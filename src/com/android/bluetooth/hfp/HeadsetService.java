@@ -1145,10 +1145,6 @@ public class HeadsetService extends ProfileService {
             else
                 Log.w(TAG, "mCallControl is null");
 
-            HeadsetService service = getService(source);
-            if (service != null) {
-                service.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
-            }
         }
 
         @Override
@@ -1156,18 +1152,13 @@ public class HeadsetService extends ProfileService {
                 String number, int type, AttributionSource source,
                 SynchronousResultReceiver receiver) {
             Log.d(TAG, "clccResponse");
-            CallControlIntf mCallControl = CallControlIntf.get();
-            if (mCallControl != null)
-               mCallControl.clccResponse(index, direction, status, mode, mpty, number, type);
-            else
-                Log.w(TAG, "mCallControl is null");
-
             try {
-                HeadsetService service = getService(source);
-                if (service != null) {
-                    service.clccResponse(index, direction, status, mode, mpty, number, type);
-                }
-                receiver.send(null);
+              CallControlIntf mCallControl = CallControlIntf.get();
+              if (mCallControl != null)
+                 mCallControl.clccResponse(index, direction, status, mode, mpty, number, type);
+              else
+                  Log.w(TAG, "mCallControl is null");
+              receiver.send(null);
             } catch (RuntimeException e) {
                 receiver.propagateException(e);
             }
@@ -1245,6 +1236,7 @@ public class HeadsetService extends ProfileService {
             }
         }
 
+        @Override
         public void phoneStateChangedDsDa(int numActive, int numHeld, int callState, String number,
                 int type, String name, AttributionSource source) {
             HeadsetService service = getService(source);
@@ -1254,14 +1246,14 @@ public class HeadsetService extends ProfileService {
             service.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
         }
 
+        @Override
         public void clccResponseDsDa(int index, int direction, int status, int mode, boolean mpty,
                 String number, int type, AttributionSource source) {
 
-            HeadsetService service = getService(source);
-            if (service == null) {
-                return;
-            }
-            service.clccResponse(index, direction, status, mode, mpty, number, type);
+              HeadsetService service = getService(source);
+              if (service != null) {
+                  service.clccResponse(index, direction, status, mode, mpty, number, type);
+              }
         }
     }
 
@@ -1993,7 +1985,7 @@ public class HeadsetService extends ProfileService {
 
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean setActiveDevice(BluetoothDevice device) {
-        if(/*ApmConstIntf.getQtiLeAudioEnabled()*/ true) {
+        if((ApmConstIntf.getQtiLeAudioEnabled()) || (ApmConstIntf.getAospLeaEnabled())) {
             ActiveDeviceManagerServiceIntf mActiveDeviceManager =
                     ActiveDeviceManagerServiceIntf.get();
             /*Precautionary Change: Force Active Device Manager

@@ -16,6 +16,8 @@
 
 package com.android.bluetooth.lebroadcast;
 
+import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
+
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothLeBroadcastMetadata;
@@ -719,6 +721,7 @@ public class BassClientService extends ProfileService {
                     Log.e(TAG, "Service is null");
                     return;
                 }
+                enforceBluetoothPrivilegedPermission(service);
                 service.registerCallback(cb);
             } catch (RuntimeException e) {
                 Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
@@ -733,6 +736,7 @@ public class BassClientService extends ProfileService {
                     Log.e(TAG, "Service is null");
                     return;
                 }
+                enforceBluetoothPrivilegedPermission(service);
                 service.unregisterCallback(cb);
             } catch (RuntimeException e) {
                 Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));

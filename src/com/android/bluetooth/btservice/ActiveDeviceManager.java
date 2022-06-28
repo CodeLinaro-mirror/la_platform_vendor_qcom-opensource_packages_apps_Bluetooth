@@ -39,6 +39,7 @@ import android.os.Message;
 import android.util.Log;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.apm.ApmConstIntf;
+import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.ba.BATService;
@@ -251,6 +252,18 @@ public class ActiveDeviceManager {
                              "handleMessage(MESSAGE_LE_AUDIO_ACTION_CONNECTION_STATE_CHANGED):"
                              + " device " + device + " disconnected");
                         }
+                        int mMediaProfile =
+                            getCurrentActiveProfile(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+                        if (mMediaProfile == ApmConstIntf.AudioProfiles.A2DP) {
+                           if (DBG) {
+                              Log.d(TAG, "cuurent active profile is A2DP"
+                              + "Not setting active device null for LEAUDIO");
+                            } break;
+                        } else {
+                           if (DBG) {
+                              Log.d(TAG, "BAP_MEDIA Profile is active");
+                            }
+                        }
 
                         if (Objects.equals(mLeAudioActiveDevice, device)) {
                             setLeAudioActiveDevice(null);
@@ -309,7 +322,20 @@ public class ActiveDeviceManager {
                         }
 
                         mA2dpConnectedDevices.remove(device);
-
+                        if (ApmConstIntf.getAospLeaEnabled()) {
+                           int mMediaProfile =
+                               getCurrentActiveProfile(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+                           if (mMediaProfile == ApmConstIntf.AudioProfiles.A2DP) {
+                              if (DBG) {
+                                 Log.d(TAG, "current active profile is A2DP");
+                               }
+                           } else {
+                              if (DBG) {
+                                 Log.d(TAG, "BAP_MEDIA Profile is active"
+                                 + "Not setting active device null A2DP");
+                              } break;
+                           }
+                        }
                         if (Objects.equals(mA2dpActiveDevice, device)) {
                             final A2dpService mA2dpService = mFactory.getA2dpService();
                             BluetoothDevice mDevice = null;
@@ -447,6 +473,20 @@ public class ActiveDeviceManager {
                         final HeadsetService hfpService = mFactory.getHeadsetService();
 
                         mHfpConnectedDevices.remove(device);
+                        if (ApmConstIntf.getAospLeaEnabled()) {
+                           int mCallProfile =
+                               getCurrentActiveProfile(ApmConstIntf.AudioFeatures.CALL_AUDIO);
+                           if (mCallProfile == ApmConstIntf.AudioProfiles.HFP) {
+                              if (DBG) {
+                                 Log.d(TAG, "cuurent active profile is HFP");
+                              }
+                           } else {
+                              if (DBG) {
+                                 Log.d(TAG, "BAP_CALL Profile is active"
+                                 + "Not setting active device null HFP");
+                              } break;
+                           }
+                        }
                         if (Objects.equals(mHfpActiveDevice, device)) {
                             if (mAdapterService.isTwsPlusDevice(device) &&
                                 !mHfpConnectedDevices.isEmpty()) {
@@ -716,6 +756,18 @@ public class ActiveDeviceManager {
         }
         mLeAudioActiveDevice = device;
         return true;
+    }
+
+    private int getCurrentActiveProfile(int mAudioType) {
+        if (DBG) {
+            Log.d(TAG, "getCurrentActiveProfile for (" + mAudioType + ")");
+        }
+        ActiveDeviceManagerServiceIntf service = ActiveDeviceManagerServiceIntf.get();
+        ActiveDeviceManagerServiceIntf mActiveDeviceManager =
+        ActiveDeviceManagerServiceIntf.get();
+        int mActiveProfile =
+               mActiveDeviceManager.getActiveProfile(mAudioType);
+        return mActiveProfile;
     }
 
     private void resetState() {

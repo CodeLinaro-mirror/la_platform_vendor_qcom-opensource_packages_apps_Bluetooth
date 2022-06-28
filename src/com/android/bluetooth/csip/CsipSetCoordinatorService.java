@@ -51,8 +51,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.Message;
 import android.os.RemoteException;
 import android.os.ParcelUuid;
 import android.os.SystemProperties;
@@ -97,7 +100,7 @@ public class CsipSetCoordinatorService extends ProfileService {
 
     private static CsipSetCoordinatorService sCsipSetCoordinatorService;
 
-    private AdapterService mAdapterService;
+    private static AdapterService mAdapterService;
 
     private CsipSetCoordinatorNativeInterface mGroupNativeInterface;
 
@@ -144,6 +147,13 @@ public class CsipSetCoordinatorService extends ProfileService {
 
     private HandlerThread mStateMachinesThread;
     private BroadcastReceiver mConnectionStateChangedReceiver;
+
+    private volatile CsipOptsHandler mHandler;
+    private boolean mIsOptScanStarted = false;
+    private final boolean OPT_SCAN_DISABLE = false;
+    private final boolean OPT_SCAN_ENABLE = true;
+    private final int MSG_START_STOP_OPTSCAN = 0;
+    private final int MSG_RSI_DATA_FOUND = 1;
 
     private class SetDiscoveryRequest {
         private int mAppId = INVALID_APP_ID;
@@ -222,6 +232,9 @@ public class CsipSetCoordinatorService extends ProfileService {
                 "AdapterService cannot be null when CsipSetCoordinatorService starts");
 
         mGroupScanner = new CsipSetCoordinatorScanner(this);
+        HandlerThread thread = new HandlerThread("OptsHandlerThread");
+        thread.start();
+        mHandler = new CsipOptsHandler(mGroupScanner.getmLooper());
         // Start handler thread for state machines
         mStateMachines.clear();
         mStateMachinesThread = new HandlerThread("CsipSetCoordinatorService.StateMachines");
@@ -238,6 +251,7 @@ public class CsipSetCoordinatorService extends ProfileService {
         registerReceiver(mConnectionStateChangedReceiver, filter);
         registerGroupClientModule(mBluetoothGroupCallback);
         updateBondedDevices();
+        startOrStopOpportunisticScan();
         return true;
     }
 
@@ -259,17 +273,24 @@ public class CsipSetCoordinatorService extends ProfileService {
             return true;
         }
 
+        if (mIsOptScanStarted) {
+            setOpportunisticScan(OPT_SCAN_DISABLE);
+        }
         if (mGroupScanner != null) {
             mGroupScanner.cleanup();
         }
-
-        unregisterReceiver(mReceiver);
-        unregisterReceiver(mConnectionStateChangedReceiver);
+        if (mConnectionStateChangedReceiver != null) {
+            try {
+                unregisterReceiver(mReceiver);
+                unregisterReceiver(mConnectionStateChangedReceiver);
+                mConnectionStateChangedReceiver = null;
+            } catch (IllegalArgumentException e) {
+                Log.w(TAG, e.getMessage());
+            }
+        }
         if (mLocalAppId != -1) {
             unregisterGroupClientModule(mLocalAppId);
         }
-        mConnectionStateChangedReceiver = null;
-
         // Cleanup native interface
         mGroupNativeInterface.cleanup();
         mGroupNativeInterface = null;
@@ -673,7 +694,9 @@ public class CsipSetCoordinatorService extends ProfileService {
             mCurrentSetDisc = null;
             return;
         }
-
+        if (mIsOptScanStarted) {
+            setOpportunisticScan(OPT_SCAN_DISABLE);
+        }
         mGroupScanner.startSetDiscovery(setId, sirk, transport,
                 cSet.getDeviceGroupSize(), cSet.getDeviceGroupMembers());
         mCurrentSetDisc.mDiscInProgress = true;
@@ -749,7 +772,6 @@ public class CsipSetCoordinatorService extends ProfileService {
             if (cSet.getDeviceGroupId() == setId) {
                 if (!mPublicAddr) {
                     return cSet;
-
                 // Public addresses are requested. Replace address with public addr
                 } else {
                     DeviceGroup set = new DeviceGroup(
@@ -757,7 +779,7 @@ public class CsipSetCoordinatorService extends ProfileService {
                             new ArrayList<BluetoothDevice>(),
                             cSet.getIncludingServiceUUID(), cSet.isExclusiveAccessSupported());
                     for (BluetoothDevice device: cSet.getDeviceGroupMembers()) {
-                        if (device.getBondState() == BluetoothDevice.BOND_BONDED) {
+                        if (mAdapterService.getBondState(device) == BluetoothDevice.BOND_BONDED) {
                             BluetoothDevice publicDevice = device;
                             set.getDeviceGroupMembers().add(publicDevice);
                         }
@@ -819,6 +841,7 @@ public class CsipSetCoordinatorService extends ProfileService {
             if (cSet.getDeviceGroupMembers().size() == 0) {
                 Log.i(TAG, "Last device unpaired. Removing Device Group from database");
                 mCoordinatedSets.remove(cSet);
+                setSirkMap.remove(setId);
                 return;
             }
         }
@@ -933,6 +956,7 @@ public class CsipSetCoordinatorService extends ProfileService {
             } else {
                 mCurrentSetDisc = null;
             }
+            startOrStopOpportunisticScan();
     }
 
     /* Callback received from CSIP native layer when a new Coordinated set has been
@@ -978,7 +1002,7 @@ public class CsipSetCoordinatorService extends ProfileService {
             for (DeviceGroup cSet: mCoordinatedSets) {
                 int groupId = cSet.getDeviceGroupId();
                 if (groupId == setId) {
-                    handleSetMemberAvailable(device, setId); // Sravan check is required to notify ?
+                    handleSetMemberAvailable(device, setId); // Check is required to notify ?
                 }
                 if (groupId == setId &&
                         (!cSet.getDeviceGroupMembers().contains(device))) {
@@ -1518,5 +1542,99 @@ public class CsipSetCoordinatorService extends ProfileService {
                 Log.d(TAG, "removeDeviceFromDeviceGroup After remove setId = " + setid
                         + ", Device: " + device + " mDeviceGroupIdMap " + mDeviceGroupIdMap);
          }
+    }
+
+    // Handler for Opportunistic scan operations and set member resolution.
+    private class CsipOptsHandler extends Handler {
+        CsipOptsHandler(Looper looper) {
+            super(looper);
+        }
+
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+            case MSG_START_STOP_OPTSCAN:
+                if (mGroupNativeInterface != null) {
+                    mGroupNativeInterface.setOpportunisticScan(mIsOptScanStarted);
+                    if (DBG)
+                        Log.d(TAG, "MSG_START_STOP_OPTSCAN " + mIsOptScanStarted);
+                }
+                break;
+            case MSG_RSI_DATA_FOUND:
+                RsiData rsiData = (RsiData) msg.obj;
+                startSetMemberResolution(rsiData.data, rsiData.device);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    /* RSI Data */
+    class RsiData {
+        BluetoothDevice device;
+        byte[] data;
+
+        RsiData(BluetoothDevice device, byte[] rsiData) {
+            this.device = device;
+            data = rsiData;
+        }
+    }
+
+    void setOpportunisticScan(boolean isStart) {
+        if (mIsOptScanStarted != isStart && mHandler != null) {
+            mIsOptScanStarted = isStart;
+            mHandler.sendMessage(mHandler.obtainMessage(MSG_START_STOP_OPTSCAN));
+        } else {
+            if (DBG)
+                Log.d(TAG, "setOpportunisticScan ignored mIsOptScanStarted " + mIsOptScanStarted
+                        + " mHandler " + mHandler);
+        }
+    }
+
+    void startOrStopOpportunisticScan() {
+        if (mCurrentSetDisc != null || mPendingSetDisc != null) {
+            Log.i(TAG, "startOrStopOpportunisticScan currentSetDisc " + mCurrentSetDisc
+                    + " PendingSetDisc " + mPendingSetDisc);
+            return;
+        }
+        for (DeviceGroup cSet : mCoordinatedSets) {
+            if (isSetInComplete(cSet)) {
+                setOpportunisticScan(OPT_SCAN_ENABLE);
+                break;
+            }
+        }
+    }
+
+    public void onRsiDataFound(byte data[], BluetoothDevice device) {
+        if (mAdapterService.getBondState(device) != BluetoothDevice.BOND_NONE) {
+            Log.i(TAG, "onRsiDataFound Device bonded ignore " + device);
+            return;
+        }
+        if (VDBG)
+            Log.v(TAG, "onRsiDataFound " + device);
+        if (mHandler != null) {
+            RsiData rsiData = new RsiData(device, data);
+            mHandler.sendMessage(mHandler.obtainMessage(MSG_RSI_DATA_FOUND, rsiData));
+        }
+    }
+
+    private void startSetMemberResolution(byte data[], BluetoothDevice device) {
+        if (VDBG) {
+            mGroupScanner.printByteArrayInHex(data, "rsidata");
+        }
+        Set<Integer> setid = setSirkMap.keySet();
+        for (int id : setid) {
+            byte[] sirk = setSirkMap.get(id);
+            DeviceGroup deviceGroup = getCoordinatedSet(id, false);
+            if ((sirk != null) && (deviceGroup != null) && isSetInComplete(deviceGroup)) {
+                if (mGroupScanner.startPsriResolution(data, sirk, device, id)) {
+                    break;
+                }
+            }
+        }
+    }
+
+    private boolean isSetInComplete(DeviceGroup deviceGroup) {
+        return deviceGroup.getDeviceGroupSize() != deviceGroup.getTotalDiscoveredGroupDevices();
     }
 }

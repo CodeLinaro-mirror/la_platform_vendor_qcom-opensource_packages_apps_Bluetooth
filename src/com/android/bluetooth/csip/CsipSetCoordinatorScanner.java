@@ -123,6 +123,7 @@ public class CsipSetCoordinatorScanner {
     private int mTotalDiscovered;
 
     private int mScanType = 1;
+    private Looper mLooper;
 
     // filter out duplicate scans
     ArrayList<BluetoothDevice> scannedDevices = new ArrayList<BluetoothDevice>();
@@ -139,12 +140,17 @@ public class CsipSetCoordinatorScanner {
         mainHandler = new Handler(mCsipSetCoordinatorService.getMainLooper());
         HandlerThread thread = new HandlerThread("CsipScanHandlerThread");
         thread.start();
-        mHandler = new CsipHandler(thread.getLooper());
+        mLooper = thread.getLooper();
+        mHandler = new CsipHandler(mLooper);
         mCsipScanCallback = new CsipLeScanCallback();
         ScanRecord.DATA_TYPE_GROUP_AD_TYPE = 0x2E;
         /* Testing: Property used for deciding scan and filter type. To be removed */
         mScanType = SystemProperties.getInt(
                      "persist.vendor.service.bt.csip.scantype", 1);
+    }
+
+    Looper getmLooper() {
+        return mLooper;
     }
 
     // Handler for CSIP scan operations and set member resolution.
@@ -476,15 +482,7 @@ public class CsipSetCoordinatorScanner {
         }
         Log.d(TAG, "New Group device discovered: " + mCurrentDevice);
         mTotalDiscovered++;
-
-        // give set member found callback on main thread
-        mainHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                mCsipSetCoordinatorService.onSetMemberFound(mSetId, mCurrentDevice);
-            }
-        });
-
+        onSetMemberFound(mSetId, mCurrentDevice);
         //check if all set members have been discovered
         if (mSetSize > 0 && mTotalDiscovered >= mSetSize) {
             // to immediately ignore processing scan results after completion
@@ -534,6 +532,72 @@ public class CsipSetCoordinatorScanner {
             hex.append(String.format("%02x", b));
         }
         Log.i(TAG, name + ": " + hex);
+    }
+
+    /* Starts resolution of PSRI data received in opt scan results */
+    boolean startPsriResolution(byte[] psri, byte []sirk, BluetoothDevice device, int setid) {
+        if (VDBG) Log.v(TAG, "startPsriResolution from rsi");
+        byte [] sirkTemp = Arrays.copyOf(sirk, AES_128_IO_LEN);
+        reverseByteArray(sirkTemp);
+        if (VDBG) printByteArrayInHex(psri, "GroupInfo");
+        byte[] remoteHash = new byte[PSRI_SPLIT_LEN];
+        byte[] randomNumber = new byte[PSRI_SPLIT_LEN];
+        System.arraycopy(psri, 0, remoteHash, 0, PSRI_SPLIT_LEN);
+        System.arraycopy(psri, PSRI_SPLIT_LEN, randomNumber, 0, PSRI_SPLIT_LEN);
+        byte[] localHash = computeLocalHash(randomNumber, sirkTemp);
+        if (VDBG) {
+            printByteArrayInHex(localHash, "localHash");
+            printByteArrayInHex(remoteHash, "remoteHash");
+        }
+        if (localHash != null) {
+            return validateSetMember(localHash, remoteHash, device, setid);
+        }
+        return false;
+    }
+
+    byte[] computeLocalHash(byte[] randomNumber, byte [] sirk) {
+        if (VDBG) Log.v(TAG, "computeLocalHash from rsi");
+        byte[] localHash = new byte[AES_128_IO_LEN];
+        byte[] randomNumber128 = new byte[AES_128_IO_LEN];
+        System.arraycopy(randomNumber, 0, randomNumber128, 0, PSRI_SPLIT_LEN);
+        reverseByteArray(randomNumber128);
+        if (VDBG) {
+            printByteArrayInHex(sirk, "reversed GroupIRK");
+            printByteArrayInHex(randomNumber128, "reverse randomNumber");
+        }
+        try {
+            SecretKeySpec skeySpec = new SecretKeySpec(sirk, "AES");
+            Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, skeySpec);
+            localHash = cipher.doFinal(randomNumber128);
+            reverseByteArray(localHash);
+            if (VDBG) printByteArrayInHex(localHash, "after AES 128 encryption");
+            return Arrays.copyOfRange(localHash, 0, PSRI_SPLIT_LEN);
+        } catch (Exception e) {
+            Log.e(TAG, "Exception while generating local hash: " + e);
+        }
+        return null;
+    }
+
+    /* Validate that if remote belongs to a given coordinated set*/
+    boolean validateSetMember(byte[] localHash, byte[] remoteHash, BluetoothDevice device,
+            int setid) {
+        if (!Arrays.equals(localHash, remoteHash)) {
+            return false;
+        }
+        if (DBG) Log.d(TAG, "Set member discovered from rsi " + device);
+        onSetMemberFound(setid, device);
+        return true;
+    }
+
+    // give set member found callback on main thread
+    private void onSetMemberFound(final int setid, BluetoothDevice device) {
+        mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                mCsipSetCoordinatorService.onSetMemberFound(setid, device);
+            }
+        });
     }
 }
 

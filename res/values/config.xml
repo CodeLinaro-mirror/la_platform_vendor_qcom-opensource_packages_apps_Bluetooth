@@ -108,9 +108,9 @@
          balanced and low power subrate request configurations. -->
     <integer name="subrate_mode_high_priority_min_subrate">2</integer>
     <integer name="subrate_mode_high_priority_max_subrate">4</integer>
-    <integer name="subrate_mode_balanced_min_subrate">5</integer>
+    <integer name="subrate_mode_balanced_min_subrate">4</integer>
     <integer name="subrate_mode_balanced_max_subrate">7</integer>
-    <integer name="subrate_mode_low_power_min_subrate">8</integer>
+    <integer name="subrate_mode_low_power_min_subrate">4</integer>
     <integer name="subrate_mode_low_power_max_subrate">10</integer>
 
     <!-- Specifies max latency parameters for high priority, balanced

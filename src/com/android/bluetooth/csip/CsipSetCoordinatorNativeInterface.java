@@ -159,6 +159,12 @@ public class CsipSetCoordinatorNativeInterface {
         return disconnectSetDeviceNative(appId, getByteAddress(device));
     }
 
+    public void setOpportunisticScan(boolean isStart) {
+        if (DBG) {
+            Log.d(TAG, " setOpportunisticScan " + isStart);
+        }
+        setOpportunisticScanNative(isStart);
+    }
 
     private BluetoothDevice getDevice(String address) {
         return mAdapter.getRemoteDevice(address);
@@ -278,6 +284,17 @@ public class CsipSetCoordinatorNativeInterface {
         }
     }
 
+    private void onRsiDataFound(byte[] rsi, String address) {
+        if (DBG) {
+            Log.d(TAG, "onRsiDataFound " + address);
+        }
+        CsipSetCoordinatorService service
+            = CsipSetCoordinatorService.getCsipSetCoordinatorService();
+        if (service != null) {
+            service.onRsiDataFound(rsi, getDevice(address.toUpperCase()));
+        }
+    }
+
     private void sendMessageToService(CsipSetCoordinatorStackEvent event) {
         CsipSetCoordinatorService service
                 = CsipSetCoordinatorService.getCsipSetCoordinatorService();
@@ -297,4 +314,6 @@ public class CsipSetCoordinatorNativeInterface {
     private native void setLockValueNative(int appId, int setId, int value, String[] devicesList);
     private native boolean connectSetDeviceNative(int appId, byte[] address);
     private native boolean disconnectSetDeviceNative(int appId, byte[] address);
+    private native void setOpportunisticScanNative(boolean isStart);
+
 }

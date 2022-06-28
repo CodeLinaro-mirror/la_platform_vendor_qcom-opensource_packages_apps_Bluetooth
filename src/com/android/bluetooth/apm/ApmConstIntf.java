@@ -179,6 +179,25 @@ public class ApmConstIntf {
         }
     }
 
+    public static boolean getAospLeaEnabled() {
+        if(ApmConst == null)
+            return false;
+
+        try {
+            Method getAospLeaEnabled = ApmConst.getDeclaredMethod("getAospLeaEnabled");
+            Boolean ret = (Boolean)getAospLeaEnabled.invoke(null);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return false;
+    }
+
     public static boolean getQtiLeAudioEnabled() {
         if(ApmConst == null)
             return false;

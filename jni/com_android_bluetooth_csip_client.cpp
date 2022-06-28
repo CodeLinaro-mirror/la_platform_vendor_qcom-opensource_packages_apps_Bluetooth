@@ -274,6 +274,15 @@ static void set_sirk_changed_callback(uint8_t set_id, uint8_t* sirk,
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onSetSirkChanged, set_id, jb.get(), address.get());
 }
 
+/** Callback when new RSI of coordinated set has been found
+ */
+static void rsi_data_found_callback(uint8_t* rsi,
+        const RawAddress& bd_addr) {
+
+  //  Should not receive this
+  ALOGE("%s: Ignore ", __func__);
+}
+
 static btcsip_callbacks_t sBluetoothCsipCallbacks = {
   sizeof(sBluetoothCsipCallbacks),
   csip_app_registered_callback,
@@ -284,6 +293,7 @@ static btcsip_callbacks_t sBluetoothCsipCallbacks = {
   lock_available_callback,
   set_size_changed_callback,
   set_sirk_changed_callback,
+  rsi_data_found_callback,
 };
 
 static void initNative(JNIEnv* env, jobject object) {

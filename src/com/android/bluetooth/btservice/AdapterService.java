@@ -160,6 +160,7 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
+import android.sysprop.BluetoothProperties;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
@@ -176,6 +177,7 @@ import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 import com.android.bluetooth.apm.MediaAudioIntf;
 import com.android.bluetooth.apm.CallAudioIntf;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
+import com.android.bluetooth.gatt.ScanManager;
 import com.android.bluetooth.btservice.bluetoothkeystore.BluetoothKeystoreService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.btservice.storage.MetadataDatabase;
@@ -1721,6 +1723,31 @@ public class AdapterService extends Service {
         }
     }
 
+    public int isLeAudioSupported() {
+        if (BluetoothProperties.isProfileBapUnicastClientEnabled().orElse(false)) {
+            return BluetoothStatusCodes.FEATURE_SUPPORTED;
+        }
+        return BluetoothStatusCodes.FEATURE_NOT_SUPPORTED;
+    }
+
+    public int isLeAudioBroadcastSourceSupported() {
+        if (BluetoothProperties.isProfileBapBroadcastSourceEnabled().orElse(false)
+                && mAdapterProperties.isLePeriodicAdvertisingSupported()
+                && mAdapterProperties.isLeExtendedAdvertisingSupported()) {
+            return BluetoothStatusCodes.FEATURE_SUPPORTED;
+        }
+        return BluetoothStatusCodes.FEATURE_NOT_SUPPORTED;
+    }
+
+    public int isLeAudioBroadcastAssistantSupported() {
+        if (BluetoothProperties.isProfileBapBroadcastAssistEnabled().orElse(false)
+                && mAdapterProperties.isLePeriodicAdvertisingSupported()
+                && mAdapterProperties.isLeExtendedAdvertisingSupported()) {
+            return BluetoothStatusCodes.FEATURE_SUPPORTED;
+        }
+        return BluetoothStatusCodes.FEATURE_NOT_SUPPORTED;
+    }
+
     ///*_REF
     public Object getBCService() {
         return mBCService;
@@ -2168,6 +2195,7 @@ public class AdapterService extends Service {
                             service, attributionSource, "AdapterService setScanMode")) {
                 return BluetoothStatusCodes.ERROR_MISSING_BLUETOOTH_SCAN_PERMISSION;
             }
+            enforceBluetoothPrivilegedPermission(service);
 
             return service.mAdapterProperties.setScanMode(convertScanModeToHal(mode))
                     ? BluetoothStatusCodes.SUCCESS : BluetoothStatusCodes.ERROR_UNKNOWN;
@@ -2208,6 +2236,8 @@ public class AdapterService extends Service {
                             service, attributionSource, "AdapterService setDiscoverableTimeout")) {
                 return BluetoothStatusCodes.ERROR_MISSING_BLUETOOTH_SCAN_PERMISSION;
             }
+            enforceBluetoothPrivilegedPermission(service);
+
             return service.mAdapterProperties.setDiscoverableTimeout((int) timeout)
                     ? BluetoothStatusCodes.SUCCESS : BluetoothStatusCodes.ERROR_UNKNOWN;
         }
@@ -3527,7 +3557,11 @@ public class AdapterService extends Service {
             }
         }
         private int isLeAudioSupported() {
-            return BluetoothStatusCodes.FEATURE_NOT_SUPPORTED;
+            AdapterService service = getService();
+            if (service == null) {
+                return BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED;
+            }
+            return service.isLeAudioSupported();
         }
 
         @Override
@@ -3539,7 +3573,11 @@ public class AdapterService extends Service {
             }
         }
         private int isLeAudioBroadcastSourceSupported() {
-            return BluetoothStatusCodes.FEATURE_SUPPORTED;
+            AdapterService service = getService();
+            if (service == null) {
+                return BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED;
+            }
+            return service.isLeAudioBroadcastSourceSupported();
         }
 
         @Override
@@ -3550,8 +3588,12 @@ public class AdapterService extends Service {
                 receiver.propagateException(e);
             }
         }
-        public int isLeAudioBroadcastAssistantSupported() {
-            return BluetoothStatusCodes.FEATURE_SUPPORTED;
+        private int isLeAudioBroadcastAssistantSupported() {
+            AdapterService service = getService();
+            if (service == null) {
+                return BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED;
+            }
+            return service.isLeAudioBroadcastAssistantSupported();
         }
 
         @Override
@@ -4356,6 +4398,7 @@ public class AdapterService extends Service {
         boolean setA2dp = false;
         boolean setHeadset = false;
         boolean isQtiLeAudioEnabled = ApmConstIntf.getQtiLeAudioEnabled();
+        boolean isAospLeaEnabled = ApmConstIntf.getAospLeaEnabled();
         ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
 
         Log.i(TAG, "setActiveDevice" + "(device: " + device +"), for profiles: " + profiles);
@@ -4386,7 +4429,7 @@ public class AdapterService extends Service {
         }
 
         if (setA2dp && mA2dpService != null) {
-            if(isQtiLeAudioEnabled) {
+            if(isQtiLeAudioEnabled || isAospLeaEnabled) {
                 activeDeviceManager.setActiveDevice(device,
                         ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
             } else {
@@ -4402,7 +4445,7 @@ public class AdapterService extends Service {
         }
 
         if (setHeadset && mHeadsetService != null) {
-            if(isQtiLeAudioEnabled) {
+            if(isQtiLeAudioEnabled || isAospLeaEnabled) {
                 activeDeviceManager.setActiveDevice(device,
                         ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
             } else {
@@ -4639,9 +4682,13 @@ public class AdapterService extends Service {
         boolean isQtiLeAudioEnabled = ApmConstIntf.getQtiLeAudioEnabled();
         Log.i(TAG, "disconnectAllEnabledProfiles(): isQtiLeAudioEnabled: " + isQtiLeAudioEnabled);
         if(isQtiLeAudioEnabled) {
-            if(mMediaAudio != null)
+            if (mMediaAudio != null &&
+                mMediaAudio.getConnectionState(device) ==
+                              BluetoothProfile.STATE_CONNECTED) {
+                Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting MEDIA");
                 mMediaAudio.disconnect(device, true);
                 disconnectMedia = true;
+            }
         } else if (mA2dpService != null && mA2dpService.getConnectionState(device)
                 == BluetoothProfile.STATE_CONNECTED) {
             Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting A2dp");
@@ -4660,8 +4707,11 @@ public class AdapterService extends Service {
             mA2dpSinkService.disconnect(device);
         }
         if(isQtiLeAudioEnabled) {
-            if(mCallAudio != null)
+            if (mCallAudio != null) {
+                Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting CALL," +
+                           " disconnectMedia: " + disconnectMedia);
                 mCallAudio.disconnect(device, disconnectMedia);
+            }
         } else if (mHeadsetService != null && mHeadsetService.getConnectionState(device)
                 == BluetoothProfile.STATE_CONNECTED) {
             Log.i(TAG,
@@ -5952,6 +6002,18 @@ public class AdapterService extends Service {
     private long mScanQuotaWindowMillis = DeviceConfigListener.DEFAULT_SCAN_QUOTA_WINDOW_MILLIS;
     @GuardedBy("mDeviceConfigLock")
     private long mScanTimeoutMillis = DeviceConfigListener.DEFAULT_SCAN_TIMEOUT_MILLIS;
+    @GuardedBy("mDeviceConfigLock")
+    private int mScreenOffLowPowerWindowMillis =
+            ScanManager.SCAN_MODE_SCREEN_OFF_LOW_POWER_WINDOW_MS;
+    @GuardedBy("mDeviceConfigLock")
+    private int mScreenOffLowPowerIntervalMillis =
+            ScanManager.SCAN_MODE_SCREEN_OFF_LOW_POWER_INTERVAL_MS;
+    @GuardedBy("mDeviceConfigLock")
+    private int mScreenOffBalancedWindowMillis =
+            ScanManager.SCAN_MODE_SCREEN_OFF_BALANCED_WINDOW_MS;
+    @GuardedBy("mDeviceConfigLock")
+    private int mScreenOffBalancedIntervalMillis =
+            ScanManager.SCAN_MODE_SCREEN_OFF_BALANCED_INTERVAL_MS;
 
     public @NonNull Predicate<String> getLocationDenylistName() {
         synchronized (mDeviceConfigLock) {
@@ -5983,6 +6045,42 @@ public class AdapterService extends Service {
         }
     }
 
+    /**
+     * Returns SCREEN_OFF_BALANCED scan window in millis.
+     */
+    public int getScreenOffBalancedWindowMillis() {
+        synchronized (mDeviceConfigLock) {
+            return mScreenOffBalancedWindowMillis;
+        }
+    }
+
+    /**
+     * Returns SCREEN_OFF_BALANCED scan interval in millis.
+     */
+    public int getScreenOffBalancedIntervalMillis() {
+        synchronized (mDeviceConfigLock) {
+            return mScreenOffBalancedIntervalMillis;
+        }
+    }
+
+    /**
+     * Returns SCREEN_OFF low power scan window in millis.
+     */
+    public int getScreenOffLowPowerWindowMillis() {
+        synchronized (mDeviceConfigLock) {
+            return mScreenOffLowPowerWindowMillis;
+        }
+    }
+
+    /**
+     * Returns SCREEN_OFF low power scan interval in millis.
+     */
+    public int getScreenOffLowPowerIntervalMillis() {
+        synchronized (mDeviceConfigLock) {
+            return mScreenOffLowPowerIntervalMillis;
+        }
+    }
+
     public long getScanTimeoutMillis() {
         synchronized (mDeviceConfigLock) {
             return mScanTimeoutMillis;
@@ -6004,6 +6102,14 @@ public class AdapterService extends Service {
                 "scan_quota_window_millis";
         private static final String SCAN_TIMEOUT_MILLIS =
                 "scan_timeout_millis";
+        private static final String SCREEN_OFF_LOW_POWER_WINDOW_MILLIS =
+                "screen_off_low_power_window_millis";
+        private static final String SCREEN_OFF_LOW_POWER_INTERVAL_MILLIS =
+                "screen_off_low_power_interval_millis";
+        private static final String SCREEN_OFF_BALANCED_WINDOW_MILLIS =
+                "screen_off_balanced_window_millis";
+        private static final String SCREEN_OFF_BALANCED_INTERVAL_MILLIS =
+                "screen_off_balanced_interval_millis";
 
         /**
          * Default denylist which matches Eddystone and iBeacon payloads.
@@ -6039,6 +6145,18 @@ public class AdapterService extends Service {
                         DEFAULT_SCAN_QUOTA_WINDOW_MILLIS);
                 mScanTimeoutMillis = properties.getLong(SCAN_TIMEOUT_MILLIS,
                         DEFAULT_SCAN_TIMEOUT_MILLIS);
+                mScreenOffLowPowerWindowMillis = properties.getInt(
+                        SCREEN_OFF_LOW_POWER_WINDOW_MILLIS,
+                        ScanManager.SCAN_MODE_SCREEN_OFF_LOW_POWER_WINDOW_MS);
+                mScreenOffLowPowerIntervalMillis = properties.getInt(
+                        SCREEN_OFF_LOW_POWER_INTERVAL_MILLIS,
+                        ScanManager.SCAN_MODE_SCREEN_OFF_LOW_POWER_INTERVAL_MS);
+                mScreenOffBalancedWindowMillis = properties.getInt(
+                        SCREEN_OFF_BALANCED_WINDOW_MILLIS,
+                        ScanManager.SCAN_MODE_SCREEN_OFF_BALANCED_WINDOW_MS);
+                mScreenOffBalancedIntervalMillis = properties.getInt(
+                        SCREEN_OFF_BALANCED_INTERVAL_MILLIS,
+                        ScanManager.SCAN_MODE_SCREEN_OFF_BALANCED_INTERVAL_MS);
             }
         }
     }
@@ -6116,9 +6234,7 @@ public class AdapterService extends Service {
 
     boolean isSdpCompleted(BluetoothDevice device) {
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
-        boolean sdpCompleted = deviceProp.isSdpCompleted();
-        debugLog("sdpCompleted  "  + sdpCompleted);
-        return sdpCompleted;
+        return (deviceProp != null ) ? deviceProp.isSdpCompleted() : false;
     }
 
     private int getDeviceType(BluetoothDevice device){

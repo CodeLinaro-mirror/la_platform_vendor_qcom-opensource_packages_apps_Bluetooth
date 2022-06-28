@@ -981,7 +981,7 @@ public class A2dpService extends ProfileService {
      */
     public boolean setActiveDevice(BluetoothDevice device) {
 
-        if(/*ApmConstIntf.getQtiLeAudioEnabled()*/ true) {
+        if(ApmConstIntf.getQtiLeAudioEnabled() || (ApmConstIntf.getAospLeaEnabled())) {
             ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
             return activeDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
         }
@@ -1163,7 +1163,9 @@ public class A2dpService extends ProfileService {
         }
         synchronized (mBtAvrcpLock) {
             if (mAvrcp_ext != null && !tws_switch) {
-                mAvrcp_ext.setAbsVolumeFlag(device);
+                //mAvrcp_ext.setAbsVolumeFlag(device);
+                //use msg to avoid potential dead lock as it would call audioservice
+                mAvrcp_ext.sendSetAbsVolumeFlagMsg(device);
             }
         }
         tws_switch = false;
