@@ -345,7 +345,7 @@ public class DatabaseManager {
      * {@link BluetoothProfile#PBAP_CLIENT}, {@link BluetoothProfile#MAP},
      * {@link BluetoothProfile#MAP_CLIENT}, {@link BluetoothProfile#SAP},
      * {@link BluetoothProfile#HEARING_AID}, {@link BluetoothProfile#CSIP_SET_COORDINATOR},
-     * {@link BluetoothProfile#LE_AUDIO_BROADCAST_ASSISTANT},
+     * {@link BluetoothProfile#LE_AUDIO_BROADCAST_ASSISTANT},{@link BluetoothProfile#VOLUME_CONTROL},
      * @param newConnectionPolicy the connectionPolicy to set; one of
      * {@link BluetoothProfile.CONNECTION_POLICY_UNKNOWN},
      * {@link BluetoothProfile.CONNECTION_POLICY_FORBIDDEN},
@@ -409,7 +409,7 @@ public class DatabaseManager {
      * {@link BluetoothProfile#PBAP_CLIENT}, {@link BluetoothProfile#MAP},
      * {@link BluetoothProfile#MAP_CLIENT}, {@link BluetoothProfile#SAP},
      * {@link BluetoothProfile#HEARING_AID}, {@link BluetoothProfile#CSIP_SET_COORDINATOR},
-     * {@link BluetoothProfile#LE_AUDIO_BROADCAST_ASSISTANT}
+     * {@link BluetoothProfile#LE_AUDIO_BROADCAST_ASSISTANT}, {@link BluetoothProfile#VOLUME_CONTROL},
      * @return the profile connection policy of the device; one of
      * {@link BluetoothProfile.CONNECTION_POLICY_UNKNOWN},
      * {@link BluetoothProfile.CONNECTION_POLICY_FORBIDDEN},
@@ -1446,9 +1446,9 @@ public class DatabaseManager {
                 // Do not log anything if metadata doesn't fall into above categories
                 return;
         }
-        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_DEVICE_INFO_REPORTED,
+        /*BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_DEVICE_INFO_REPORTED,
                 mAdapterService.obfuscateAddress(device),
                 BluetoothProtoEnums.DEVICE_INFO_EXTERNAL, callingApp, manufacturerName, modelName,
-                hardwareVersion, softwareVersion, 0);
+                hardwareVersion, softwareVersion, 0);*/
     }
 }

@@ -94,6 +94,7 @@ import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.PowerManager;
 import android.os.UserManager;
+import android.sysprop.BluetoothProperties;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
@@ -229,6 +230,10 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
             Log.d(TAG, " onChange on contact uri ");
             sendUpdateRequest();
         }
+    }
+
+    public static boolean isEnabled() {
+        return BluetoothProperties.isProfilePbapServerEnabled().orElse(false);
     }
 
     private void sendUpdateRequest() {

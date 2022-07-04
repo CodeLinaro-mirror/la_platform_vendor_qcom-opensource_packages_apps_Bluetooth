@@ -259,6 +259,12 @@ public class HeadsetA2dpSync {
             return true;
         }
 
+        if (!mHeadsetService.isAvailable()) {
+            Log.d(TAG, "HeadsetService is stopping");
+            mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
+            return true;
+        }
+
         CallAudioIntf mCallAudio = CallAudioIntf.get();
         if (mCallAudio.isVoiceOrCallActive()) {
             Log.d(TAG," Call/Ring/SCO on for some other stateMachine, bail out ");

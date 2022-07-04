@@ -52,6 +52,7 @@ import android.os.Binder;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Process;
+import android.sysprop.BluetoothProperties;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothObexTransport;
@@ -245,6 +246,10 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         setBluetoothOppService(null);
         mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
         return true;
+    }
+
+    public static boolean isEnabled() {
+        return BluetoothProperties.isProfileOppEnabled().orElse(false);
     }
 
     private void startListener() {

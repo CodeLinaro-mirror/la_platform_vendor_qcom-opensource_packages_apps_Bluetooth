@@ -62,6 +62,7 @@ import android.bluetooth.BluetoothHearingAid;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.BluetoothLeAudio;
+import android.bluetooth.BluetoothVolumeControl;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -86,6 +87,7 @@ import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.lebroadcast.BassClientService;
 import com.android.bluetooth.pan.PanService;
+import com.android.bluetooth.vc.VolumeControlService;
 import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
@@ -246,6 +248,11 @@ class PhonePolicy {
                             BluetoothProfile.LE_AUDIO, -1, // No-op argument
                             intent).sendToTarget();
                     break;
+                case BluetoothVolumeControl.ACTION_CONNECTION_STATE_CHANGED:
+                    mHandler.obtainMessage(MESSAGE_PROFILE_CONNECTION_STATE_CHANGED,
+                            BluetoothProfile.VOLUME_CONTROL, -1, // No-op argument
+                            intent).sendToTarget();
+                    break;
                 default:
                     Log.e(TAG, "Received unexpected intent, action=" + action);
                     break;
@@ -350,6 +357,7 @@ class PhonePolicy {
         filter.addAction(BC_ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_ACTIVE_DEVICE_CHANGED);
+        filter.addAction(BluetoothVolumeControl.ACTION_CONNECTION_STATE_CHANGED);
         mAdapterService.registerReceiver(mReceiver, filter);
     }
 
@@ -405,6 +413,7 @@ class PhonePolicy {
         PanService panService = mFactory.getPanService();
         HearingAidService hearingAidService = mFactory.getHearingAidService();
         LeAudioService leAudioService = mFactory.getLeAudioService();
+        VolumeControlService volumeControlService = mFactory.getVolumeControlService();
         boolean isQtiLeAudioEnabled = ApmConstIntf.getQtiLeAudioEnabled();
         BassClientService bcService = mFactory.getBassClientService();
 
@@ -497,6 +506,15 @@ class PhonePolicy {
             mAdapterService.getDatabase().setProfileConnectionPolicy(device,
                     BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT,
                     BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+        }
+
+        if (!isQtiLeAudioEnabled &&
+            (volumeControlService != null) && ArrayUtils.contains(uuids,
+                BluetoothUuid.VOLUME_CONTROL) && (volumeControlService.getConnectionPolicy(device)
+                == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
+            debugLog("setting volume control profile priority for device " + device);
+            mAdapterService.getDatabase().setProfileConnectionPolicy(device,
+                    BluetoothProfile.VOLUME_CONTROL, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
 
         ///*_REF
@@ -971,6 +989,7 @@ class PhonePolicy {
         PanService panService = mFactory.getPanService();
         A2dpSinkService a2dpSinkService = mFactory.getA2dpSinkService();
         LeAudioService leAudioService = mFactory.getLeAudioService();
+        VolumeControlService volumeControlService = mFactory.getVolumeControlService();
         boolean isQtiLeAudioEnabled = ApmConstIntf.getQtiLeAudioEnabled();
 
         List<BluetoothDevice> hsConnDevList = null;
@@ -1117,6 +1136,19 @@ class PhonePolicy {
                     == BluetoothProfile.STATE_DISCONNECTED)) {
                 debugLog("Retrying connection to LEAudio with device " + device);
                 leAudioService.connect(device);
+            }
+        }
+
+        if (!isQtiLeAudioEnabled && volumeControlService != null) {
+            List<BluetoothDevice> vcConnDevList = volumeControlService.getConnectedDevices();
+            debugLog("vol control device: " + device + " connection state: " +
+                                     volumeControlService.getConnectionState(device));
+            if (!vcConnDevList.contains(device) && (volumeControlService.getConnectionPolicy(device)
+                    == BluetoothProfile.CONNECTION_POLICY_ALLOWED)
+                    && (volumeControlService.getConnectionState(device)
+                    == BluetoothProfile.STATE_DISCONNECTED)) {
+                debugLog("Retrying connection to VCP with device " + device);
+                volumeControlService.connect(device);
             }
         }
         autoConnectBC(false, device);

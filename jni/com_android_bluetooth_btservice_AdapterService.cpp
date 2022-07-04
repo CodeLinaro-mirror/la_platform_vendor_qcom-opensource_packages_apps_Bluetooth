@@ -866,10 +866,10 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(jniCallbackClass, "sspRequestCallback", "([B[BIII)V");
 
   method_bondStateChangeCallback =
-      env->GetMethodID(jniCallbackClass, "bondStateChangeCallback", "(I[BI)V");
+      env->GetMethodID(jniCallbackClass, "bondStateChangeCallback", "(I[BII)V");
 
   method_aclStateChangeCallback =
-      env->GetMethodID(jniCallbackClass, "aclStateChangeCallback", "(I[BII)V");
+      env->GetMethodID(jniCallbackClass, "aclStateChangeCallback", "(I[BIII)V");
 
   method_setWakeAlarm = env->GetMethodID(clazz, "setWakeAlarm", "(JZ)Z");
   method_acquireWakeLock =

@@ -46,6 +46,7 @@ import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.provider.Settings;
+import android.sysprop.BluetoothProperties;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -162,6 +163,10 @@ public class BluetoothMapService extends ProfileService {
 
     public BluetoothMapService() {
         mState = BluetoothMap.STATE_DISCONNECTED;
+    }
+
+    public static boolean isEnabled() {
+        return BluetoothProperties.isProfileMapServerEnabled().orElse(false);
     }
 
     private synchronized void closeService() {

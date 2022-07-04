@@ -159,8 +159,12 @@ class Metadata {
                 break;
             case BluetoothProfile.LE_AUDIO:
                 profileConnectionPolicies.le_audio_connection_policy = connectionPolicy;
+                break;
             case BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT:
                 profileConnectionPolicies.bass_client_connection_policy = connectionPolicy;
+                break;
+            case BluetoothProfile.VOLUME_CONTROL:
+                profileConnectionPolicies.volume_control_connection_policy = connectionPolicy;
                 break;
             default:
                 throw new IllegalArgumentException("invalid profile " + profile);
@@ -201,6 +205,8 @@ class Metadata {
                 return profileConnectionPolicies.le_audio_connection_policy;
             case BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT:
                 return profileConnectionPolicies.bass_client_connection_policy;
+            case BluetoothProfile.VOLUME_CONTROL:
+                return profileConnectionPolicies.volume_control_connection_policy;
         }
         return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
     }

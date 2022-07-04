@@ -159,6 +159,7 @@ public class BluetoothInCallService extends InCallService {
     public static final int PROCESS_CHLD= 3;
     public static final int HELD_CALL   = 4;
     public static final int LIST_CLCC   = 5;
+    public static final int QUERY_PHONE_STATE = 6;
 
     @VisibleForTesting
     public AudioManager mAudioManager;
@@ -600,6 +601,9 @@ public class BluetoothInCallService extends InCallService {
 
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean queryPhoneState() {
+        Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
+        DsdaIntent.putExtra("state", QUERY_PHONE_STATE);
+        sendBroadcastAsUser(DsdaIntent, UserHandle.ALL, BLUETOOTH_CONNECT);
         synchronized (LOCK) {
             enforceModifyPermission();
             Log.i(TAG, "queryPhoneState");

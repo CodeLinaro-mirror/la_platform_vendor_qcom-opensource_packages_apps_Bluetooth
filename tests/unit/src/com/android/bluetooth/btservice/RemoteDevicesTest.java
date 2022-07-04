@@ -269,7 +269,7 @@ public class RemoteDevicesTest {
         // BluetoothDevice.BATTERY_LEVEL_UNKNOWN
         when(mAdapterService.getState()).thenReturn(BluetoothAdapter.STATE_ON);
         mRemoteDevices.aclStateChangeCallback(0, Utils.getByteAddress(mDevice1),
-                AbstractionLayer.BT_ACL_STATE_DISCONNECTED);
+                AbstractionLayer.BT_ACL_STATE_DISCONNECTED, 2, 19); // HCI code 19 remote terminated
         verify(mAdapterService).getState();
         verify(mAdapterService).getConnectionState(mDevice1);
         // Verify ACTION_ACL_DISCONNECTED and BATTERY_LEVEL_CHANGED intent are sent

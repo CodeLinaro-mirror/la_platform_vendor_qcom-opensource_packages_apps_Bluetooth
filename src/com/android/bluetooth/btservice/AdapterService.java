@@ -199,6 +199,7 @@ import com.android.bluetooth.pbapclient.PbapClientService;
 import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.sap.SapService;
 import com.android.bluetooth.sdp.SdpManager;
+import com.android.bluetooth.vc.VolumeControlService;
 import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
 import com.android.internal.annotations.GuardedBy;
@@ -381,6 +382,7 @@ public class AdapterService extends Service {
     private PbapClientService mPbapClientService;
     private HearingAidService mHearingAidService;
     private GroupService mGroupService;
+    private VolumeControlService mVolumeControlService;
     private CsipSetCoordinatorService mCsipSetCoordinatorService;
     private SapService mSapService;
     private GattService mGattService;
@@ -1297,6 +1299,10 @@ public class AdapterService extends Service {
         if (profile == BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.BASS);
         }
+        if (profile == BluetoothProfile.VOLUME_CONTROL) {
+            Log.d(TAG, "isSupported: profile: " + profile);
+            return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.VOLUME_CONTROL);
+        }
 
         Log.e(TAG, "isSupported: Unexpected profile passed in to function: " + profile);
         return false;
@@ -1366,6 +1372,12 @@ public class AdapterService extends Service {
         }
         if (mBassClientService != null && mBassClientService.getConnectionPolicy(device)
                 > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            return true;
+        }
+        if (!isQtiLeAudioEnabled &&
+            mVolumeControlService != null && mVolumeControlService.getConnectionPolicy(device)
+                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            Log.i(TAG, "isAnyProfileEnabled: VOLUME_CONTROL profile enabled");
             return true;
         }
         ///*_REF
@@ -1511,6 +1523,14 @@ public class AdapterService extends Service {
             Log.i(TAG, "connectEnabledProfiles: Connecting LE Broadcast Assistant Profile");
             mBassClientService.connect(device);
         }
+        if (!isQtiLeAudioEnabled &&
+            mVolumeControlService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+                BluetoothProfile.VOLUME_CONTROL, device)
+                && mVolumeControlService.getConnectionPolicy(device)
+                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            Log.i(TAG, "connectEnabledProfiles: Connecting Volume Control profile");
+            mVolumeControlService.connect(device);
+        }
         ///*_REF
         if (mBCService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
                 BluetoothProfile.BC_PROFILE, device) && mBCGetConnPolicy != null) {
@@ -1587,6 +1607,7 @@ public class AdapterService extends Service {
         mSapService = SapService.getSapService();
         mGattService = GattService.getGattService();
         mLeAudioService = LeAudioService.getLeAudioService();
+        mVolumeControlService = VolumeControlService.getVolumeControlService();
         if (isAdvBCAAudioFeatEnabled()) {
         ///*_REF
             Class<?> bcClass = null;
@@ -4633,6 +4654,14 @@ public class AdapterService extends Service {
                     BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             numProfilesConnected++;
         }
+        if (!isQtiLeAudioEnabled &&
+            mVolumeControlService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+                BluetoothProfile.VOLUME_CONTROL, device)) {
+            Log.i(TAG, "connectAllEnabledProfiles: Connecting Volume Control Profile");
+            mVolumeControlService.setConnectionPolicy(device,
+                    BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+            numProfilesConnected++;
+        }
         ///*_REF
         if (mBCService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
                 BluetoothProfile.BC_PROFILE, device)) {
@@ -4773,6 +4802,12 @@ public class AdapterService extends Service {
             Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting "
                     + "LE Broadcast Assistant Profile");
             mBassClientService.disconnect(device);
+        }
+        if (!isQtiLeAudioEnabled &&
+            mVolumeControlService != null && mVolumeControlService.getConnectionState(device)
+                == BluetoothProfile.STATE_CONNECTED) {
+            Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting Volume Control Profile");
+            mVolumeControlService.disconnect(device);
         }
         ///*_REF
         if (mBCService != null &&  mBCGetConnState != null) {
@@ -6231,6 +6266,18 @@ public class AdapterService extends Service {
         return mAdapterProperties.setBufferLengthMillis(codec, value);
     }
 
+    /**
+     *  Get an incremental id of Bluetooth metrics and log
+     *
+     *  @param device Bluetooth device
+     *  @return int of id for Bluetooth metrics and logging, 0 if the device is invalid
+     */
+    public int getMetricId(BluetoothDevice device) {
+        if (device == null) {
+           return 0;
+        }
+        return getMetricIdNative(Utils.getByteAddress(device));
+    }
 
     boolean isSdpCompleted(BluetoothDevice device) {
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);

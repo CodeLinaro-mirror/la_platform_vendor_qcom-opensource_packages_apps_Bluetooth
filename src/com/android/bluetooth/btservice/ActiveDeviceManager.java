@@ -551,12 +551,10 @@ public class ActiveDeviceManager {
                     }
                     // Just assign locally the new value
                     mHearingAidActiveDevice = device;
-                    if (device != null && (!ApmConstIntf.getQtiLeAudioEnabled())) {
+                    if (device != null && (!ApmConstIntf.getAospLeaEnabled() &&
+                                !ApmConstIntf.getQtiLeAudioEnabled())) {
                         setA2dpActiveDevice(null);
                         setHfpActiveDevice(null);
-                        if(!ApmConstIntf.getQtiLeAudioEnabled()) {
-                          setLeAudioActiveDevice(null);
-                        }
                     }
                 } break;
             }
@@ -707,6 +705,12 @@ public class ActiveDeviceManager {
         }
         if (!headsetService.setActiveDevice(device)) {
             return false;
+        }
+        if ((ApmConstIntf.getQtiLeAudioEnabled() ||
+             ApmConstIntf.getAospLeaEnabled()) &&
+             mAdapterService.isGroupDevice(device)) {
+            Log.d(TAG, "setHfpActiveDevice(" + device + ")" + "is a group device, ignore");
+            return true;
         }
         mHfpActiveDevice = device;
         return true;
