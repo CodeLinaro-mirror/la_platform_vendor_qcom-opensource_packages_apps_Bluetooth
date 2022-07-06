@@ -563,7 +563,8 @@ final class BondStateMachine extends StateMachine {
             }
         }
 
-        if (newState == BluetoothDevice.BOND_BONDED ) {
+        if ((newState == BluetoothDevice.BOND_BONDED )
+           ||(newState == BluetoothDevice.BOND_NONE)){
             mAdapterProperties.updateSdpProgress(device, true /* SDP Completed */);
         }
         Intent intent = new Intent(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
