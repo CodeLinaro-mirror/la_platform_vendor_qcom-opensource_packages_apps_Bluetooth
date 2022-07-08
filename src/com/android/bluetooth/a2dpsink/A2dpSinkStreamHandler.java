@@ -391,8 +391,9 @@ public class A2dpSinkStreamHandler extends Handler {
             targetDevice = connectedDevices.get(0);
         }
         HeadsetClientService headsetClientService = HeadsetClientService.getHeadsetClientService();
-        if (targetDevice != null && headsetClientService != null) {
-            return headsetClientService.getCurrentCalls(targetDevice).size() > 0;
+        if (targetDevice != null && headsetClientService != null &&
+                        headsetClientService.getCurrentCalls(targetDevice) != null) {
+                return headsetClientService.getCurrentCalls(targetDevice).size() > 0;
         }
         return false;
     }
