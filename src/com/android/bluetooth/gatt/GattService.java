@@ -1942,7 +1942,7 @@ public class GattService extends ProfileService {
             }
 
             if (!hasPermission && client.callingPackage != null
-                               && client.callingPackage.equals("com.android.bluetooth.services")) {
+                               && client.callingPackage.equals("com.android.bluetooth")) {
                 hasPermission = true;
             }
 
@@ -3162,7 +3162,7 @@ public class GattService extends ProfileService {
             }
         }
         if (callingPackage != null &&
-            callingPackage.equals("com.android.bluetooth.services")) {
+            callingPackage.equals("com.android.bluetooth")) {
             if (DBG) {
                 Log.d(TAG, "allowAddressTypeInResults only for Bluetooth apk");
             }

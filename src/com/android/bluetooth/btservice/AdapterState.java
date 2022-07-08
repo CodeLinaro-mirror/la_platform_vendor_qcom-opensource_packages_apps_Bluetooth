@@ -135,7 +135,7 @@ final class AdapterState extends StateMachine {
     static final int BT_FORCEKILL_TIMEOUT_DELAY = 100;
 
     static final ComponentName BLUETOOTH_INCALLSERVICE_COMPONENT
-            = new ComponentName("com.android.bluetooth.services",
+            = new ComponentName("com.android.bluetooth",
             BluetoothInCallService.class.getCanonicalName());
 
     private AdapterService mAdapterService;

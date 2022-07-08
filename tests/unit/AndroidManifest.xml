@@ -99,7 +99,7 @@
     "adb shell am instrument -w com.android.bluetooth.tests/android.test.InstrumentationTestRunner"
     -->
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.bluetooth.services"
-                     android:label="Tests for com.android.bluetooth.services"/>
+                     android:targetPackage="com.android.bluetooth"
+                     android:label="Tests for com.android.bluetooth"/>
 </manifest>
 
