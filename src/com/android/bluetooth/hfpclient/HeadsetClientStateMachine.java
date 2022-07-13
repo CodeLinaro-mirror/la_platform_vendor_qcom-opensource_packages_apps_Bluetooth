@@ -932,6 +932,11 @@ public class HeadsetClientStateMachine extends StateMachine {
             mCallIndRcvd = 0;
 
             mAudioWbs = false;
+
+            mAudioRouteAllowed = mService.getResources().getBoolean(
+                 R.bool.headset_client_initial_audio_route_allowed);
+            Log.d(TAG, "Disconnected state mAudioRouteAllowed -> " + mAudioRouteAllowed);
+
             setHeadsetAudioRouteAllowed(true);
 
             // will be set on connect
@@ -957,8 +962,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                 broadcastConnectionState(mCurrentDevice, BluetoothProfile.STATE_DISCONNECTED,
                         BluetoothProfile.STATE_CONNECTED);
             } else if (mPrevState != null) { // null is the default state before Disconnected
-                Log.e(TAG, "Connected: Illegal state transition from " + mPrevState.getName()
-                        + " to Connecting, mCurrentDevice=" + mCurrentDevice);
+                Log.e(TAG, "Disconnected: Illegal state transition from " + mPrevState.getName()
+                        + " to Disconnected, mCurrentDevice=" + mCurrentDevice);
             }
             mCurrentDevice = null;
         }
@@ -1067,7 +1072,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                         BluetoothProfile.STATE_DISCONNECTED);
             } else {
                 String prevStateName = mPrevState == null ? "null" : mPrevState.getName();
-                Log.e(TAG, "Connected: Illegal state transition from " + prevStateName
+                Log.e(TAG, "Connecting: Illegal state transition from " + prevStateName
                         + " to Connecting, mCurrentDevice=" + mCurrentDevice);
             }
         }
@@ -1263,7 +1268,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             } else if (mPrevState != mAudioOn) {
                 String prevStateName = mPrevState == null ? "null" : mPrevState.getName();
                 Log.e(TAG, "Connected: Illegal state transition from " + prevStateName
-                        + " to Connecting, mCurrentDevice=" + mCurrentDevice);
+                        + " to Connected, mCurrentDevice=" + mCurrentDevice);
             }
         }
 
@@ -1726,10 +1731,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // SCO connected for client, set the routing allowed to false for AG
                     setHeadsetAudioRouteAllowed(false);
                     Log.d(TAG, "mAudioRouteAllowed=" + mAudioRouteAllowed);
-                    // By default mAudioRouteAllowed will be false but lets check if we get SCO
-                    // connect request after call being ACTIVE then we must not reject SCO
-                    if (!mAudioRouteAllowed &&
-                        callsInState(BluetoothHeadsetClientCall.CALL_STATE_ACTIVE) == 0) {
+                    if (!mAudioRouteAllowed) {
                         sendMessageDelayed(HeadsetClientStateMachine.DISCONNECT_AUDIO,
                             SCO_REJECT_DELAY_MS);
                         // Don't continue connecting!
