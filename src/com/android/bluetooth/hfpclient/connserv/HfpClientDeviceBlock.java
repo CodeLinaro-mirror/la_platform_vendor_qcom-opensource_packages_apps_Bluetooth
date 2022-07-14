@@ -151,6 +151,16 @@ public class HfpClientDeviceBlock {
 
         HfpClientConnection connection = findConnectionKey(call);
 
+        // We found this issue in a special test case. Supposing WeChat voice call is active
+        // and user dial another outgoing call from the application, some peer devices return
+        // with "CIEV:1,0" immediately after receiving ATD command. This can cause null object
+        // reference error of "mCurrentCall".
+        if (connection == null
+            && call.getState() == BluetoothHeadsetClientCall.CALL_STATE_TERMINATED) {
+            Log.d(mTAG, "connection NULL with CALL_STATE_TERMINATED");
+            return;
+        }
+
         // We need to have special handling for calls that mysteriously convert from
         // DISCONNECTING -> ACTIVE/INCOMING state. This can happen for PTS (b/31159015).
         // We terminate the previous call and create a new one here.
@@ -293,6 +303,11 @@ public class HfpClientDeviceBlock {
                 if (mConference == null) {
                     mConference = new HfpClientConference(mPhoneAccount.getAccountHandle(), mDevice,
                             mHeadsetProfile);
+                }
+                // In case that conference call is created prior to the HFP SLC establishment
+                // Just keep the call state unchanged
+                if (otherConn.getState() == Connection.STATE_HOLDING) {
+                    mConference.setOnHold();
                 }
                 if (mConference.addConnection(otherConn)) {
                     if (DBG) {
