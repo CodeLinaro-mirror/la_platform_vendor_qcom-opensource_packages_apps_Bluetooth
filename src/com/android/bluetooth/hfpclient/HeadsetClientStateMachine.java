@@ -1404,11 +1404,21 @@ public class HeadsetClientStateMachine extends StateMachine {
                                 mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
                             }
                             break;
+                        case StackEvent.EVENT_TYPE_CLIP:
+                            // We will only inform first incoming call to telephony
+                            if (mCalls.size() == 0) {
+                                int FIRST_CALL_ID = 1;
+                                String PhoneNumber = event.valueString;
+                                queryCallsUpdate(FIRST_CALL_ID,
+                                                BluetoothHeadsetClientCall.CALL_STATE_INCOMING,
+                                                PhoneNumber, false, false);
+                                queryCallsDone();
+                            }
+                            break;
                         case StackEvent.EVENT_TYPE_CALL:
                         case StackEvent.EVENT_TYPE_CALLSETUP:
                         case StackEvent.EVENT_TYPE_CALLHELD:
                         case StackEvent.EVENT_TYPE_RESP_AND_HOLD:
-                        case StackEvent.EVENT_TYPE_CLIP:
                         case StackEvent.EVENT_TYPE_CALL_WAITING:
                             sendMessage(QUERY_CURRENT_CALLS);
                             break;
