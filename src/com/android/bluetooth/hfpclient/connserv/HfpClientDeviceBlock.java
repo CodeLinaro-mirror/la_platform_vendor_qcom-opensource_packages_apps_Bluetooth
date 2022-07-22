@@ -409,11 +409,6 @@ public class HfpClientDeviceBlock {
 
         if (mHeadsetClientProfile.getAudioRouteAllowed(mDevice) != setAllowed) {
             mHeadsetClientProfile.setAudioRouteAllowed(mDevice, setAllowed);
-
-            HeadsetService headsetService = HeadsetService.getHeadsetService();
-            if (headsetService != null) {
-                headsetService.setAudioRouteAllowed(!setAllowed);
-            }
         }
         // No need to protect this against being called multiple times in a row - the bluetooth
         // app takes care of redundant calls.
