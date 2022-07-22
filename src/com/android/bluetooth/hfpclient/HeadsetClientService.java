@@ -1071,7 +1071,11 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public void queryCallsOnCompanion() {
-        // TODO: Add function to query calls on Companion 
+        for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                if (sm != null) {
+                        sm.sendMessage(HeadsetClientStateMachine.SEND_CLCC);
+                }
+        }
     }
 
     public Bundle getCurrentAgFeatures(BluetoothDevice device) {
