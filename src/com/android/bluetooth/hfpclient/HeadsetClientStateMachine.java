@@ -1369,14 +1369,19 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // Add the call as an outgoing call.
                     BluetoothHeadsetClientCall c = (BluetoothHeadsetClientCall) message.obj;
                     mCalls.put(HF_ORIGINATED_CALL_ID, c);
-
-                    if (mNativeInterface.dial(getByteAddress(mCurrentDevice), c.getNumber())) {
+                    Log.d(TAG, (mIndicatorNetworkState ==
+                        HeadsetClientHalConstants.NETWORK_STATE_AVAILABLE) ?
+                        "mIndicatorNetworkState: NETWORK_STATE_AVAILABLE" :
+                        "mIndicatorNetworkState: NETWORK_STATE_NOT_AVAILABLE");
+                    if (mIndicatorNetworkState ==
+                        HeadsetClientHalConstants.NETWORK_STATE_AVAILABLE
+                        && mNativeInterface.dial(getByteAddress(mCurrentDevice), c.getNumber())) {
                         addQueuedAction(DIAL_NUMBER, c.getNumber());
                         // Start looping on calling current calls.
                         sendMessage(QUERY_CURRENT_CALLS);
                     } else {
                         Log.e(TAG,
-                                "ERROR: Cannot dial with a given number:" + (String) message.obj);
+                                "ERROR: Cannot dial with a given number: " + c.toString());
                         // Set the call to terminated remove.
                         c.setState(BluetoothHeadsetClientCall.CALL_STATE_TERMINATED);
                         sendCallChangedIntent(c);
