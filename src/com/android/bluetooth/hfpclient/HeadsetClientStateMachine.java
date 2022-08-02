@@ -850,6 +850,8 @@ public class HeadsetClientStateMachine extends StateMachine {
 
             mAudioFocusRequest = requestAudioFocus();
 
+            // disable the SWB codec selection for client call
+            mAudioManager.setParameters("bt_swb=65535");
             //this ensures that hfp audio is routed to speaker
             mAudioManager.setParameters("hfp_route_spkr=2");
             mAudioManager.setParameters("hfp_enable=true");
