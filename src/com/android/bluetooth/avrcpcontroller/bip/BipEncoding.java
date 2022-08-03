@@ -164,6 +164,34 @@ public class BipEncoding {
     }
 
     /**
+     * Returns the encoding type with given type name
+     *
+     * @return Integer type ID of the encoding
+     */
+    public static int getEncodingTypeFromString(String StringType) {
+        if (StringType == null) {
+            return -1;
+        }
+
+        switch (StringType.toUpperCase()) {
+            case "JPEG":
+                return JPEG;
+            case "PNG":
+                return PNG;
+            case "BMP":
+                return BMP;
+            case "GIF":
+                return GIF;
+            case "JPEG2000":
+                return JPEG2000;
+            case "WBMP":
+                return WBMP;
+            default:
+                return UNKNOWN;
+        }
+    }
+
+    /**
      * Determine the encoding type based on an input string
      */
     private static int determineEncoding(String encoding) {

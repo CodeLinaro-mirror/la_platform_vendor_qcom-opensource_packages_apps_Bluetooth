@@ -295,7 +295,7 @@ public class NativeInterface {
 
     private static native boolean sendDtmfNative(byte[] address, byte code);
 
-    private static native boolean requestLastVoiceTagNumberNative(byte[] address);
+    public static native boolean requestLastVoiceTagNumberNative(byte[] address);
 
     private static native boolean sendATCmdNative(byte[] address, int atCmd, int val1, int val2,
             String arg);
@@ -631,9 +631,20 @@ public class NativeInterface {
                     "onInBandRing: Ignoring message because service not available: " + event);
         }
     }
-
     private void onLastVoiceTagNumber(String number, byte[] address) {
-        Log.w(TAG, "onLastVoiceTagNumber not supported");
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_LAST_VOICE_TAG_NUMBER);
+        event.valueString = number;
+        event.device = getDevice(address);
+        if (DBG) {
+            Log.d(TAG, "onLastVoiceTagNumber: number " + number + ", device " + event.device);
+        }
+
+        HeadsetClientService service = HeadsetClientService.getHeadsetClientService();
+        if (service != null) {
+            service.messageFromNative(event);
+        } else {
+            Log.w(TAG, "onLastVoiceTagNumber: Ignoring message because service not available: " + event);
+        }
     }
 
     private void onRingIndication(byte[] address) {

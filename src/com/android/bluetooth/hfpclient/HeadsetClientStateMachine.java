@@ -60,6 +60,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.util.Log;
 import android.util.Pair;
 
@@ -117,6 +118,8 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int DISABLE_NREC = 20;
     public static final int SEND_VENDOR_AT_COMMAND = 21;
     public static final int SEND_BIEV = 22;
+    public static final int RELEASE_CALL = 23;
+    public static final int REQUEST_LAST_VOICE_TAG_NUMBER = 33;
 
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
@@ -207,7 +210,15 @@ public class HeadsetClientStateMachine extends StateMachine {
                 logD("zoneId:" + zoneId + ", groupId:" + groupId);
 
                 if (zoneId == CarAudioManager.PRIMARY_AUDIO_ZONE && groupId == mVolumeGroupId){
-                    int streamValue = mCarAudioManager.getGroupVolume(zoneId, groupId);
+                    int streamValue = 0;
+                    try {
+                        streamValue = mCarAudioManager.getGroupVolume(zoneId, groupId);
+                    } catch (CarNotConnectedException e) {
+                        Log.e(TAG, "Car is not connected", e);
+                    } catch (NullPointerException e) {
+                        Log.e(TAG, "mCarAudioManager is NULL!", e);
+                    }
+
                     int hfVol = amToHfVol(streamValue);
                     logD("Setting volume to audio manager: " + streamValue
                             + " hands free: " + hfVol);
@@ -723,6 +734,26 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
     }
 
+    private void releaseCall(int idx) {
+        if (DBG) {
+            Log.d(TAG, "releaseCall: " + idx);
+        }
+
+        BluetoothHeadsetClientCall c = mCalls.get(idx);
+
+        if (c == null ||
+            c.getState() != BluetoothHeadsetClientCall.CALL_STATE_ACTIVE) {
+            return;
+        }
+
+        if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice),
+                HeadsetClientHalConstants.CALL_ACTION_CHLD_1X, idx)) {
+            addQueuedAction(RELEASE_CALL, c);
+        } else {
+            Log.e(TAG, "ERROR: Couldn't release call " + " id:" + idx);
+        }
+    }
+
     private void explicitCallTransfer() {
         logD("explicitCallTransfer");
 
@@ -737,6 +768,34 @@ public class HeadsetClientStateMachine extends StateMachine {
         } else {
             Log.e(TAG, "ERROR: Couldn't transfer call");
         }
+    }
+
+    private void requestLastVoiceTagNumber() {
+        if (DBG) Log.d(TAG, "requestLastVoiceTagNumber");
+
+        if (NativeInterface.requestLastVoiceTagNumberNative(
+            getByteAddress(mCurrentDevice))) {
+            addQueuedAction(REQUEST_LAST_VOICE_TAG_NUMBER);
+        } else {
+            Log.e(TAG, "ERROR: Couldn't request last voice tag number");
+        }
+
+        if (DBG) Log.d(TAG, "Exit requestLastVoiceTagNumber");
+    }
+
+    private void processLastVoiceTagNumber(StackEvent event) {
+        String number = event.valueString;
+        if (DBG) Log.d(TAG, "processLastVoiceTagNumber number: " + number);
+
+        notifyLastVoiceTagNumber(number, event.device);
+    }
+
+    private void notifyLastVoiceTagNumber(String number, BluetoothDevice device) {
+        if (DBG) Log.d(TAG, "notifyLastVoiceTagNumber number: " + number);
+        Intent intent = new Intent(BluetoothHeadsetClient.ACTION_LAST_VTAG);
+        intent.putExtra(BluetoothHeadsetClient.EXTRA_NUMBER, number);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+        mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PRIVILEGED);
     }
 
     public Bundle getCurrentAgFeatures() {
@@ -756,6 +815,10 @@ public class HeadsetClientStateMachine extends StateMachine {
         if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_ECC)
                 == HeadsetClientHalConstants.PEER_FEAT_ECC) {
             b.putBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_ECC, true);
+        }
+        if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_VTAG) ==
+                HeadsetClientHalConstants.PEER_FEAT_VTAG) {
+            b.putBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_ATTACH_NUMBER_TO_VT, true);
         }
 
         // add individual CHLD support extras
@@ -852,8 +915,10 @@ public class HeadsetClientStateMachine extends StateMachine {
         logD("hfp_enable=" + enable);
         if (enable && !sAudioIsRouted) {
             mAudioManager.setParameters("hfp_enable=true");
+            SystemProperties.set(Utils.PROP_SCO_CONNECTION_STATUS, "true");
         } else if (!enable) {
             mAudioManager.setParameters("hfp_enable=false");
+            SystemProperties.set(Utils.PROP_SCO_CONNECTION_STATUS, "false");
         }
         sAudioIsRouted = enable;
     }
@@ -882,7 +947,14 @@ public class HeadsetClientStateMachine extends StateMachine {
         routeHfpAudio(false);
         returnAudioFocusIfNecessary();
         if (mService.isAutomotive()) {
-            mCarAudioManager.unregisterCarVolumeCallback(mVolumeChangeCallback);
+            try {
+                mCarAudioManager.unregisterCarVolumeCallback(mVolumeChangeCallback);
+            } catch (CarNotConnectedException e) {
+                Log.e(TAG, "Car is not connected", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
+            }
+
             if (mCar != null && mCar.isConnected()) {
                 mCar.disconnect();
                 mCar = null;
@@ -1161,6 +1233,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                             amVol = mCarAudioManager.getGroupVolume(mVolumeGroupId);
                         } catch(CarNotConnectedException e) {
                             Log.e(TAG, "Car is not connected", e);
+                        } catch (NullPointerException e) {
+                            Log.e(TAG, "mCarAudioManager is NULL!", e);
                         }
                     } else {
                         amVol = mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
@@ -1374,6 +1448,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                 case ENTER_PRIVATE_MODE:
                     enterPrivateMode(message.arg1);
                     break;
+                case RELEASE_CALL:
+                    releaseCall(message.arg1);
+                    break;
                 case EXPLICIT_CALL_TRANSFER:
                     explicitCallTransfer();
                     break;
@@ -1400,6 +1477,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                         sendMessageDelayed(QUERY_CURRENT_CALLS, QUERY_CURRENT_CALLS_WAIT_MILLIS);
                     }
                     queryCallsStart();
+                    break;
+                case REQUEST_LAST_VOICE_TAG_NUMBER:
+                    requestLastVoiceTagNumber();
                     break;
                 case StackEvent.STACK_EVENT:
                     Intent intent = null;
@@ -1517,6 +1597,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                                                 +mCommandedSpeakerVolume, AudioManager.FLAG_SHOW_UI);
                                     } catch (CarNotConnectedException e) {
                                         Log.e(TAG, "Car is not connected!", e);
+                                    } catch (NullPointerException e) {
+                                        Log.e(TAG, "mCarAudioManager is NULL!", e);
                                     }
                                 } else {
                                     mAudioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL,
@@ -1609,6 +1691,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                                         + " for device " + event.device);
                             }
                             break;
+                        case StackEvent.EVENT_TYPE_LAST_VOICE_TAG_NUMBER:
+                            processLastVoiceTagNumber(event);
+                            break;
                         default:
                             Log.e(TAG, "Unknown stack event: " + event.type);
                             break;
@@ -1693,6 +1778,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                             amVol = mCarAudioManager.getGroupVolume(mVolumeGroupId);
                         } catch(CarNotConnectedException e) {
                             Log.e(TAG, "Car is not connected", e);
+                        } catch (NullPointerException e) {
+                            Log.e(TAG, "mCarAudioManager is NULL!", e);
                         }
                     }
                     final int hfVol = amToHfVol(amVol);
@@ -1800,6 +1887,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                                     + event.valueInt);
                             processAudioEvent(event.valueInt, event.device);
                             break;
+                        case StackEvent.EVENT_TYPE_LAST_VOICE_TAG_NUMBER:
+                            processLastVoiceTagNumber(event);
+                            break;
                         default:
                             return NOT_HANDLED;
                     }
@@ -1878,6 +1968,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                 mCarAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected!", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
             }
         }
 
