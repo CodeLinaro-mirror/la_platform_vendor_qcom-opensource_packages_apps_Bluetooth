@@ -1510,10 +1510,15 @@ class AdapterProperties {
             mProfilesConnected = 0;
             mProfilesConnecting = 0;
             mProfilesDisconnecting = 0;
-            // adapterPropertyChangedCallback has already been received.  Set the scan mode.
-            setScanMode(AbstractionLayer.BT_SCAN_MODE_CONNECTABLE);
-            // This keeps NV up-to date on first-boot after flash.
-            setDiscoverableTimeout(mDiscoverableTimeout);
+            if (SystemProperties.get("ro.board.platform").equals("neo")) {
+                Log.d(TAG ,"Enable always Discoverable and Connectable for Neo devices");
+                setScanMode(AbstractionLayer.BT_SCAN_MODE_CONNECTABLE_DISCOVERABLE);
+            } else {
+                // adapterPropertyChangedCallback has already been received.  Set the scan mode.
+                setScanMode(AbstractionLayer.BT_SCAN_MODE_CONNECTABLE);
+                // This keeps NV up-to date on first-boot after flash.
+                setDiscoverableTimeout(mDiscoverableTimeout);
+            }
         }
     }
 

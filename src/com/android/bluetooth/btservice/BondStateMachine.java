@@ -36,6 +36,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.UserHandle;
+import android.os.SystemProperties;
 import android.util.Log;
 import android.os.PowerManager;
 import com.android.bluetooth.BluetoothStatsLog;
@@ -312,6 +313,11 @@ final class BondStateMachine extends StateMachine {
                         return false;
                     }
                     sendDisplayPinIntent(devProp.getAddress(), passkey, variant);
+                    if(SystemProperties.get("ro.board.platform").equals("neo")) {
+                        Log.d(TAG,"Auto Accept pairing request for Neo devices");
+                        BluetoothDevice device = (BluetoothDevice)msg.obj;
+                        device.setPairingConfirmation(true);
+                    }
                     break;
                 case PIN_REQUEST:
                     BluetoothClass btClass = dev.getBluetoothClass();
@@ -563,7 +569,8 @@ final class BondStateMachine extends StateMachine {
             }
         }
 
-        if (newState == BluetoothDevice.BOND_BONDED ) {
+        if ((newState == BluetoothDevice.BOND_BONDED )
+           ||(newState == BluetoothDevice.BOND_NONE)){
             mAdapterProperties.updateSdpProgress(device, true /* SDP Completed */);
         }
         Intent intent = new Intent(BluetoothDevice.ACTION_BOND_STATE_CHANGED);

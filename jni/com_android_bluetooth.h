@@ -15,6 +15,12 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef COM_ANDROID_BLUETOOTH_H
 #define COM_ANDROID_BLUETOOTH_H
 
@@ -167,6 +173,9 @@ int register_com_android_bluetooth_ba(JNIEnv* env);
 int register_com_android_bluetooth_hfp_vendorhfservice(JNIEnv* env);
 
 int register_com_android_bluetooth_btservice_BluetoothKeystore(JNIEnv* env);
+
+int register_com_android_bluetooth_a2dp_sink_vendor_service(JNIEnv* env);
+
 }
 
 #endif /* COM_ANDROID_BLUETOOTH_H */

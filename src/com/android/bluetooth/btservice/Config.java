@@ -68,6 +68,7 @@ public class Config {
     private static Class mGroupServiceClass = null;
     private static ArrayList<Class> profiles = new ArrayList<>();
     private static boolean mIsA2dpSink, mIsBAEnabled, mIsSplitA2dpEnabled;
+    private static boolean mIsHfpClient;
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -435,14 +436,26 @@ public class Config {
         if (serviceName.equals("BATService")) {
             return mIsBAEnabled && mIsSplitA2dpEnabled;
         }
+        if ((serviceName.equals("HeadsetClientService")) && (!mIsHfpClient))
+            return false;
+        if ((serviceName.equals("HeadsetService")) && (mIsHfpClient))
+            return false;
 
         // always return true for other profiles
         return true;
     }
 
     private static void getAudioProperties() {
+        boolean mIsSplitSink = SystemProperties.getBoolean("persist.vendor.bluetooth.split_a2dp_sink", false);
+
+        if (mIsSplitSink) {
+           SystemProperties.set("persist.vendor.service.bt.a2dp.sink", "true");
+           SystemProperties.set("persist.vendor.bt.a2dp.sink_conn", "2");
+        }
+
         mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", false);
         mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
+        mIsHfpClient = SystemProperties.getBoolean("persist.vendor.bluetooth.hfp_client", false);
         // Split A2dp will be enabled by default
         mIsSplitA2dpEnabled = true;
         AdapterService adapterService = AdapterService.getAdapterService();
@@ -455,5 +468,6 @@ public class Config {
             Log.d(TAG, "getAudioProperties mIsA2dpSink " + mIsA2dpSink + " mIsBAEnabled "
                 + mIsBAEnabled + " mIsSplitA2dpEnabled " + mIsSplitA2dpEnabled);
         }
+        Log.d(TAG, "getAudioProperties mIsHfpClient" + mIsHfpClient);
     }
 }
