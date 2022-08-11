@@ -189,7 +189,7 @@ public class HeadsetPhoneState {
                 device.getAddress().equals(CC_DUMMY_DEVICE_ADDR)) {
                 Log.d(TAG, "pushing initial events to CC");
                 //push these events on registeration
-                if (ApmConstIntf.getQtiLeAudioEnabled()) {
+                if ((ApmConstIntf.getQtiLeAudioEnabled()) || (ApmConstIntf.getAospLeaEnabled())) {
                     CallControlIntf mCallControl = CallControlIntf.get();
                     int networkType = mTelephonyManager.getNetworkType();
                     Log.d(TAG, "Adv Audio enabled: updateBearerTech:" + networkType);
@@ -424,7 +424,7 @@ public class HeadsetPhoneState {
             synchronized (mDeviceEventMap) {
                 stopListenForPhoneState();
                 startListenForPhoneState();
-                if (ApmConstIntf.getQtiLeAudioEnabled()) {
+                if ((ApmConstIntf.getQtiLeAudioEnabled()) || (ApmConstIntf.getAospLeaEnabled())) {
                    int networkType = mTelephonyManager.getNetworkType();
                    CallControlIntf mCallControl = CallControlIntf.get();
                    Log.d(TAG, "onSubscriptionsChanged: Adv Audio enabled: updateBearerTech:" + networkType);

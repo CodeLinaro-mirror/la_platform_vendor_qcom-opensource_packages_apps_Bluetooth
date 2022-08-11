@@ -53,6 +53,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_BLUETOOTH_SHARE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
@@ -134,6 +135,7 @@
         <provider android:name="com.android.bluetooth.opp.BluetoothOppProvider"
             android:authorities="com.android.bluetooth.opp"
             android:exported="true"
+            android:enabled="false"
             android:process="@string/process">
             <path-permission
                     android:pathPrefix="/btopp"
@@ -150,7 +152,8 @@
         <service
             android:process="@string/process"
             android:name="com.android.bluetooth.btservice.AdapterService"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.ACCESS_BLUETOOTH_SHARE">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetooth" />
             </intent-filter>

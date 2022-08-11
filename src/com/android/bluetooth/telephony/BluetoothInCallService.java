@@ -160,6 +160,7 @@ public class BluetoothInCallService extends InCallService {
     public static final int HELD_CALL   = 4;
     public static final int LIST_CLCC   = 5;
     public static final int QUERY_PHONE_STATE = 6;
+    public static final int CLEAN_UP = 7;
 
     @VisibleForTesting
     public AudioManager mAudioManager;
@@ -614,6 +615,9 @@ public class BluetoothInCallService extends InCallService {
 
     public void cleanUp() {
         mBluetoothCallHashMap.clear();
+        Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
+        DsdaIntent.putExtra("state", CLEAN_UP);
+        sendBroadcastAsUser(DsdaIntent, UserHandle.ALL, BLUETOOTH_CONNECT);
         Log.i(TAG, "BluetoothCallHashMap Cleared");
     }
 

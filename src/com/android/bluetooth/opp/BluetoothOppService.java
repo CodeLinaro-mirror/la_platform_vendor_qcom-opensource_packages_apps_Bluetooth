@@ -37,6 +37,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothDevicePicker;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -78,6 +79,34 @@ import com.android.obex.ObexTransport;
 public class BluetoothOppService extends ProfileService implements IObexConnectionHandler {
     private static final boolean D = Constants.DEBUG;
     private static final boolean V = Constants.VERBOSE;
+
+    /**
+     * Owned providers and activities
+     */
+    private static final String OPP_PROVIDER =
+            BluetoothOppProvider.class.getCanonicalName();
+    private static final String OPP_FILE_PROVIDER =
+            BluetoothOppFileProvider.class.getCanonicalName();
+    private static final String LAUNCHER_ACTIVITY =
+            BluetoothOppLauncherActivity.class.getCanonicalName();
+    private static final String BT_ENABLE_ACTIVITY =
+            BluetoothOppBtEnableActivity.class.getCanonicalName();
+    private static final String BT_ERROR_ACTIVITY =
+            BluetoothOppBtErrorActivity.class.getCanonicalName();
+    private static final String BT_ENABLING_ACTIVITY =
+            BluetoothOppBtEnablingActivity.class.getCanonicalName();
+    private static final String INCOMING_FILE_CONFIRM_ACTIVITY =
+            BluetoothOppIncomingFileConfirmActivity.class.getCanonicalName();
+    private static final String TRANSFER_ACTIVITY =
+            BluetoothOppTransferActivity.class.getCanonicalName();
+    private static final String TRANSFER_HISTORY_ACTIVITY =
+            BluetoothOppTransferHistory.class.getCanonicalName();
+    // Normally we would dynamically define and create these but they need to be manifest receivers
+    // because they rely on explicit intents. Explicit intents don't work with dynamic receivers.
+    private static final String OPP_RECEIVER =
+            BluetoothOppReceiver.class.getCanonicalName();
+    private static final String OPP_HANDOFF_RECEIVER =
+            BluetoothOppHandoverReceiver.class.getCanonicalName();
 
     private static final byte[] SUPPORTED_OPP_FORMAT = {
             0x01 /* vCard 2.1 */,
@@ -198,15 +227,6 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         mShares = new ArrayList();
         mBatches = new ArrayList();
         mBatchId = 1;
-        final ContentResolver contentResolver = getContentResolver();
-        new Thread("trimDatabase") {
-            @Override
-            public void run() {
-                trimDatabase(contentResolver);
-                mHandler.sendMessage(mHandler.obtainMessage(MSG_START_UPDATE_THREAD));
-            }
-        }.start();
-
         IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
         BTOppUtils.addA2dpFilter(filter);
         registerReceiver(mBluetoothReceiver, filter);
@@ -232,6 +252,28 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         if (D) {
             Log.v(TAG, "start()");
         }
+
+        setComponentAvailable(OPP_PROVIDER, true);
+        setComponentAvailable(OPP_FILE_PROVIDER, true);
+        setComponentAvailable(LAUNCHER_ACTIVITY, true);
+        setComponentAvailable(BT_ENABLE_ACTIVITY, true);
+        setComponentAvailable(BT_ERROR_ACTIVITY, true);
+        setComponentAvailable(BT_ENABLING_ACTIVITY, true);
+        setComponentAvailable(INCOMING_FILE_CONFIRM_ACTIVITY, true);
+        setComponentAvailable(TRANSFER_ACTIVITY, true);
+        setComponentAvailable(TRANSFER_HISTORY_ACTIVITY, true);
+        setComponentAvailable(OPP_RECEIVER, true);
+        setComponentAvailable(OPP_HANDOFF_RECEIVER, true);
+
+        final ContentResolver contentResolver = getContentResolver();
+        new Thread("trimDatabase") {
+            @Override
+            public void run() {
+                trimDatabase(contentResolver);
+                mHandler.sendMessage(mHandler.obtainMessage(MSG_START_UPDATE_THREAD));
+            }
+        }.start();
+
         setBluetoothOppService(this);
         return true;
     }
@@ -245,6 +287,17 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         }
         setBluetoothOppService(null);
         mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
+        setComponentAvailable(OPP_PROVIDER, false);
+        setComponentAvailable(OPP_FILE_PROVIDER, false);
+        setComponentAvailable(LAUNCHER_ACTIVITY, false);
+        setComponentAvailable(BT_ENABLE_ACTIVITY, false);
+        setComponentAvailable(BT_ERROR_ACTIVITY, false);
+        setComponentAvailable(BT_ENABLING_ACTIVITY, false);
+        setComponentAvailable(INCOMING_FILE_CONFIRM_ACTIVITY, false);
+        setComponentAvailable(TRANSFER_ACTIVITY, false);
+        setComponentAvailable(TRANSFER_HISTORY_ACTIVITY, false);
+        setComponentAvailable(OPP_RECEIVER, false);
+        setComponentAvailable(OPP_HANDOFF_RECEIVER, false);
         return true;
     }
 

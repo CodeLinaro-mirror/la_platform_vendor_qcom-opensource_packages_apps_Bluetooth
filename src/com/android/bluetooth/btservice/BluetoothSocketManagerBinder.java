@@ -27,7 +27,6 @@ class BluetoothSocketManagerBinder extends IBluetoothSocketManager.Stub {
     private static final String TAG = "BluetoothSocketManagerBinder";
 
     private static final int INVALID_FD = -1;
-    private static final String BLUETOOTH_PERM = android.Manifest.permission.BLUETOOTH;
 
     private AdapterService mService;
 
@@ -43,7 +42,11 @@ class BluetoothSocketManagerBinder extends IBluetoothSocketManager.Stub {
     public ParcelFileDescriptor connectSocket(
             BluetoothDevice device, int type, ParcelUuid uuid, int port, int flag) {
 
-        enforceBluetoothAndActiveUser();
+        enforceActiveUser();
+
+        if (!Utils.checkConnectPermissionForPreflight(mService)) {
+            return null;
+        }
 
         return marshalFd(mService.connectSocketNative(
             Utils.getBytesFromAddress(device.getAddress()),
@@ -58,7 +61,11 @@ class BluetoothSocketManagerBinder extends IBluetoothSocketManager.Stub {
     public ParcelFileDescriptor createSocketChannel(
             int type, String serviceName, ParcelUuid uuid, int port, int flag) {
 
-        enforceBluetoothAndActiveUser();
+        enforceActiveUser();
+
+        if (!Utils.checkConnectPermissionForPreflight(mService)) {
+            return null;
+        }
 
         return marshalFd(mService.createSocketChannelNative(
             type,
@@ -72,16 +79,19 @@ class BluetoothSocketManagerBinder extends IBluetoothSocketManager.Stub {
 
     @Override
     public void requestMaximumTxDataLength(BluetoothDevice device) {
-        enforceBluetoothAndActiveUser();
+        enforceActiveUser();
+
+        if (!Utils.checkConnectPermissionForPreflight(mService)) {
+            return;
+        }
 
         mService.requestMaximumTxDataLengthNative(Utils.getBytesFromAddress(device.getAddress()));
     }
 
-    private void enforceBluetoothAndActiveUser() {
-        if (!Utils.checkCallerAllowManagedProfiles(mService)) {
+    private void enforceActiveUser() {
+        if (!Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)) {
             throw new SecurityException("Not allowed for non-active user");
         }
-        mService.enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
     }
 
     private static ParcelFileDescriptor marshalFd(int fd) {

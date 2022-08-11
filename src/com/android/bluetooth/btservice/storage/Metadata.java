@@ -87,6 +87,7 @@ class Metadata {
     public boolean is_connected_a2dpsrc_device;
     public boolean was_previously_connected_to_bc;
     public boolean device_supports_bc_profile;
+    public boolean is_active_le_audio_device;
 
     Metadata(String address) {
         this.address = address;
@@ -99,12 +100,25 @@ class Metadata {
         is_active_a2dp_device = true;
         is_active_hfp_device = true;
         is_connected_a2dpsrc_device = true;
+        is_active_le_audio_device = true;
         was_previously_connected_to_bc = false;
         device_supports_bc_profile = false;
     }
 
     String getAddress() {
         return address;
+    }
+
+    /**
+     * Returns the anonymized hardware address. The first three octets will be suppressed for
+     * anonymization.
+     * <p> For example, "XX:XX:XX:AA:BB:CC".
+     *
+     * @return Anonymized bluetooth hardware address as string
+     */
+    @NonNull
+    public String getAnonymizedAddress() {
+        return "XX:XX:XX" + getAddress().substring(8);
     }
 
     void setProfileConnectionPolicy(int profile, int connectionPolicy) {

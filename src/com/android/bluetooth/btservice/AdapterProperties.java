@@ -244,7 +244,7 @@ class AdapterProperties {
     AdapterProperties(AdapterService service) {
         mService = service;
         mAdapter = BluetoothAdapter.getDefaultAdapter();
-        //invalidateBluetoothCaches();
+        invalidateBluetoothCaches();
     }
 
     public void init(RemoteDevices remoteDevices) {
@@ -293,7 +293,7 @@ class AdapterProperties {
         filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
         mService.registerReceiver(mReceiver, filter);
         mReceiverRegistered = true;
-        //invalidateBluetoothCaches();
+        invalidateBluetoothCaches();
     }
 
     public void cleanup() {
@@ -308,10 +308,10 @@ class AdapterProperties {
         mService = null;
         mBondedDevices.clear();
         mWhitelistedPlayers.clear();
-        //invalidateBluetoothCaches();
+        invalidateBluetoothCaches();
     }
 
-    /*private static void invalidateGetProfileConnectionStateCache() {
+    private static void invalidateGetProfileConnectionStateCache() {
         BluetoothAdapter.invalidateGetProfileConnectionStateCache();
     }
     private static void invalidateIsOffloadedFilteringSupportedCache() {
@@ -324,7 +324,7 @@ class AdapterProperties {
         invalidateGetProfileConnectionStateCache();
         invalidateIsOffloadedFilteringSupportedCache();
         invalidateGetBondStateCache();
-    }*/
+    }
 
     @Override
     public Object clone() throws CloneNotSupportedException {
@@ -947,7 +947,7 @@ class AdapterProperties {
                     debugLog("Failed to remove device: " + device);
                 }
             }
-            //invalidateGetBondStateCache();
+            invalidateGetBondStateCache();
         } catch (Exception ee) {
             Log.w(TAG, "onBondStateChanged: Exception ", ee);
         }
@@ -1226,7 +1226,7 @@ class AdapterProperties {
 
         if (update) {
             mProfileConnectionState.put(profile, new Pair<Integer, Integer>(newHashState, numDev));
-            //invalidateGetProfileConnectionStateCache();
+            invalidateGetProfileConnectionStateCache();
         }
     }
 
@@ -1374,7 +1374,7 @@ class AdapterProperties {
                 + mDynamicAudioBufferSizeSupportedCodecsGroup1
                 + " mDynamicAudioBufferSizeSupportedCodecsGroup2 = "
                 + mDynamicAudioBufferSizeSupportedCodecsGroup2);
-        //invalidateIsOffloadedFilteringSupportedCache();
+        invalidateIsOffloadedFilteringSupportedCache();
     }
 
     public void updateSocFeatureSupport(byte[] val) {
@@ -1513,14 +1513,19 @@ class AdapterProperties {
             // Reset adapter and profile connection states
             setConnectionState(BluetoothAdapter.STATE_DISCONNECTED);
             mProfileConnectionState.clear();
-            //invalidateGetProfileConnectionStateCache();
+            invalidateGetProfileConnectionStateCache();
             mProfilesConnected = 0;
             mProfilesConnecting = 0;
             mProfilesDisconnecting = 0;
-            // adapterPropertyChangedCallback has already been received.  Set the scan mode.
-            setScanMode(AbstractionLayer.BT_SCAN_MODE_CONNECTABLE);
-            // This keeps NV up-to date on first-boot after flash.
-            setDiscoverableTimeout(mDiscoverableTimeout);
+            if (SystemProperties.get("ro.board.platform").equals("neo")) {
+                Log.d(TAG ,"Enable always Discoverable and Connectable for Neo devices");
+                setScanMode(AbstractionLayer.BT_SCAN_MODE_CONNECTABLE_DISCOVERABLE);
+            } else {
+                // adapterPropertyChangedCallback has already been received.  Set the scan mode.
+                setScanMode(AbstractionLayer.BT_SCAN_MODE_CONNECTABLE);
+                // This keeps NV up-to date on first-boot after flash.
+                setDiscoverableTimeout(mDiscoverableTimeout);
+            }
         }
     }
 

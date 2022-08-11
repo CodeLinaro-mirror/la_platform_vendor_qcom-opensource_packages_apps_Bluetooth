@@ -62,8 +62,8 @@ public class BluetoothHeadsetProxy {
         return mBluetoothHeadset.getAudioState(device);
     }
 
-    public boolean connectAudio() {
-        return mBluetoothHeadset.connectAudio() == BluetoothStatusCodes.SUCCESS;
+    public int connectAudio() {
+        return mBluetoothHeadset.connectAudio();
     }
 
     public boolean setActiveDevice(BluetoothDevice device) {
@@ -80,8 +80,8 @@ public class BluetoothHeadsetProxy {
             scoConnectionRequest == BluetoothStatusCodes.ERROR_AUDIO_DEVICE_ALREADY_CONNECTED;
     }
 
-    public boolean disconnectAudio() {
-        return mBluetoothHeadset.disconnectAudio() == BluetoothStatusCodes.SUCCESS;
+    public int disconnectAudio() {
+        return mBluetoothHeadset.disconnectAudio();
     }
 
     public boolean isInbandRingingEnabled() {

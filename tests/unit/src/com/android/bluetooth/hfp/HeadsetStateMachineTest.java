@@ -22,6 +22,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothStatusCodes;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -120,7 +121,8 @@ public class HeadsetStateMachineTest {
                 BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         when(mHeadsetService.getForceScoAudio()).thenReturn(true);
         when(mHeadsetService.okToAcceptConnection(any(BluetoothDevice.class))).thenReturn(true);
-        when(mHeadsetService.isScoAcceptable(any(BluetoothDevice.class))).thenReturn(true);
+        when(mHeadsetService.isScoAcceptable(any(BluetoothDevice.class))).thenReturn(
+                BluetoothStatusCodes.SUCCESS);
         // Setup thread and looper
         mHandlerThread = new HandlerThread("HeadsetStateMachineTestHandlerThread");
         mHandlerThread.start();

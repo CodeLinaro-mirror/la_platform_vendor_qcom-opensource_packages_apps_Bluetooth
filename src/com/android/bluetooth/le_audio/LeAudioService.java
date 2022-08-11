@@ -71,6 +71,7 @@ import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.apm.ApmConst;
 import com.android.bluetooth.apm.MediaAudioIntf;
+import com.android.bluetooth.apm.CallAudioIntf;
 import com.android.bluetooth.apm.VolumeManagerIntf;
 import com.android.bluetooth.acm.AcmServIntf;
 import com.android.internal.util.ArrayUtils;
@@ -400,8 +401,19 @@ public class LeAudioService extends ProfileService {
         // Connect other devices from this group
         //connectSet(device);
 
-        AcmServIntf mAcmService = AcmServIntf.get();
-        mAcmService.connect(device);
+        //AcmServIntf mAcmService = AcmServIntf.get();
+        //mAcmService.connect(device);
+
+        CallAudioIntf mCallAudio = CallAudioIntf.get();
+        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+
+        if (mMediaAudio != null) {
+            mMediaAudio.connect(device);
+        }
+
+        if (mCallAudio != null) {
+            mCallAudio.connect(device);
+        }
 
         return true;
     }
@@ -450,8 +462,18 @@ public class LeAudioService extends ProfileService {
             }
         }*/
 
-        AcmServIntf mAcmService = AcmServIntf.get();
-        mAcmService.disconnect(device);
+        //AcmServIntf mAcmService = AcmServIntf.get();
+        //mAcmService.disconnect(device);
+        CallAudioIntf mCallAudio = CallAudioIntf.get();
+        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+
+        if (mMediaAudio != null) {
+            mMediaAudio.disconnect(device);
+        }
+
+        if (mCallAudio != null) {
+            mCallAudio.disconnect(device);
+        }
 
         return true;
     }

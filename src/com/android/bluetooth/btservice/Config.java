@@ -517,6 +517,8 @@ public class Config {
             return mIsCsipServiceEnabled;
         } if (serviceName.equals("LeAudioService")) {
             return addAospAudioProfiles(serviceName);
+        } if (serviceName.equals("VolumeControlService")) {
+            return VolumeControlService.isEnabled();
         }
 
         // always return true for other profiles

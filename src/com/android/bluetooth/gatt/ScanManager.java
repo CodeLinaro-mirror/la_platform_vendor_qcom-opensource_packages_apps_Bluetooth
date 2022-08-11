@@ -1062,12 +1062,14 @@ public class ScanManager {
         }
 
         void regularScanTimeout(ScanClient client) {
-            if (!isExemptFromScanDowngrade(client) && client.stats.isScanningTooLong()) {
-                Log.w(TAG,
-                        "Moving scan client to opportunistic (scannerId " + client.scannerId + ")");
-                setOpportunisticScanClient(client);
-                removeScanFilters(client.scannerId);
-                client.stats.setScanTimeout(client.scannerId);
+            if (client.stats != null) {
+                if (!isExemptFromScanDowngrade(client) && client.stats.isScanningTooLong()) {
+                    Log.w(TAG,
+                    "Moving scan client to opportunistic (scannerId " + client.scannerId + ")");
+                    setOpportunisticScanClient(client);
+                    removeScanFilters(client.scannerId);
+                    client.stats.setScanTimeout(client.scannerId);
+                }
             }
 
             // The scan should continue for background scans

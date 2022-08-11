@@ -594,11 +594,24 @@ class PhonePolicy {
                                     + " for device "+ device);
                         mDatabaseManager.setDisconnectionForHfp(device);
                     }
+
+                    boolean isAospLeAudioEnabled = ApmConstIntf.getAospLeaEnabled();
+                    debugLog("processProfileStateChanged: isAospLeAudioEnabled: " +
+                                                                isAospLeAudioEnabled);
+
+                    if (isAospLeAudioEnabled &&
+                        (profileId == BluetoothProfile.LE_AUDIO)) {
+                        Log.w(TAG, "processProfileStateChanged: Calling " +
+                                   " setDisconnectionForLeAudio for device "+ device);
+                        mDatabaseManager.setDisconnectionForLeAudio(device);
+                    }
+
                     if (profileId == BluetoothProfile.A2DP_SINK) {
                         Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionForA2dpSrc "
                                     + " for device "+ device);
                         mDatabaseManager.setDisconnectionForA2dpSrc(device);
                     }
+
                     if (profileId == BluetoothProfile.BC_PROFILE) {
                         mDatabaseManager.setConnectionStateForBc(device, nextState);
                     }
@@ -648,6 +661,16 @@ class PhonePolicy {
                 Log.w(TAG, "processActiveDeviceChanged: Calling setConnectionForHfp for device "
                             + device);
                 mDatabaseManager.setConnectionForHfp(device);
+            }
+
+            boolean isAospLeAudioEnabled = ApmConstIntf.getAospLeaEnabled();
+            debugLog("processActiveDeviceChanged: isAospLeAudioEnabled: " +
+                                                           isAospLeAudioEnabled);
+
+            if (isAospLeAudioEnabled && (profileId == BluetoothProfile.LE_AUDIO)) {
+                Log.w(TAG, "processActiveDeviceChanged: Calling " +
+                           " setConnectionForLeAudio for device " + device);
+                mDatabaseManager.setConnectionForLeAudio(device);
             }
         }
     }
@@ -747,8 +770,6 @@ class PhonePolicy {
                     mDatabaseManager.getMostRecentlyConnectedHfpDevice();
             final BluetoothDevice mostRecentlyConnectedA2dpSrcDevice =
                     mDatabaseManager.getMostRecentlyConnectedA2dpSrcDevice();
-            //final BluetoothDevice mostRecentlyActiveLeAudioDevice =
-            //        mDatabaseManager.getMostRecentlyConnectedLeAudioDevice();
             debugLog("autoConnect: mostRecentlyActiveA2dpDevice: " +
                                                 mostRecentlyActiveA2dpDevice);
             debugLog("autoConnect: mostRecentlyActiveHfpDevice: " +
@@ -762,6 +783,23 @@ class PhonePolicy {
                         " connected A2DP Source device:" + mostRecentlyConnectedA2dpSrcDevice);
                autoConnectA2dpSink(mostRecentlyConnectedA2dpSrcDevice);
             }
+
+            boolean isAospLeAudioEnabled = ApmConstIntf.getAospLeaEnabled();
+            debugLog("autoConnect: isAospLeAudioEnabled: " + isAospLeAudioEnabled);
+
+            if (isAospLeAudioEnabled) {
+                final BluetoothDevice mostRecentlyActiveLeAudioDevice =
+                        mDatabaseManager.getMostRecentlyConnectedLeAudioDevice();
+                debugLog("autoConnect: mostRecentlyActiveLeAudioDevice: " +
+                                                mostRecentlyActiveLeAudioDevice);
+                if (mostRecentlyActiveLeAudioDevice != null) {
+                    debugLog("autoConnect: recently connected LeAudio active device " +
+                                                      mostRecentlyActiveLeAudioDevice +
+                             " attempting auto connection for LeAudio");
+                    autoConnectLeAudio(mostRecentlyActiveLeAudioDevice);
+                }
+            }
+
             if (mostRecentlyActiveA2dpDevice == null &&
                 mostRecentlyActiveHfpDevice == null) {
                 errorLog("autoConnect: most recently active a2dp and hfp devices are null");
@@ -794,11 +832,7 @@ class PhonePolicy {
                     debugLog("autoConnectHF: 2nd pair TWS+ EB");
                     autoConnectHeadset(peerTwsDevice);
                 }
-            } /*else if (mostRecentlyActiveLeAudioDevice != null) {
-                debugLog("autoConnect: recently connected LeAudio active device " +
-                     mostRecentlyActiveLeAudioDevice + " attempting auto connection for LeAudio");
-                autoConnectLeAudio(mostRecentlyActiveLeAudioDevice);
-            }*/
+            }
         } else {
             debugLog("autoConnect() - BT is in quiet mode. Not initiating auto connections");
         }
@@ -856,7 +890,12 @@ class PhonePolicy {
         int headsetConnectionPolicy = hsService.getConnectionPolicy(device);
         if (headsetConnectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
             debugLog("autoConnectHeadset: Connecting HFP with " + device);
-            hsService.connect(device);
+            if(ApmConstIntf.getQtiLeAudioEnabled()) {
+                CallAudioIntf mCallAudio = CallAudioIntf.get();
+                mCallAudio.autoConnect(device);
+            } else {
+                hsService.connect(device);
+            }
         } else {
             debugLog("autoConnectHeadset: skipped auto-connect HFP with device " + device
                     + " headsetConnectionPolicy " + headsetConnectionPolicy);

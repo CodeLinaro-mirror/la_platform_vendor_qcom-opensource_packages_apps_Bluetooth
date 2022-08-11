@@ -36,6 +36,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.UserHandle;
+import android.os.SystemProperties;
 import android.util.Log;
 import android.os.PowerManager;
 import com.android.bluetooth.BluetoothStatsLog;
@@ -195,13 +196,14 @@ final class BondStateMachine extends StateMachine {
                     break;
                  case ADD_DEVICE_BOND_QUEUE:
                     int groupIdentifer = msg.arg1;
-                    Log.i(TAG, "Adding to bonding queue in stable state "
-                        +dev.getAddress());
+                    Log.i(TAG, "Adding to bonding queue in stableState, " + dev +
+                        ", mDevices.size()=" + mDevices.size() +
+                        ", mPendingBondedDevices.size()=" + mPendingBondedDevices.size());
                     Integer groupId = new Integer(groupIdentifer);
                     mBondingQueue.put(dev , groupId);
                     mBondingDevStatus.put(dev, 0);
 
-                    if (mDevices.size() == 0) {
+                    if (mDevices.size() == 0 && mPendingBondedDevices.isEmpty()) {
                         if (mAdapterService.isSdpCompleted(dev)) {
                             boolean status = createBond(dev, 0, null, null, true);
                             if (status)
@@ -311,6 +313,11 @@ final class BondStateMachine extends StateMachine {
                         return false;
                     }
                     sendDisplayPinIntent(devProp.getAddress(), passkey, variant);
+                    if(SystemProperties.get("ro.board.platform").equals("neo")) {
+                        Log.d(TAG,"Auto Accept pairing request for Neo devices");
+                        BluetoothDevice device = (BluetoothDevice)msg.obj;
+                        device.setPairingConfirmation(true);
+                    }
                     break;
                 case PIN_REQUEST:
                     BluetoothClass btClass = dev.getBluetoothClass();
@@ -348,13 +355,15 @@ final class BondStateMachine extends StateMachine {
                     break;
                 case ADD_DEVICE_BOND_QUEUE:
                     int groupIdentifer = msg.arg1;
-                    Log.i(TAG, "Adding to bonding queue pendingState " + dev.getAddress());
+                    Log.i(TAG, "Adding to bonding queue in pendingState " + dev +
+                        ", mDevices.size()=" + mDevices.size() +
+                        ", mPendingBondedDevices.size()=" + mPendingBondedDevices.size());
                     Integer groupId = new Integer(groupIdentifer);
                     //mAdapterProperties.onBondStateChanged(dev, BluetoothDevice.BOND_NONE);
                     mBondingQueue.put(dev , groupId);
                     mBondingDevStatus.put(dev, 0);
 
-                    if (mDevices.size() == 0) {
+                    if (mDevices.size() == 0 && mPendingBondedDevices.isEmpty()) {
                         if (mAdapterService.isSdpCompleted(dev)) {
                             boolean status = createBond(dev, 0, null, null, true);
                             if (status)
@@ -673,7 +682,8 @@ final class BondStateMachine extends StateMachine {
             mRemoteDevices.addDeviceProperties(address);
         }
         infoLog("sspRequestCallback: " + address + " name: " + name + " cod: " + cod
-                + " pairingVariant " + pairingVariant + " passkey: " + passkey);
+                + " pairingVariant " + pairingVariant + " passkey: "
+                + (Build.isDebuggable() ? passkey : "******"));
         int variant;
         boolean displayPasskey = false;
         switch (pairingVariant) {

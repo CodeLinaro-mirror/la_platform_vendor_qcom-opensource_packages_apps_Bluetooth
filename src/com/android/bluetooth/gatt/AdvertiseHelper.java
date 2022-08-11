@@ -172,8 +172,7 @@ class AdvertiseHelper {
         }
 
         for (TransportDiscoveryData transportDiscoveryData : data.getTransportDiscoveryData()) {
-            ret.write(transportDiscoveryData.totalBytes() + 1);
-            ret.write(TRANSPORT_DISCOVERY_DATA);
+            ret.write(transportDiscoveryData.totalBytes());
             ret.write(transportDiscoveryData.toByteArray(),
                     0, transportDiscoveryData.totalBytes());
         }
