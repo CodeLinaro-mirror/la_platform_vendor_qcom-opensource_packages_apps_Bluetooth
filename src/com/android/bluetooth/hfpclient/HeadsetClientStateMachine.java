@@ -82,6 +82,9 @@ public class HeadsetClientStateMachine extends StateMachine {
     private static final String TAG = "HeadsetClientStateMachine";
     private static final boolean DBG = false;
 
+    private static final String HFP_ROUTE_SPKR = "hfp_route_spkr";
+    private static final String HFP_ENABLE = "hfp_enable";
+    private static final String HFP_VOLUME = "hfp_volume";
     static final int NO_ACTION = 0;
     static final int IN_BAND_RING_ENABLED = 1;
     static final int CONNECT_AUDIO_DELAY = 5000;
@@ -853,10 +856,19 @@ public class HeadsetClientStateMachine extends StateMachine {
             // disable the SWB codec selection for client call
             mAudioManager.setParameters("bt_swb=65535");
             //this ensures that hfp audio is routed to speaker
-            mAudioManager.setParameters("hfp_route_spkr=2");
-            mAudioManager.setParameters("hfp_enable=true");
+            //mAudioManager.setParameters("hfp_route_spkr=2");
+            //mAudioManager.setParameters("hfp_enable=true");
 
-            mAudioManager.setParameters("hfp_volume=" + hfVol);
+            //mAudioManager.setParameters("hfp_volume=" + hfVol);
+
+            String keyValuePairs = String.join(";", new String[]{
+                    HFP_ROUTE_SPKR + "=" + "2",
+                    HFP_ENABLE     + "=" + "true",
+                    HFP_VOLUME     + "=" + String.valueOf(hfVol)
+            });
+
+            Log.d(TAG, "setAudioParameters as " + keyValuePairs);
+            mAudioManager.setParameters(keyValuePairs);
 
         } else if (!enable) {
             mAudioManager.setParameters("hfp_enable=false");
