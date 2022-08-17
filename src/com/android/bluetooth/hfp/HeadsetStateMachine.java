@@ -87,6 +87,7 @@ import com.android.bluetooth.btservice.InteropUtil;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.apm.DeviceProfileMapIntf;
+import com.android.bluetooth.apm.VolumeManagerIntf;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
@@ -690,6 +691,9 @@ public class HeadsetStateMachine extends StateMachine {
                              ApmConstIntf.AudioProfiles.HFP, false);
             dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.CALL_VOLUME_CONTROL,
                              ApmConstIntf.AudioProfiles.HFP, false);
+            VolumeManagerIntf mVolumeManager = VolumeManagerIntf.get();
+            mVolumeManager.onConnStateChange(mDevice, BluetoothProfile.STATE_DISCONNECTED,
+                             ApmConstIntf.AudioProfiles.HFP);
             // Remove the state machine for unbonded devices
             if (mPrevState != null
                     && mAdapterService.getBondState(mDevice) == BluetoothDevice.BOND_NONE) {
@@ -1467,6 +1471,9 @@ public class HeadsetStateMachine extends StateMachine {
                              ApmConstIntf.AudioProfiles.HFP, true);
             dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.CALL_VOLUME_CONTROL,
                              ApmConstIntf.AudioProfiles.HFP, true);
+            VolumeManagerIntf mVolumeManager = VolumeManagerIntf.get();
+            mVolumeManager.onConnStateChange(mDevice, BluetoothProfile.STATE_CONNECTED,
+                             ApmConstIntf.AudioProfiles.HFP);
             if ((mPrevState == mAudioOn) || (mPrevState == mAudioDisconnecting)||
                  (mPrevState == mAudioConnecting)) {
                 if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {

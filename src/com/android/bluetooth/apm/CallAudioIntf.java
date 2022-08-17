@@ -118,6 +118,28 @@ public class CallAudioIntf {
         return false;
     }
 
+    public boolean autoConnect(BluetoothDevice device) {
+        if(CallAudio == null)
+            return false;
+
+        Class[] arg = new Class[1];
+        arg[0] = BluetoothDevice.class;
+
+        try {
+            Method autoConnect = CallAudio.getDeclaredMethod("autoConnect", arg);
+            Boolean ret = (Boolean)autoConnect.invoke(mCallAudio, device);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return false;
+    }
+
     public boolean disconnect(BluetoothDevice device) {
         if(CallAudio == null)
             return false;
