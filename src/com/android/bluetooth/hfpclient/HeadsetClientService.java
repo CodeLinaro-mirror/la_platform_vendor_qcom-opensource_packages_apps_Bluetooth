@@ -34,6 +34,7 @@ import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.Utils;
@@ -1178,5 +1179,9 @@ public class HeadsetClientService extends ProfileService {
 
     boolean isAutomotive() {
         return getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+    }
+
+    public static boolean isScoConnected() {
+        return SystemProperties.getBoolean(Utils.PROP_SCO_CONNECTION_STATUS, false);
     }
 }
