@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 package com.android.bluetooth.a2dpsink;
 
 import android.bluetooth.BluetoothDevice;
@@ -27,6 +33,7 @@ import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import android.bluetooth.BluetoothProfile;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.avrcpcontroller.BluetoothMediaBrowserService;
@@ -72,6 +79,10 @@ public class A2dpSinkStreamHandler extends Handler {
     public static final int REQUEST_FOCUS = 8; // Request focus when the media service is active
     public static final int DELAYED_PAUSE = 9; // If a call just started allow stack time to settle
     public static final int RELEASE_FOCUS = 10;
+    public static final int START_SINK = 11;  // notify Audio HAL to start split sink
+    public static final int STOP_SINK = 12; // notify Audio HAL to stop split sink
+    public static final int SET_ACTIVE = 13;  // notify Audio HAL active changed
+    public static final int REMOVE_ACTIVE = 14; // notify Audio HAL active device removed
 
     // Used to indicate focus lost
     private static final int STATE_FOCUS_LOST = 0;
@@ -190,6 +201,38 @@ public class A2dpSinkStreamHandler extends Handler {
 
             case RELEASE_FOCUS:
                 abandonAudioFocus();
+                break;
+
+            case START_SINK:
+                if (mAudioManager != null) {
+                    mAudioManager.setParameters("btsink_enable=true");
+                }
+                break;
+
+            case STOP_SINK:
+                if (mAudioManager != null) {
+                    mAudioManager.setParameters("btsink_enable=false");
+                }
+                break;
+
+            case SET_ACTIVE:
+                if (mAudioManager != null) {
+                  mAudioManager.handleBluetoothA2dpActiveDeviceChange(
+                                (BluetoothDevice) message.obj,
+                                 BluetoothProfile.STATE_CONNECTED,
+                                 BluetoothProfile.A2DP_SINK,
+                                 true, -1);
+                }
+                break;
+
+            case REMOVE_ACTIVE:
+                if (mAudioManager != null) {
+                  mAudioManager.handleBluetoothA2dpActiveDeviceChange(
+                                (BluetoothDevice) message.obj,
+                                 BluetoothProfile.STATE_DISCONNECTED,
+                                 BluetoothProfile.A2DP_SINK,
+                                 true, -1);
+                }
                 break;
 
             case DISCONNECT:

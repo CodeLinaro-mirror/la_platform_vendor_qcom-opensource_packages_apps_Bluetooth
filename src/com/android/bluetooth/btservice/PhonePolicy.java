@@ -42,6 +42,8 @@ import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.apm.MediaAudioIntf;
 import com.android.bluetooth.apm.CallAudioIntf;
+import com.android.bluetooth.groupclient.GroupService;
+import android.bluetooth.DeviceGroup;
 import com.android.bluetooth.btservice.InteropUtil;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hearingaid.HearingAidService;
@@ -59,6 +61,7 @@ import java.lang.reflect.*;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Objects;
 
 // Describes the phone policy
@@ -777,8 +780,28 @@ class PhonePolicy {
             }
             final BluetoothDevice mostRecentlyActiveA2dpDevice =
                 mDatabaseManager.getMostRecentlyConnectedA2dpDevice();
-            if (Objects.equals(mostRecentlyActiveA2dpDevice, device))
-                connectBC(device);
+            if (Objects.equals(mostRecentlyActiveA2dpDevice, device)) {
+                GroupService setCoordinator = GroupService.getGroupService();
+                List<BluetoothDevice> listOfDevices = new ArrayList<BluetoothDevice>();
+                if (setCoordinator != null) {
+                    int setId = setCoordinator.getRemoteDeviceGroupId(device, null);
+                    DeviceGroup devGrp = setCoordinator.getCoordinatedSet(setId);
+                    if (devGrp != null) {
+                        listOfDevices = devGrp.getDeviceGroupMembers();
+                    } else {
+                        Log.d(TAG, "Failed to get dev Group instance");
+                        listOfDevices.add(device);
+                    }
+                } else {
+                    Log.d(TAG, "Fail to get CSIP instance");
+                    listOfDevices.add(device);
+                }
+
+                for (BluetoothDevice dev : listOfDevices) {
+                    Log.d(TAG, "connectBC : " + dev);
+                    connectBC(dev);
+                }
+            }
         }
     }
     private void connectBC(BluetoothDevice device) {

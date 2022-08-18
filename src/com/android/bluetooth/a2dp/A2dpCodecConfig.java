@@ -202,7 +202,7 @@ class A2dpCodecConfig {
                 < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
             mA2dpSourceCodecPriorityAptx = value;
             if (a2dp_offload_cap != null && !a2dp_offload_cap.isEmpty() &&
-                !a2dp_offload_cap.contains("aptx")) {
+                !(a2dp_offload_cap.contains("aptx-") || (a2dp_offload_cap.endsWith("aptx")))) {
                 mA2dpSourceCodecPriorityAptx = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
             }
         }

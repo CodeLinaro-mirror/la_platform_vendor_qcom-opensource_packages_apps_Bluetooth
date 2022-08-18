@@ -54,7 +54,7 @@ import java.util.UUID;
  * @hide
  */
 public class HeadsetClientService extends ProfileService {
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
     private static final String TAG = "HeadsetClientService";
 
     private HashMap<BluetoothDevice, HeadsetClientStateMachine> mStateMachineMap = new HashMap<>();
