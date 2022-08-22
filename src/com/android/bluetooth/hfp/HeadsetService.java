@@ -1308,7 +1308,7 @@ public class HeadsetService extends ProfileService {
             for (BluetoothDevice device : bondedDevices) {
 
                 int connectionState = getConnectionState(device);
-                Log.e(TAG, "Connec state for: " + device + "is" + connectionState);
+                Log.e(TAG, "Connect state for: " + device + " is " + connectionState);
                 for (int state : states) {
                     if (connectionState == state) {
                         devices.add(device);
