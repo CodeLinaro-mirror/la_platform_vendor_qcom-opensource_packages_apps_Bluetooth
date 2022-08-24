@@ -590,6 +590,16 @@ public class MapClientService extends ProfileService {
                     "Need BLUETOOTH permission");
             return service.getSupportedFeatures(device);
         }
+
+        public boolean setMessageStatus(BluetoothDevice device, String handle, int status) {
+            //TODO
+            return false;
+        }
+
+        public boolean abort(BluetoothDevice device) {
+            //TODO
+            return false;
+        }
     }
 
     private class MapBroadcastReceiver extends BroadcastReceiver {

@@ -104,7 +104,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int EXPLICIT_CALL_TRANSFER = 18;
     public static final int DISABLE_NREC = 20;
     public static final int SEND_VENDOR_AT_COMMAND = 21;
-
+    public static final int SEND_CLCC = 22;
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
     public static final int QUERY_OPERATOR_NAME = 51;
@@ -571,12 +571,6 @@ public class HeadsetClientStateMachine extends StateMachine {
                 return;
         }
 
-        if (flag == BluetoothHeadsetClient.CALL_ACCEPT_HOLD) {
-            // When unholding a call over Bluetooth make sure to route audio.
-            if(mA2dpSuspend) {
-                routeHfpAudio(true);
-            }
-        }
 
         if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
             addQueuedAction(ACCEPT_CALL, action);
@@ -1462,6 +1456,12 @@ public class HeadsetClientStateMachine extends StateMachine {
                         sendMessageDelayed(QUERY_CURRENT_CALLS, QUERY_CURRENT_CALLS_WAIT_MILLIS);
                     }
                     queryCallsStart();
+                    break;
+                case SEND_CLCC:
+                    Log.d(TAG, "Connected: SEND_CLCC ");
+                    if (mCalls.size() > 0) {
+                        sendMessage(QUERY_CURRENT_CALLS);
+                    }
                     break;
                 case ACTION_PLAYING_STATE_CHANGED:
                     int mA2dpState = message.arg1;
