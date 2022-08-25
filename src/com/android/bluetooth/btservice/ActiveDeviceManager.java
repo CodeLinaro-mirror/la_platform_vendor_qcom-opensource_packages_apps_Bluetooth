@@ -569,10 +569,12 @@ public class ActiveDeviceManager {
         if (!headsetService.setActiveDevice(device)) {
             return false;
         }
-        if (ApmConstIntf.getLeAudioEnabled() &&
-            mAdapterService.isGroupDevice(device)) {
-            Log.d(TAG, "setHfpActiveDevice(" + device + ")" + "is a group device, ignore");
-            return true;
+        if (device != null) {
+          if (ApmConstIntf.getLeAudioEnabled() &&
+              mAdapterService.isGroupDevice(device)) {
+              Log.d(TAG, "setHfpActiveDevice(" + device + ")" + "is a group device, ignore");
+              return true;
+          }
         }
         mHfpActiveDevice = device;
         return true;
