@@ -2537,7 +2537,12 @@ public class HeadsetStateMachine extends StateMachine {
     private void processAtCpbs(String atString, int type, BluetoothDevice device) {
         log("processAtCpbs - atString = " + atString);
         if (mPhonebook != null) {
-            mPhonebook.handleCpbsCommand(atString, type, device);
+            if (atString.equals("SM") && !mSystemInterface.getHeadsetPhoneState().getIsSimCardLoaded()){
+               Log.e(TAG, " SM is not loaded");
+               mNativeInterface.atResponseCode(device, HeadsetHalConstants.AT_RESPONSE_ERROR, 0);
+            } else {
+              mPhonebook.handleCpbsCommand(atString, type, device);
+            }
         } else {
             Log.e(TAG, "Phonebook handle null for At+CPBS");
             mNativeInterface.atResponseCode(device, HeadsetHalConstants.AT_RESPONSE_ERROR, 0);

@@ -289,6 +289,9 @@ public class HeadsetPhoneState {
         }
     };
 
+    boolean getIsSimCardLoaded () {
+      return mIsSimStateLoaded;
+    }
     int getCindService() {
         return mCindService;
     }
