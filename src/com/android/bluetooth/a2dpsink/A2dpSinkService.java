@@ -103,6 +103,9 @@ public class A2dpSinkService extends ProfileService {
         mIsSplitSink = SystemProperties.
           getBoolean("persist.vendor.bluetooth.split_a2dp_sink", false);
         mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (mAudioManager != null) {
+            mAudioManager.setParameters("btsink_enable=false");
+        }
         mA2dpSinkVendor = new A2dpSinkVendorService(this);
         if (mA2dpSinkVendor != null) {
             mA2dpSinkVendor.init();
