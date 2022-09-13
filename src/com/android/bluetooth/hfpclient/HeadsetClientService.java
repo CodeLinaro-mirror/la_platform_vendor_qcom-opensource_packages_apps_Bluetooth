@@ -39,7 +39,6 @@ import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService;
 import com.android.bluetooth.hfp.HeadsetService;
 import android.bluetooth.BluetoothA2dp;
-import com.android.bluetooth.hfp.HeadsetService;
 
 import java.util.ArrayList;
 import java.util.HashMap;
