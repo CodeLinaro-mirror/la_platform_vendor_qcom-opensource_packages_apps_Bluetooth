@@ -82,6 +82,9 @@ public class HeadsetClientStateMachine extends StateMachine {
     private static final String TAG = "HeadsetClientStateMachine";
     private static final boolean DBG = false;
 
+    private static final String HFP_ROUTE_SPKR = "hfp_route_spkr";
+    private static final String HFP_ENABLE = "hfp_enable";
+    private static final String HFP_VOLUME = "hfp_volume";
     static final int NO_ACTION = 0;
     static final int IN_BAND_RING_ENABLED = 1;
     static final int CONNECT_AUDIO_DELAY = 5000;
@@ -850,11 +853,22 @@ public class HeadsetClientStateMachine extends StateMachine {
 
             mAudioFocusRequest = requestAudioFocus();
 
+            // disable the SWB codec selection for client call
+            mAudioManager.setParameters("bt_swb=65535");
             //this ensures that hfp audio is routed to speaker
-            mAudioManager.setParameters("hfp_route_spkr=2");
-            mAudioManager.setParameters("hfp_enable=true");
+            //mAudioManager.setParameters("hfp_route_spkr=2");
+            //mAudioManager.setParameters("hfp_enable=true");
 
-            mAudioManager.setParameters("hfp_volume=" + hfVol);
+            //mAudioManager.setParameters("hfp_volume=" + hfVol);
+
+            String keyValuePairs = String.join(";", new String[]{
+                    HFP_ROUTE_SPKR + "=" + "2",
+                    HFP_ENABLE     + "=" + "true",
+                    HFP_VOLUME     + "=" + String.valueOf(hfVol)
+            });
+
+            Log.d(TAG, "setAudioParameters as " + keyValuePairs);
+            mAudioManager.setParameters(keyValuePairs);
 
         } else if (!enable) {
             mAudioManager.setParameters("hfp_enable=false");
@@ -1369,14 +1383,19 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // Add the call as an outgoing call.
                     BluetoothHeadsetClientCall c = (BluetoothHeadsetClientCall) message.obj;
                     mCalls.put(HF_ORIGINATED_CALL_ID, c);
-
-                    if (mNativeInterface.dial(getByteAddress(mCurrentDevice), c.getNumber())) {
+                    Log.d(TAG, (mIndicatorNetworkState ==
+                        HeadsetClientHalConstants.NETWORK_STATE_AVAILABLE) ?
+                        "mIndicatorNetworkState: NETWORK_STATE_AVAILABLE" :
+                        "mIndicatorNetworkState: NETWORK_STATE_NOT_AVAILABLE");
+                    if (mIndicatorNetworkState ==
+                        HeadsetClientHalConstants.NETWORK_STATE_AVAILABLE
+                        && mNativeInterface.dial(getByteAddress(mCurrentDevice), c.getNumber())) {
                         addQueuedAction(DIAL_NUMBER, c.getNumber());
                         // Start looping on calling current calls.
                         sendMessage(QUERY_CURRENT_CALLS);
                     } else {
                         Log.e(TAG,
-                                "ERROR: Cannot dial with a given number:" + (String) message.obj);
+                                "ERROR: Cannot dial with a given number: " + c.toString());
                         // Set the call to terminated remove.
                         c.setState(BluetoothHeadsetClientCall.CALL_STATE_TERMINATED);
                         sendCallChangedIntent(c);
@@ -1564,9 +1583,19 @@ public class HeadsetClientStateMachine extends StateMachine {
                             processOnCallSetupEvent(event.valueInt,event.device);
                             sendMessage(QUERY_CURRENT_CALLS);
                             break;
+                        case StackEvent.EVENT_TYPE_CLIP:
+                            // We will only inform first incoming call to telephony
+                            if (mCalls.size() == 0) {
+                                int FIRST_CALL_ID = 1;
+                                String PhoneNumber = event.valueString;
+                                queryCallsUpdate(FIRST_CALL_ID,
+                                                BluetoothHeadsetClientCall.CALL_STATE_INCOMING,
+                                                PhoneNumber, false, false);
+                                queryCallsDone();
+                            }
+                            break;
                         case StackEvent.EVENT_TYPE_CALLHELD:
                         case StackEvent.EVENT_TYPE_RESP_AND_HOLD:
-                        case StackEvent.EVENT_TYPE_CLIP:
                         case StackEvent.EVENT_TYPE_CALL_WAITING:
                             sendMessage(QUERY_CURRENT_CALLS);
                             break;

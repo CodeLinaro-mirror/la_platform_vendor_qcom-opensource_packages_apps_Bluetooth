@@ -30,6 +30,7 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.Utils;
@@ -790,6 +791,11 @@ public class HeadsetClientService extends ProfileService {
     }
 
     boolean connectAudio(BluetoothDevice device) {
+        boolean mPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
+        if(mPts){
+          Log.e(TAG, "PTS mode true, connectAudio request rejected");
+          return false;
+        }
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
@@ -1071,7 +1077,11 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public void queryCallsOnCompanion() {
-        // TODO: Add function to query calls on Companion 
+        for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                if (sm != null) {
+                        sm.sendMessage(HeadsetClientStateMachine.SEND_CLCC);
+                }
+        }
     }
 
     public Bundle getCurrentAgFeatures(BluetoothDevice device) {
