@@ -85,11 +85,13 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_SUPPORTED_APPLICATION_SETTINGS = 217;
     static final int MESSAGE_PROCESS_CURRENT_APPLICATION_SETTINGS = 218;
     static final int MESSAGE_PROCESS_AVAILABLE_PLAYER_CHANGED = 219;
+    static final int MESSAGE_PROCESS_RC_FEATURES = 220;
 
     //300->399 Events for Browsing
     static final int MESSAGE_GET_FOLDER_ITEMS = 300;
     static final int MESSAGE_PLAY_ITEM = 301;
     static final int MSG_AVRCP_PASSTHRU = 302;
+    static final int MSG_AVRCP_PASSTHRU_EXT = 303;
 
     static final int MESSAGE_INTERNAL_ABS_VOL_TIMEOUT = 404;
 
@@ -115,6 +117,9 @@ class AvrcpControllerStateMachine extends StateMachine {
     protected final Disconnecting mDisconnecting;
     private A2dpSinkService mA2dpSinkService;
 
+    private static CoverArtUtils mCoveArtUtils;
+    private AvrcpControllerBipStateMachine mBipStateMachine;
+
     protected int mMostRecentState = BluetoothProfile.STATE_DISCONNECTED;
 
     boolean mRemoteControlConnected = false;
@@ -128,6 +133,11 @@ class AvrcpControllerStateMachine extends StateMachine {
     private SparseArray<AvrcpPlayer> mAvailablePlayerList = new SparseArray<AvrcpPlayer>();
     // Only accessed from State Machine processMessage
     private int mVolumeChangedNotificationsToIgnore = 0;
+
+     public static final String CUSTOM_ACTION_SEND_PASS_THRU_CMD =
+         "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_SEND_PASS_THRU_CMD";
+     public static final String KEY_CMD = "cmd";
+     public static final String KEY_STATE = "state";
 
     GetFolderList mGetFolderList = null;
 
@@ -162,6 +172,10 @@ class AvrcpControllerStateMachine extends StateMachine {
         mRemoteDevice = new RemoteDevice(device);
 
         mAudioManager = (AudioManager) service.getSystemService(Context.AUDIO_SERVICE);
+        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
+        mService.registerReceiver(mBroadcastReceiver, filter);
+        mCoveArtUtils = new CoverArtUtils();
+        mBipStateMachine = AvrcpControllerBipStateMachine.make(this, getHandler(), service);
 
         Log.d(TAG, "Setting initial state: Disconnected: " + mDevice);
         setInitialState(mDisconnected);
@@ -355,10 +369,16 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case MSG_AVRCP_PASSTHRU:
                     passThru(msg.arg1);
                     return true;
+                case MSG_AVRCP_PASSTHRU_EXT:
+                    passThru(msg.arg1, msg.arg2);
+                    return true;
 
                 case MESSAGE_PROCESS_TRACK_CHANGED:
-                    mAddressedPlayer.updateCurrentTrack((MediaMetadata) msg.obj);
-                    BluetoothMediaBrowserService.trackChanged((MediaMetadata) msg.obj);
+                    TrackInfo trackInfo = (TrackInfo)msg.obj;
+                    mAddressedPlayer.updateCurrentTrack((MediaMetadata) trackInfo.getMediaMetaData());
+                    BluetoothMediaBrowserService.trackChanged((MediaMetadata) trackInfo.getMediaMetaData());
+                            mAddressedPlayer.updateCurrentTrackInfo(trackInfo);
+                    mCoveArtUtils.msgTrackChanged(mService, mBipStateMachine,mAddressedPlayer,mRemoteDevice);
                     return true;
 
                 case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
@@ -476,6 +496,20 @@ class AvrcpControllerStateMachine extends StateMachine {
                     mVolumeChangedNotificationsToIgnore = 0;
                     return true;
 
+                case MESSAGE_PROCESS_RC_FEATURES:
+                    mRemoteDevice.setRemoteFeatures(msg.arg1);
+                    if (msg.arg2 > 0) {
+                        mCoveArtUtils.msgProcessRcFeatures(mBipStateMachine, mRemoteDevice,msg.arg2);
+                    }
+                    return true;
+
+                case CoverArtUtils.MESSAGE_BIP_CONNECTED:
+                case CoverArtUtils.MESSAGE_BIP_DISCONNECTED:
+                case CoverArtUtils.MESSAGE_BIP_IMAGE_FETCHED:
+                case CoverArtUtils.MESSAGE_BIP_THUMB_NAIL_FETCHED:
+                    mCoveArtUtils.processBipAction(mService, mAddressedPlayer,
+                            mRemoteDevice, msg.what, msg);
+                    return true;
                 default:
                     return super.processMessage(msg);
             }
@@ -559,6 +593,13 @@ class AvrcpControllerStateMachine extends StateMachine {
             mBrowseTree.mRootNode.setCached(false);
             mBrowseTree.mRootNode.setExpectedChildren(255);
             BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mRootNode);
+        }
+
+        private synchronized void passThru(int cmd, int state) {
+            logD("msgPassThru " + cmd + ", key state " + state);
+            mService.sendPassThroughCommandNative(
+                    mDeviceAddress, cmd,
+                     state);
         }
     }
 
@@ -692,6 +733,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case CONNECT:
                 case DISCONNECT:
                 case MSG_AVRCP_PASSTHRU:
+                case MSG_AVRCP_PASSTHRU_EXT:
                 case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
                 case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
                 case MESSAGE_PROCESS_TRACK_CHANGED:
@@ -974,6 +1016,14 @@ class AvrcpControllerStateMachine extends StateMachine {
             BrowseTree.BrowseNode node = mBrowseTree.findBrowseNodeByID(mediaId);
             sendMessage(MESSAGE_PLAY_ITEM, node);
         }
+
+        @Override
+        public void onCustomAction(String action, Bundle extras) {
+            logD("onCustomAction:" + action);
+            if (CUSTOM_ACTION_SEND_PASS_THRU_CMD.equals(action)) {
+                 handleCustomActionSendPassThruCmd(extras);
+            }
+        }
     };
 
     protected void broadcastConnectionStateChanged(int currentState) {
@@ -1008,4 +1058,14 @@ class AvrcpControllerStateMachine extends StateMachine {
         return mService.getResources()
                 .getBoolean(R.bool.a2dp_sink_automatically_request_audio_focus);
     }
+
+    private void handleCustomActionSendPassThruCmd(Bundle extras) {
+        Log.d(TAG, "handleCustomActionSendPassThruCmd extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+        int cmd = extras.getInt(KEY_CMD);
+        int state = extras.getInt(KEY_STATE);
+        sendMessage(MSG_AVRCP_PASSTHRU_EXT, cmd, state);
+   }
 }
