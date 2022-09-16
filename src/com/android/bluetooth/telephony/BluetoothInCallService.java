@@ -903,7 +903,7 @@ public class BluetoothInCallService extends InCallService {
         String subsNum = getSubscriberNumber();
         if (subsNum != null && address != null) {
             Log.d(TAG, "subscriber number " + subsNum + " address " + address);
-            if (subsNum.contains(address)) {
+            if (subsNum.equals(address)) {
                 Log.w(TAG, "return without sending host call in CLCC");
                   return;
             }
