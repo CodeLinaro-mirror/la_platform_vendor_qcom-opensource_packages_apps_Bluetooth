@@ -793,6 +793,10 @@ public class BluetoothInCallService extends InCallService {
             unregisterReceiver(mBluetoothAdapterReceiver);
             mBluetoothAdapterReceiver = null;
         }
+        if (mBluetoothHeadset != null) {
+            mBluetoothHeadset.closeBluetoothHeadsetProxy(this);
+            mBluetoothHeadset = null;
+         }
         super.onDestroy();
     }
 
