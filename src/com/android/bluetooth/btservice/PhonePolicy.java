@@ -35,6 +35,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.Parcelable;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.a2dp.A2dpService;
@@ -49,6 +50,7 @@ import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hid.HidHostService;
+import com.android.bluetooth.mapclient.MapClientService;
 import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
@@ -662,6 +664,9 @@ class PhonePolicy {
                debugLog("autoConnect: attempting auto connection for recently"+
                         " connected A2DP Source device:" + mostRecentlyConnectedA2dpSrcDevice);
                autoConnectA2dpSink(mostRecentlyConnectedA2dpSrcDevice);
+               if (SystemProperties.get("ro.board.platform").equals("neo")) {
+                   autoConnectMapClient(mostRecentlyConnectedA2dpSrcDevice);
+               }
             }
             if (mostRecentlyActiveA2dpDevice == null &&
                 mostRecentlyActiveHfpDevice == null) {
@@ -764,6 +769,21 @@ class PhonePolicy {
         }
 
     }
+
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+    private void autoConnectMapClient(BluetoothDevice device) {
+           MapClientService  mapClientService = MapClientService.getMapClientService();
+        if (mapClientService == null) {
+            warnLog("autoConnectMapClient: service is null, failed to connect to " + device);
+            return;
+        }
+        if (mAdapterService != null && ArrayUtils.contains(mAdapterService.getRemoteUuids(device),
+                                                                   BluetoothUuid.MAS)) {
+            debugLog("autoConnectMapClient: Connecting MapClient with " + device);
+            mapClientService.connect(device);
+        }
+    }
+
     ///*_REF
     private void autoConnectBC(boolean autoconnect, BluetoothDevice mDevice) {
         if (autoconnect == false) {
