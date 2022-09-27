@@ -215,9 +215,25 @@ public class HeadsetClientStateMachine extends StateMachine {
         return mDisconnected;
     }
 
-    // Get if in band ring is currently enabled on device.
+    /* Get if in band ring is currently enabled on device.
+     * Return true : Telephony will not play the local ring tone
+                     and expect the in band ring(using SCO) to play on speaker.
+     * Return flase : Telephony will play the local ring tone on speaker.
+     */
     public boolean getInBandRing() {
-        return mInBandRing;
+        boolean mPts = SystemProperties.
+                           getBoolean("vendor.bt.pts.certification", false);
+        if (mPts) {
+            // if pts case then inform telephony about actual inband ring flag
+            return mInBandRing;
+        } else {
+            /* as per call routing feature, SCO will get disconnected if routing
+             * is not allowed. so in case of incoming call we should inform
+             * telephony with no inband ring flag so that telephony can play the local
+             * ring tone for incoming call.
+             */
+            return false;
+        }
     }
 
     public void dump(StringBuilder sb) {
@@ -488,7 +504,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
         mCallsUpdate.put(id,
                 new BluetoothHeadsetClientCall(mCurrentDevice, id, state, number, multiParty,
-                        outgoing, mInBandRing));
+                        outgoing, getInBandRing()));
     }
 
     private void acceptCall(int flag) {
@@ -1760,13 +1776,19 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // SCO connected for client, set the routing allowed to false for AG
                     setHeadsetAudioRouteAllowed(false);
                     Log.d(TAG, "mAudioRouteAllowed=" + mAudioRouteAllowed);
-                    if (!mAudioRouteAllowed) {
-                        sendMessageDelayed(HeadsetClientStateMachine.DISCONNECT_AUDIO,
-                            SCO_REJECT_DELAY_MS);
-                        // Don't continue connecting!
-                        Log.d(TAG, "Disconnecting Audio after " + SCO_REJECT_DELAY_MS + " ms as routing not allowed");
-                        transitionTo(mAudioOn);
-                        return;
+
+                    boolean mPts = SystemProperties.
+                                       getBoolean("vendor.bt.pts.certification", false);
+                    if (!mPts) {
+                        if (!mAudioRouteAllowed) {
+                            sendMessageDelayed(HeadsetClientStateMachine.DISCONNECT_AUDIO,
+                                SCO_REJECT_DELAY_MS);
+                            // Don't continue connecting!
+                            Log.d(TAG, "Disconnecting Audio after "
+                                      + SCO_REJECT_DELAY_MS + " ms as routing not allowed");
+                            transitionTo(mAudioOn);
+                            return;
+                        }
                     }
 
                     // Audio state is split in two parts, the audio focus is maintained by the
