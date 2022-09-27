@@ -1708,7 +1708,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // We need to set the volume after switching into HFP mode as some Audio HALs
                     // reset the volume to a known-default on mode switch.
                     int amVol = 0;
-                    if (mService.isAutomotive()) {
+                    // Because AudioManager volume is fixed for Automotive, use CarAudioManager
+                    // to get volume
+                    if (!mService.isAutomotive()) {
                         amVol = mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
                     } else {
                         try {
