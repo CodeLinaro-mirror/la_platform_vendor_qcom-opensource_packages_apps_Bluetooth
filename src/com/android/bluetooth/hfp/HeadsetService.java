@@ -1232,21 +1232,21 @@ public class HeadsetService extends ProfileService {
         @Override
         public void phoneStateChangedDsDa(int numActive, int numHeld, int callState, String number,
                 int type, String name, AttributionSource source) {
-            HeadsetService service = getService(source);
-            if (service == null) {
+            if (mService == null || !mService.isAlive()) {
+                Log.w(TAG, "mService is unavailable: " + mService);
                 return;
             }
-            service.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
+            mService.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
         }
 
         @Override
         public void clccResponseDsDa(int index, int direction, int status, int mode, boolean mpty,
                 String number, int type, AttributionSource source) {
-
-              HeadsetService service = getService(source);
-              if (service != null) {
-                  service.clccResponse(index, direction, status, mode, mpty, number, type);
-              }
+            if (mService == null || !mService.isAlive()) {
+                Log.w(TAG, "mService is unavailable: " + mService);
+                return;
+            }
+            mService.clccResponse(index, direction, status, mode, mpty, number, type);
         }
     }
 

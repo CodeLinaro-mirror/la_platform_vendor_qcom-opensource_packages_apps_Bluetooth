@@ -140,43 +140,43 @@ public class Config {
      */
     private static final ProfileConfig[] PROFILE_SERVICES_AND_FLAGS = {
             new ProfileConfig(HeadsetService.class, R.bool.profile_supported_hs_hfp,
-                    (1 << BluetoothProfile.HEADSET)),
+                    (1L << BluetoothProfile.HEADSET)),
             new ProfileConfig(A2dpService.class, R.bool.profile_supported_a2dp,
-                    (1 << BluetoothProfile.A2DP)),
+                    (1L << BluetoothProfile.A2DP)),
             new ProfileConfig(A2dpSinkService.class, R.bool.profile_supported_a2dp_sink,
-                    (1 << BluetoothProfile.A2DP_SINK)),
+                    (1L << BluetoothProfile.A2DP_SINK)),
             new ProfileConfig(HidHostService.class, R.bool.profile_supported_hid_host,
-                    (1 << BluetoothProfile.HID_HOST)),
+                    (1L << BluetoothProfile.HID_HOST)),
             new ProfileConfig(PanService.class, R.bool.profile_supported_pan,
-                    (1 << BluetoothProfile.PAN)),
+                    (1L << BluetoothProfile.PAN)),
             new ProfileConfig(GattService.class, R.bool.profile_supported_gatt,
-                    (1 << BluetoothProfile.GATT)),
+                    (1L << BluetoothProfile.GATT)),
             new ProfileConfig(BluetoothMapService.class, R.bool.profile_supported_map,
-                    (1 << BluetoothProfile.MAP)),
+                    (1L << BluetoothProfile.MAP)),
             new ProfileConfig(HeadsetClientService.class, R.bool.profile_supported_hfpclient,
-                    (1 << BluetoothProfile.HEADSET_CLIENT)),
+                    (1L << BluetoothProfile.HEADSET_CLIENT)),
             new ProfileConfig(AvrcpTargetService.class, R.bool.profile_supported_avrcp_target,
-                    (1 << BluetoothProfile.AVRCP)),
+                    (1L << BluetoothProfile.AVRCP)),
             new ProfileConfig(AvrcpControllerService.class,
                     R.bool.profile_supported_avrcp_controller,
-                    (1 << BluetoothProfile.AVRCP_CONTROLLER)),
+                    (1L << BluetoothProfile.AVRCP_CONTROLLER)),
             new ProfileConfig(SapService.class, R.bool.profile_supported_sap,
-                    (1 << BluetoothProfile.SAP)),
+                    (1L << BluetoothProfile.SAP)),
             new ProfileConfig(PbapClientService.class, R.bool.profile_supported_pbapclient,
-                    (1 << BluetoothProfile.PBAP_CLIENT)),
+                    (1L << BluetoothProfile.PBAP_CLIENT)),
             new ProfileConfig(MapClientService.class, R.bool.profile_supported_mapmce,
-                    (1 << BluetoothProfile.MAP_CLIENT)),
+                    (1L << BluetoothProfile.MAP_CLIENT)),
             new ProfileConfig(HidDeviceService.class, R.bool.profile_supported_hid_device,
-                    (1 << BluetoothProfile.HID_DEVICE)),
+                    (1L << BluetoothProfile.HID_DEVICE)),
             new ProfileConfig(BluetoothOppService.class, R.bool.profile_supported_opp,
-                    (1 << BluetoothProfile.OPP)),
+                    (1L << BluetoothProfile.OPP)),
             new ProfileConfig(BluetoothPbapService.class, R.bool.profile_supported_pbap,
-                    (1 << BluetoothProfile.PBAP)),
+                    (1L << BluetoothProfile.PBAP)),
             new ProfileConfig(HearingAidService.class,
                     -1,
-                    (1 << BluetoothProfile.HEARING_AID)),
+                    (1L << BluetoothProfile.HEARING_AID)),
             new ProfileConfig(BATService.class, R.bool.profile_supported_ba,
-                    (1 << BATService.BA_TRANSMITTER)),
+                    (1L << BATService.BA_TRANSMITTER)),
     };
 
     /* List of Unicast Advance Audio Profiles */
@@ -185,9 +185,9 @@ public class Config {
                 Arrays.asList(
                     new ProfileConfig(ApmConstIntf.MusicPlayerControlService,
                         R.bool.profile_supported_music_player_service,
-                        (1 << BluetoothProfile.MCP_SERVER)),
+                        (1L << BluetoothProfile.MCP_SERVER)),
                     new ProfileConfig(mCcServiceClass, R.bool.profile_supported_cc_server,
-                        (1 << BluetoothProfile.CC_SERVER))
+                        (1L << BluetoothProfile.CC_SERVER))
             ));
 
     /* List of Broadcast Advance Audio Profiles */
@@ -195,14 +195,14 @@ public class Config {
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
                     new ProfileConfig(mBCServiceClass, R.bool.profile_supported_bac,
-                        (1 << BluetoothProfile.BC_PROFILE)),
+                        (1L << BluetoothProfile.BC_PROFILE)),
                     new ProfileConfig(mBroadcastClass,
                          R.bool.profile_supported_broadcast,
-                        (1 << BluetoothProfile.BROADCAST)),
+                        (1L << BluetoothProfile.BROADCAST)),
                     new ProfileConfig(mPCServiceClass, R.bool.profile_supported_pc,
-                        (1 << BluetoothProfile.PC_PROFILE)),
+                        (1L << BluetoothProfile.PC_PROFILE)),
                     new ProfileConfig(BassClientService.class, R.bool.profile_supported_bass_client,
-                        (1 << BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT))
+                        (1L << BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT))
             ));
 
     /* List of Profiles common for Unicast and Broadcast advance audio features */
@@ -211,23 +211,23 @@ public class Config {
                 Arrays.asList(
                     new ProfileConfig(GroupService.class,
                             R.bool.profile_supported_group_client,
-                            (1 << BluetoothProfile.GROUP_CLIENT)),
+                            (1L << BluetoothProfile.GROUP_CLIENT)),
                     new ProfileConfig(CsipSetCoordinatorService.class,
                             R.bool.profile_supported_csip_set_coordinator,
-                            (1 << BluetoothProfile.CSIP_SET_COORDINATOR)),
+                            (1L << BluetoothProfile.CSIP_SET_COORDINATOR)),
                     new ProfileConfig(ApmConstIntf.CoordinatedAudioService,
                             R.bool.profile_supported_ca,
-                            (1 << ApmConstIntf.COORDINATED_AUDIO_UNICAST)),
+                            (1L << ApmConstIntf.COORDINATED_AUDIO_UNICAST)),
                     new ProfileConfig(ApmConstIntf.StreamAudioService,
                             R.bool.profile_supported_le_audio,
-                            (1 << ApmConstIntf.LE_AUDIO_UNICAST)),
+                            (1L << ApmConstIntf.LE_AUDIO_UNICAST)),
                     new ProfileConfig(LeAudioService.class,
                             R.bool.profile_supported_le_audio,
-                            (1 << BluetoothProfile.LE_AUDIO |
-                             1 << BluetoothProfile.LE_AUDIO_BROADCAST)),
+                            (1L << BluetoothProfile.LE_AUDIO |
+                             1L << BluetoothProfile.LE_AUDIO_BROADCAST)),
                     new ProfileConfig(VolumeControlService.class,
                             R.bool.profile_supported_volume_control,
-                            (1 << BluetoothProfile.VOLUME_CONTROL))
+                            (1L << BluetoothProfile.VOLUME_CONTROL))
             ));
 
     private static Class[] sSupportedProfiles = new Class[0];

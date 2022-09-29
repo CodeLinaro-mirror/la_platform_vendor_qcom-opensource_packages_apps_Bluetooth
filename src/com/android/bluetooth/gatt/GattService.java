@@ -98,6 +98,7 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
+import android.os.DeadObjectException;
 import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.os.UserHandle;
@@ -4341,8 +4342,14 @@ public class GattService extends ProfileService {
             return;
         }
 
-        app.callback.onCharacteristicWriteRequest(address, transId, offset, length, isPrep, needRsp,
-                handle, data);
+        try {
+            app.callback.onCharacteristicWriteRequest(address, transId, offset, length, isPrep,
+                    needRsp, handle, data);
+        } catch(DeadObjectException e) {
+            Log.e(TAG, "error sending onServerWriteCharacteristic callback", e);
+            unregisterServer(entry.serverIf);
+            return;
+        }
     }
 
     void onServerWriteDescriptor(String address, int connId, int transId, int handle, int offset,
@@ -4487,14 +4494,7 @@ public class GattService extends ProfileService {
             return;
         }
 
-        if (DBG) {
-            Log.d(TAG, "unregisterServer() - serverIf=" + serverIf);
-        }
-
-        deleteServices(serverIf);
-
-        mServerMap.remove(serverIf);
-        gattServerUnregisterAppNative(serverIf);
+        unregisterServer(serverIf);
     }
 
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
@@ -4701,6 +4701,17 @@ public class GattService extends ProfileService {
     /**************************************************************************
      * Private functions
      *************************************************************************/
+
+    private void unregisterServer(int serverIf) {
+        if (DBG) {
+            Log.d(TAG, "unregisterServer() - serverIf=" + serverIf);
+        }
+
+        deleteServices(serverIf);
+
+        mServerMap.remove(serverIf);
+        gattServerUnregisterAppNative(serverIf);
+    }
 
     private boolean isHidSrvcUuid(final UUID uuid) {
         return HID_SERVICE_UUID.equals(uuid);

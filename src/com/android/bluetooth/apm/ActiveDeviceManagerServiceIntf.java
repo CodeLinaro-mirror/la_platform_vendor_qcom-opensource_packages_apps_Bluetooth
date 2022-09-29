@@ -195,6 +195,30 @@ public class ActiveDeviceManagerServiceIntf {
         return false;
     }
 
+    public boolean setActiveDeviceBlocking(BluetoothDevice device, int mAudioType) {
+        if(activeDeviceManagerService == null)
+            return false;
+
+        Class[] arg = new Class[2];
+        arg[0] = BluetoothDevice.class;
+        arg[1] = Integer.class;
+
+        Log.i(TAG, "setActiveDeviceBlocking reflection- calling into adv audio to get method");
+        try {
+            Method setActiveDeviceBlocking = activeDeviceManagerService.getDeclaredMethod("setActiveDeviceBlocking", arg);
+            Boolean ret = (Boolean)setActiveDeviceBlocking.invoke(mActiveDeviceManagerService, device, mAudioType);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return false;
+    }
+
     public boolean removeActiveDevice(int mAudioType, boolean forceStopAudio) {
         if(activeDeviceManagerService == null)
             return false;

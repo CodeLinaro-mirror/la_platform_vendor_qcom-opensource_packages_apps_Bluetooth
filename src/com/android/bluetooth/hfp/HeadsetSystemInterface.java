@@ -71,6 +71,7 @@ import android.util.Log;
 
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.apm.CallAudioIntf;
+import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -206,9 +207,17 @@ public class HeadsetSystemInterface {
         }
         BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
         if (bluetoothInCallService != null) {
-            mHeadsetService.setActiveDevice(device);
+            if((ApmConstIntf.getQtiLeAudioEnabled()) || (ApmConstIntf.getAospLeaEnabled())) {
+               Log.w(TAG, "LEA enabled: calling setActiveDeviceBlocking");
+               ActiveDeviceManagerServiceIntf mActiveDeviceManager =
+                                    ActiveDeviceManagerServiceIntf.get();
+               mActiveDeviceManager.setActiveDeviceBlocking(device,
+                                      ApmConstIntf.AudioFeatures.CALL_AUDIO);
+            } else {
+               mHeadsetService.setActiveDevice(device);
+            }
             if (mAnswerCallDelay > 0) {
-                Log.d(TAG, "Delay " + mAnswerCallDelay + " msec before calling answerCall");
+                Log.w(TAG, "Delay " + mAnswerCallDelay + " msec before calling answerCall");
                 try {
                     Thread.sleep(mAnswerCallDelay);
                 } catch (InterruptedException e) {

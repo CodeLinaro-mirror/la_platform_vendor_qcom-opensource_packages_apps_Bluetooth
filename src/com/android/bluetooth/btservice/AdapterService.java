@@ -84,6 +84,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 package com.android.bluetooth.btservice;
 
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
@@ -1810,15 +1816,17 @@ public class AdapterService extends Service {
             ParcelUuid uuid,
             PendingIntent pendingIntent,
             AttributionSource attributionSource) {
-        if (mBluetoothServerSockets.containsKey(uuid.getUuid())) {
-            Log.d(TAG, String.format(
+        synchronized (mBluetoothServerSockets) {
+            if (mBluetoothServerSockets.containsKey(uuid.getUuid())) {
+                Log.d(TAG, String.format(
                         "Cannot start RFCOMM listener: UUID %s already in use.", uuid.getUuid()));
-            return BluetoothStatusCodes.RFCOMM_LISTENER_START_FAILED_UUID_IN_USE;
+                return BluetoothStatusCodes.RFCOMM_LISTENER_START_FAILED_UUID_IN_USE;
+            }
         }
 
         try {
             startRfcommListenerInternal(name, uuid.getUuid(), pendingIntent, attributionSource);
-        } catch (IOException e) {
+        } catch (IOException|SecurityException e) {
             return BluetoothStatusCodes.RFCOMM_LISTENER_FAILED_TO_CREATE_SERVER_SOCKET;
         }
 
@@ -1827,20 +1835,23 @@ public class AdapterService extends Service {
 
     @BluetoothAdapter.RfcommListenerResult
     private int stopRfcommListener(ParcelUuid uuid, AttributionSource attributionSource) {
-        RfcommListenerData listenerData = mBluetoothServerSockets.get(uuid.getUuid());
+        RfcommListenerData listenerData = null;
+        synchronized (mBluetoothServerSockets) {
+            listenerData = mBluetoothServerSockets.get(uuid.getUuid());
 
-        if (listenerData == null) {
-            Log.d(TAG, String.format(
+            if (listenerData == null) {
+                Log.d(TAG, String.format(
                         "Cannot stop RFCOMM listener: UUID %s is not registered.", uuid.getUuid()));
-            return BluetoothStatusCodes.RFCOMM_LISTENER_OPERATION_FAILED_NO_MATCHING_SERVICE_RECORD;
-        }
+                return BluetoothStatusCodes.RFCOMM_LISTENER_OPERATION_FAILED_NO_MATCHING_SERVICE_RECORD;
+            }
 
-        if (attributionSource.getUid() != listenerData.mAttributionSource.getUid()) {
-            return BluetoothStatusCodes.RFCOMM_LISTENER_OPERATION_FAILED_DIFFERENT_APP;
-        }
+            if (attributionSource.getUid() != listenerData.mAttributionSource.getUid()) {
+                return BluetoothStatusCodes.RFCOMM_LISTENER_OPERATION_FAILED_DIFFERENT_APP;
+            }
 
-        // Remove the entry so that it does not try and restart the server socket.
-        mBluetoothServerSockets.remove(uuid.getUuid());
+            // Remove the entry so that it does not try and restart the server socket.
+            mBluetoothServerSockets.remove(uuid.getUuid());
+        }
 
         return listenerData.closeServerAndPendingSockets(mHandler);
     }
@@ -1848,9 +1859,10 @@ public class AdapterService extends Service {
     private IncomingRfcommSocketInfo retrievePendingSocketForServiceRecord(
             ParcelUuid uuid, AttributionSource attributionSource) {
         IncomingRfcommSocketInfo socketInfo = new IncomingRfcommSocketInfo();
-
-        RfcommListenerData listenerData = mBluetoothServerSockets.get(uuid.getUuid());
-
+        RfcommListenerData listenerData = null;
+        synchronized (mBluetoothServerSockets) {
+            listenerData = mBluetoothServerSockets.get(uuid.getUuid());
+        }
         if (listenerData == null) {
             socketInfo.status =
                     BluetoothStatusCodes
@@ -1879,18 +1891,37 @@ public class AdapterService extends Service {
         return socketInfo;
     }
 
-    private void handleIncomingRfcommConnections(UUID uuid) {
-        RfcommListenerData listenerData = mBluetoothServerSockets.get(uuid);
+    private void handleIncomingRfcommConnections(String name, UUID uuid,
+            PendingIntent intent, AttributionSource attributionSource) {
+        BluetoothServerSocket bluetoothServerSocket;
+
+        try {
+            bluetoothServerSocket =
+                    mAdapter.listenUsingRfcommWithServiceRecord(name, uuid);
+        } catch (IOException e) {
+            Log.e(TAG, "handleIncomingRfcommConnections IOException:" + e.getMessage());
+            return;
+        }
+
+        RfcommListenerData listenerData =
+                new RfcommListenerData(bluetoothServerSocket, name, intent, attributionSource);
+
+        synchronized (mBluetoothServerSockets) {
+            mBluetoothServerSockets.put(uuid, listenerData);
+        }
+
         for (;;) {
             BluetoothSocket socket;
             try {
                 socket = listenerData.mServerSocket.accept();
             } catch (IOException e) {
-                if (mBluetoothServerSockets.containsKey(uuid)) {
-                    // The uuid still being in the map indicates that the accept failure is
-                    // unexpected. Try and restart the listener.
-                    Log.e(TAG, "Failed to accept socket on " + listenerData.mServerSocket, e);
-                    restartRfcommListener(listenerData, uuid);
+                synchronized (mBluetoothServerSockets) {
+                    if (mBluetoothServerSockets.containsKey(uuid)) {
+                        // The uuid still being in the map indicates that the accept failure is
+                        // unexpected. Try and restart the listener.
+                        Log.e(TAG, "Failed to accept socket on " + listenerData.mServerSocket, e);
+                        restartRfcommListener(listenerData, uuid);
+                    }
                 }
                 return;
             }
@@ -1903,7 +1934,9 @@ public class AdapterService extends Service {
                 // The pending intent was cancelled, close the server as there is no longer any way
                 // to notify the app that registered the listener.
                 listenerData.closeServerAndPendingSockets(mHandler);
-                mBluetoothServerSockets.remove(uuid);
+                synchronized (mBluetoothServerSockets) {
+                    mBluetoothServerSockets.remove(uuid);
+                }
                 return;
             }
             mHandler.postDelayed(
@@ -1922,7 +1955,7 @@ public class AdapterService extends Service {
                     uuid,
                     listenerData.mPendingIntent,
                     listenerData.mAttributionSource);
-        } catch (IOException e) {
+        } catch (IOException|SecurityException e) {
             Log.e(TAG, "Failed to recreate rfcomm server socket", e);
 
             mBluetoothServerSockets.remove(uuid);
@@ -1945,23 +1978,18 @@ public class AdapterService extends Service {
     private void startRfcommListenerInternal(
             String name, UUID uuid, PendingIntent intent, AttributionSource attributionSource)
             throws IOException {
-        BluetoothServerSocket bluetoothServerSocket =
-                mAdapter.listenUsingRfcommWithServiceRecord(name, uuid);
-
-        RfcommListenerData listenerData =
-                new RfcommListenerData(bluetoothServerSocket, name, intent, attributionSource);
-
-        mBluetoothServerSockets.put(uuid, listenerData);
-
-        mSocketServersExecutor.execute(() -> handleIncomingRfcommConnections(uuid));
+        mSocketServersExecutor.execute(
+                () -> handleIncomingRfcommConnections(name, uuid, intent, attributionSource));
     }
 
     private void stopRfcommServerSockets() {
-        Iterator<Map.Entry<UUID, RfcommListenerData>> socketsIterator =
-                mBluetoothServerSockets.entrySet().iterator();
-        while (socketsIterator.hasNext()) {
-            socketsIterator.next().getValue().closeServerAndPendingSockets(mHandler);
-            socketsIterator.remove();
+        synchronized (mBluetoothServerSockets) {
+            Iterator<Map.Entry<UUID, RfcommListenerData>> socketsIterator =
+                    mBluetoothServerSockets.entrySet().iterator();
+            while (socketsIterator.hasNext()) {
+                socketsIterator.next().getValue().closeServerAndPendingSockets(mHandler);
+                socketsIterator.remove();
+            }
         }
     }
 
@@ -4141,6 +4169,7 @@ public class AdapterService extends Service {
                 receiver.propagateException(e);
             }
         }
+
         public int startRfcommListener(
             String name,
             ParcelUuid uuid,
@@ -6669,6 +6698,11 @@ public class AdapterService extends Service {
     public boolean isGroupDevice(BluetoothDevice device) {
         if (mGroupService == null) {
             if (VERBOSE) Log.v(TAG, "isGroupDevice GroupService not enabled");
+            return false;
+        }
+
+        if (device == null) {
+            if (VERBOSE) Log.v(TAG, "isGroupDevice device is null");
             return false;
         }
 

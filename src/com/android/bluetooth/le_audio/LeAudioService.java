@@ -495,12 +495,12 @@ public class LeAudioService extends ProfileService {
     }
 
     public BluetoothDevice getConnectedGroupLeadDevice(int groupId) {
-        ActiveDeviceManagerServiceIntf activeDeviceManager =
-                                            ActiveDeviceManagerServiceIntf.get();
-        BluetoothDevice lead_device =
-            activeDeviceManager.getActiveDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
-         //return getFirstDeviceFromGroup(groupId);
-         Log.w(TAG, "returning group lead device as currently active one" + lead_device);
+         BluetoothDevice lead_device = null;
+         List<BluetoothDevice> devices = getConnectedDevices();
+         if (devices.size() > 0) {
+             lead_device = devices.get(0);
+         }
+         Log.w(TAG, "returning group lead device as first connected device" + lead_device);
          return lead_device;
    }
 
