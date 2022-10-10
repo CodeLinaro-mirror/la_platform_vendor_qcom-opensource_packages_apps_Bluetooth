@@ -849,7 +849,9 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
 
                 case MESSAGE_GET_FOLDER_ITEMS:
-                    transitionTo(mGetFolderList);
+                    if (mBrowsingConnected) {
+                        transitionTo(mGetFolderList);
+                    }
                     return true;
 
                 case MESSAGE_PLAY_ITEM:
@@ -901,8 +903,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
 
                 case MSG_AVRCP_GET_FOLDER_ITEMS_PTS:
-                    getFolderItems((Bundle) msg.obj);
-                    transitionTo(mGetFolderList);
+                    if (mBrowsingConnected) {
+                        getFolderItems((Bundle) msg.obj);
+                        transitionTo(mGetFolderList);
+                    }
                     return true;
 
                 case MSG_AVRCP_REQUEST_CONTINUING_RESPONSE:
@@ -1834,6 +1838,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                 }
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected!", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
             }
         }
 
@@ -1878,6 +1884,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                 currIndex = mCarAudioManager.getGroupVolume(mVolumeGroupId);
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
             }
 
             int newIndex = (mMaxVolume * absVol) / ABS_VOL_BASE;
@@ -1895,6 +1903,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                             AudioManager.FLAG_SHOW_UI);
                 } catch (CarNotConnectedException e) {
                     Log.e(TAG, "Car is not connected", e);
+                } catch (NullPointerException e) {
+                    Log.e(TAG, "mCarAudioManager is NULL!", e);
                 }
             }
         } else {
