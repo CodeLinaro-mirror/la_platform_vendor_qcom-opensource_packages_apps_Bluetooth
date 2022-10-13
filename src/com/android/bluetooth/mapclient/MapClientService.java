@@ -13,6 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+ /*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
+*/
 
 package com.android.bluetooth.mapclient;
 
@@ -52,7 +58,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MapClientService extends ProfileService {
     private static final String TAG = "MapClientService";
 
-    static final boolean DBG = false;
+    static final boolean DBG = true;
     static final boolean VDBG = false;
 
     static final int MAXIMUM_CONNECTED_DEVICES = 4;
@@ -434,6 +440,12 @@ public class MapClientService extends ProfileService {
         }
         return mapStateMachine.setMessageStatus(handle, status);
     }
+    public synchronized boolean sendImage(BluetoothDevice device, Uri[] contacts, String ImagePath,
+            PendingIntent sentIntent, PendingIntent deliveredIntent) {
+        MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
+         return mapStateMachine != null
+                 && mapStateMachine.sendMapImageMessage(contacts, ImagePath, sentIntent, deliveredIntent);
+    }
 
     @Override
     public void dump(StringBuilder sb) {
@@ -578,6 +590,19 @@ public class MapClientService extends ProfileService {
                     "Need SEND_SMS permission");
 
             return service.sendMessage(device, contacts, message, sentIntent, deliveredIntent);
+        }
+
+        @Override
+        public boolean sendImage(BluetoothDevice device, Uri[] contacts, String ImagePath,
+                PendingIntent sentIntent, PendingIntent deliveredIntent, AttributionSource source) {
+            MapClientService service = getService(source);
+            if (service == null) {
+                return false;
+            }
+            if (DBG) Log.d(TAG, "Checking Permission of sendMessage");
+            mService.enforceCallingOrSelfPermission(Manifest.permission.SEND_SMS,
+                    "Need SEND_SMS permission");
+            return service.sendImage(device, contacts, ImagePath, sentIntent, deliveredIntent);
         }
 
         @Override
