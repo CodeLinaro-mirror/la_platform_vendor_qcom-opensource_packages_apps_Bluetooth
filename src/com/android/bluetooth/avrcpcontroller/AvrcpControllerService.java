@@ -150,7 +150,7 @@ public class AvrcpControllerService extends ProfileService {
     private AdapterService mAdapterService;
 
     protected Map<BluetoothDevice, AvrcpControllerStateMachine> mDeviceStateMap =
-            new ConcurrentHashMap<>(1);
+            new ConcurrentHashMap<>();
     private BluetoothDevice mActiveDevice = null;
     private final Object mActiveDeviceLock = new Object();
 
@@ -203,10 +203,11 @@ public class AvrcpControllerService extends ProfileService {
         setActiveDevice(null);
         Intent stopIntent = new Intent(this, BluetoothMediaBrowserService.class);
         stopService(stopIntent);
-        for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
-            stateMachine.doQuit();
+        synchronized (mDeviceStateMap) {
+            for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
+                stateMachine.doQuit();
+            }
         }
-
         sService = null;
         sBrowseTree = null;
         if (mCoverArtManager != null) {
@@ -232,7 +233,10 @@ public class AvrcpControllerService extends ProfileService {
     /**
      * Set the current active device, notify devices of activity status
      */
-    private boolean setActiveDevice(BluetoothDevice device) {
+    boolean setActiveDevice(BluetoothDevice device) {
+        if (DBG) {
+            Log.d(TAG, " Set " + device + " to be active");
+        }
         A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
         if (a2dpSinkService == null) {
             return false;
@@ -324,17 +328,19 @@ public class AvrcpControllerService extends ProfileService {
         // Check if the requestedNode is a player rather than a song
         BrowseTree.BrowseNode requestedNode = sBrowseTree.findBrowseNodeByID(parentMediaId);
         if (requestedNode == null) {
-            for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
-                // Check each state machine for the song and then play it
-                requestedNode = stateMachine.findNode(parentMediaId);
-                if (requestedNode != null) {
-                    if (DBG) Log.d(TAG, "Found a node");
-                    BluetoothDevice device = stateMachine.getDevice();
-                    if (device != null) {
-                        setActiveDevice(device);
+            synchronized (mDeviceStateMap) {
+                for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
+                    // Check each state machine for the song and then play it
+                    requestedNode = stateMachine.findNode(parentMediaId);
+                    if (requestedNode != null) {
+                        if (DBG) Log.d(TAG, "Found a node");
+                        BluetoothDevice device = stateMachine.getDevice();
+                        if (device != null) {
+                            setActiveDevice(device);
+                        }
+                        stateMachine.playItem(requestedNode);
+                        break;
                     }
-                    stateMachine.playItem(requestedNode);
-                    break;
                 }
             }
         }
@@ -354,11 +360,13 @@ public class AvrcpControllerService extends ProfileService {
 
         BrowseTree.BrowseNode requestedNode = sBrowseTree.findBrowseNodeByID(parentMediaId);
         if (requestedNode == null) {
-            for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
-                requestedNode = stateMachine.findNode(parentMediaId);
-                if (requestedNode != null) {
-                    Log.d(TAG, "Found a node");
-                    break;
+            synchronized (mDeviceStateMap) {
+                for (AvrcpControllerStateMachine stateMachine : mDeviceStateMap.values()) {
+                    requestedNode = stateMachine.findNode(parentMediaId);
+                    if (requestedNode != null) {
+                        Log.d(TAG, "Found a node");
+                        break;
+                    }
                 }
             }
         }
@@ -957,17 +965,20 @@ public class AvrcpControllerService extends ProfileService {
             Log.d(TAG, "MAP disconnect device: " + device
                     + ", InstanceMap start state: " + sb.toString());
         }
-        AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
-        // a map state machine instance doesn't exist. maybe it is already gone?
-        if (stateMachine == null) {
-            return false;
+
+        synchronized (mDeviceStateMap) {
+            AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
+            // a map state machine instance doesn't exist. maybe it is already gone?
+            if (stateMachine == null) {
+                return false;
+            }
+            int connectionState = stateMachine.getState();
+            if (connectionState != BluetoothProfile.STATE_CONNECTED
+                    && connectionState != BluetoothProfile.STATE_CONNECTING) {
+                return false;
+            }
+            stateMachine.disconnect();
         }
-        int connectionState = stateMachine.getState();
-        if (connectionState != BluetoothProfile.STATE_CONNECTED
-                && connectionState != BluetoothProfile.STATE_CONNECTING) {
-            return false;
-        }
-        stateMachine.disconnect();
         if (DBG) {
             StringBuilder sb = new StringBuilder();
             dump(sb);
@@ -985,7 +996,9 @@ public class AvrcpControllerService extends ProfileService {
         if (device.equals(getActiveDevice())) {
             setActiveDevice(null);
         }
-        mDeviceStateMap.remove(stateMachine.getDevice());
+        synchronized (mDeviceStateMap) {
+            mDeviceStateMap.remove(stateMachine.getDevice());
+        }
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
@@ -996,17 +1009,21 @@ public class AvrcpControllerService extends ProfileService {
         if (device == null) {
             return null;
         }
-        return mDeviceStateMap.get(device);
+        synchronized (mDeviceStateMap) {
+            return mDeviceStateMap.get(device);
+        }
     }
 
     protected AvrcpControllerStateMachine getOrCreateStateMachine(BluetoothDevice device) {
-        AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
-        if (stateMachine == null) {
-            stateMachine = newStateMachine(device);
-            mDeviceStateMap.put(device, stateMachine);
-            stateMachine.start();
+        synchronized (mDeviceStateMap) {
+            AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
+            if (stateMachine == null) {
+                stateMachine = newStateMachine(device);
+                mDeviceStateMap.put(device, stateMachine);
+                stateMachine.start();
+            }
+            return stateMachine;
         }
-        return stateMachine;
     }
 
     protected AvrcpCoverArtManager getCoverArtManager() {
@@ -1033,9 +1050,11 @@ public class AvrcpControllerService extends ProfileService {
     }
 
     synchronized int getConnectionState(BluetoothDevice device) {
-        AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
-        return (stateMachine == null) ? BluetoothProfile.STATE_DISCONNECTED
-                : stateMachine.getState();
+        synchronized (mDeviceStateMap) {
+            AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
+            return (stateMachine == null) ? BluetoothProfile.STATE_DISCONNECTED
+                    : stateMachine.getState();
+        }
     }
 
     /*Java API*/

@@ -179,6 +179,9 @@ class AvrcpControllerStateMachine extends StateMachine {
     private int mRemoteFeatures;
     private int mRemoteVersion;
 
+    // If true set active when remote device play music
+    private boolean mShouldSetActive = true;
+
     /**
      * Custom action to search.
      *
@@ -466,6 +469,7 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
 
         setInitialState(mDisconnected);
+        mShouldSetActive = shouldSetActive();
     }
 
     public void doQuit() {
@@ -961,14 +965,17 @@ class AvrcpControllerStateMachine extends StateMachine {
                         return true;
                     }
 
-                    if (!isActive()) {
+                    if (!isActive() && !mShouldSetActive) {
                         sendMessage(MSG_AVRCP_PASSTHRU,
                                 AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
                         return true;
                     }
 
                     PlaybackStateCompat playbackState = mAddressedPlayer.getPlaybackState();
-                    BluetoothMediaBrowserService.notifyChanged(playbackState);
+                    if (isActive()) {
+                        logD(STATE_TAG + " Notify playbackState " + playbackState);
+                        BluetoothMediaBrowserService.notifyChanged(playbackState);
+                    }
 
                     int focusState = AudioManager.ERROR;
                     A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
@@ -982,13 +989,18 @@ class AvrcpControllerStateMachine extends StateMachine {
                         return true;
                     }
 
-                    if (playbackState.getState() == PlaybackStateCompat.STATE_PLAYING
-                            && focusState == AudioManager.AUDIOFOCUS_NONE) {
-                        if (shouldRequestFocus()) {
-                            mSessionCallbacks.onPrepare();
+                    if (playbackState.getState() == PlaybackStateCompat.STATE_PLAYING) {
+                        if (focusState == AudioManager.AUDIOFOCUS_NONE) {
+                            if (shouldRequestFocus()) {
+                                logD(STATE_TAG + " Get audio focus");
+                                mSessionCallbacks.onPrepare();
+                                mService.setActiveDevice(mDevice);
+                            } else {
+                                sendMessage(MSG_AVRCP_PASSTHRU,
+                                        AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
+                            }
                         } else {
-                            sendMessage(MSG_AVRCP_PASSTHRU,
-                                    AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
+                            mService.setActiveDevice(mDevice);
                         }
                     }
                     return true;
@@ -2303,4 +2315,11 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         return false;
     }
+
+    // If true set active when remote device play music
+    private boolean shouldSetActive() {
+        return mService.getResources()
+                .getBoolean(R.bool.set_active_when_remote_device_play);
+    }
+
 }

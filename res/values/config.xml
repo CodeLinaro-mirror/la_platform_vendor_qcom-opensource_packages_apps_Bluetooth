@@ -148,4 +148,7 @@
 
     <!-- [Dual Bluetooth] Flag whether or not to allow phonebook access permission -->
     <bool name="allow_pbap_access_permission">false</bool>
+
+    <!-- [Dual A2DP Sink] Flag whether or not to set active device when remote device play music -->
+    <bool name="set_active_when_remote_device_play">true</bool>
 </resources>
