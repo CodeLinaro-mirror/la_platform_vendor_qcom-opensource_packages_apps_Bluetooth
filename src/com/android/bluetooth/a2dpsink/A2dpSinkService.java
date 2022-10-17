@@ -84,6 +84,7 @@ public class A2dpSinkService extends ProfileService {
     private static boolean sIsHandOffPending = false;
     private static boolean mIsSplitSink = false;
     private List<BluetoothDevice> connectedDevices = null;
+    private static final int DELAY_REMOVE_ACTIVE_DEV = 1000;
 
     static {
         classInitNative();
@@ -666,10 +667,17 @@ public class A2dpSinkService extends ProfileService {
                 connectedDevices.add(device);
                 if (mAudioManager != null && (connectedDevices.size() == 1)) {
                     Log.d(TAG, "SetActive device to MM Audio: ");
-                    Message msg = mA2dpSinkStreamHandler.obtainMessage(
-                                    A2dpSinkStreamHandler.SET_ACTIVE);
-                    msg.obj = device;
-                    mA2dpSinkStreamHandler.sendMessage(msg);
+                    if(mA2dpSinkStreamHandler.hasMessages(
+                                         A2dpSinkStreamHandler.REMOVE_ACTIVE)) {
+                        Log.d(TAG, "Delayed remove active is peding ");
+                        mA2dpSinkStreamHandler.removeMessages(
+                                         A2dpSinkStreamHandler.REMOVE_ACTIVE);
+                    } else {
+                        Message msg = mA2dpSinkStreamHandler.obtainMessage(
+                                        A2dpSinkStreamHandler.SET_ACTIVE);
+                        msg.obj = device;
+                        mA2dpSinkStreamHandler.sendMessage(msg);
+                    }
                 }
             } else if(state == BluetoothProfile.STATE_DISCONNECTED) {
                 connectedDevices.remove(device);
@@ -678,7 +686,7 @@ public class A2dpSinkService extends ProfileService {
                     Message msg = mA2dpSinkStreamHandler.obtainMessage(
                                       A2dpSinkStreamHandler.REMOVE_ACTIVE);
                     msg.obj = device;
-                    mA2dpSinkStreamHandler.sendMessage(msg);
+                    mA2dpSinkStreamHandler.sendMessageDelayed(msg, DELAY_REMOVE_ACTIVE_DEV);
                 }
             }
         }
