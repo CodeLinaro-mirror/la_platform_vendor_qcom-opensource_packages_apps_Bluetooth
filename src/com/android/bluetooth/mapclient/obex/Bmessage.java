@@ -40,6 +40,8 @@ public class Bmessage {
     String mBbodyCharset;
     String mBbodyLanguage;
     int mBbodyLength;
+    String MimeType;
+    boolean mImageMMS = false;
 
     String mMessage;
 
@@ -96,6 +98,23 @@ public class Bmessage {
     public Bmessage setType(Type type) {
         mBmsgType = type;
         return this;
+    }
+
+    public String getFileType() {
+        return MimeType;
+    }
+
+    public Bmessage setFileType(String FileType){
+        MimeType = FileType;
+        return this;
+    }
+    public Bmessage SetImageMMS(boolean flag){
+        mImageMMS = flag;
+        return this;
+    }
+
+    public boolean IsImageMMS() {
+        return mImageMMS;
     }
 
     public String getFolder() {
