@@ -83,6 +83,8 @@ public class A2dpSinkService extends ProfileService {
     private static boolean sAudioIsEnabled = false;
     private static boolean sIsHandOffPending = false;
     private static boolean mIsSplitSink = false;
+    private List<BluetoothDevice> connectedDevices = null;
+
     static {
         classInitNative();
     }
@@ -110,6 +112,7 @@ public class A2dpSinkService extends ProfileService {
         if (mA2dpSinkVendor != null) {
             mA2dpSinkVendor.init();
         }
+        connectedDevices = new ArrayList<BluetoothDevice>();
         return true;
     }
 
@@ -635,12 +638,6 @@ public class A2dpSinkService extends ProfileService {
                   A2dpSinkStreamHandler.STOP_SINK).sendToTarget();
               sAudioIsEnabled = false;
             }
-            if (mAudioManager != null) {
-              Message msg = mA2dpSinkStreamHandler.obtainMessage(
-                                A2dpSinkStreamHandler.REMOVE_ACTIVE);
-              msg.obj = device;
-              mA2dpSinkStreamHandler.sendMessage(msg);
-            }
             mStreamingDevice = null;
         }
 
@@ -653,12 +650,6 @@ public class A2dpSinkService extends ProfileService {
             } else if (device != null && !mIsSplitSink) {
                 mStreamingDevice = device;
             }
-            if (mAudioManager != null) {
-                Message msg = mA2dpSinkStreamHandler.obtainMessage(
-                                A2dpSinkStreamHandler.SET_ACTIVE);
-                msg.obj = device;
-                mA2dpSinkStreamHandler.sendMessage(msg);
-            }
             if (SystemProperties.get("ro.board.platform").equals("neo")) {
                 if (mAdapterService != null
                     && ArrayUtils.contains(mAdapterService.getRemoteUuids(device),
@@ -669,6 +660,28 @@ public class A2dpSinkService extends ProfileService {
             }
         }
         stateMachine.sendMessage(A2dpSinkStateMachine.STACK_EVENT, event);
+
+        if(mIsSplitSink) {
+            if (state == BluetoothProfile.STATE_CONNECTED) {
+                connectedDevices.add(device);
+                if (mAudioManager != null && (connectedDevices.size() == 1)) {
+                    Log.d(TAG, "SetActive device to MM Audio: ");
+                    Message msg = mA2dpSinkStreamHandler.obtainMessage(
+                                    A2dpSinkStreamHandler.SET_ACTIVE);
+                    msg.obj = device;
+                    mA2dpSinkStreamHandler.sendMessage(msg);
+                }
+            } else if(state == BluetoothProfile.STATE_DISCONNECTED) {
+                connectedDevices.remove(device);
+                if (mAudioManager != null && (connectedDevices.size() == 0)) {
+                    Log.d(TAG, "RemoveActive to MM Audio: ");
+                    Message msg = mA2dpSinkStreamHandler.obtainMessage(
+                                      A2dpSinkStreamHandler.REMOVE_ACTIVE);
+                    msg.obj = device;
+                    mA2dpSinkStreamHandler.sendMessage(msg);
+                }
+            }
+        }
     }
 
     //Initiate MapClient Connect after A2dp Sink connected
