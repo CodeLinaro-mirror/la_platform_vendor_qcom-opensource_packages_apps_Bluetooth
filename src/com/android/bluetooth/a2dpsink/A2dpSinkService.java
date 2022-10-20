@@ -647,7 +647,6 @@ public class A2dpSinkService extends ProfileService {
             if (mStreamingDevice != null && !mStreamingDevice.equals(device)) {
                 Log.d(TAG, "current connected device: " + device + "is different from previous device");
                 initiateHandoffOperations(device);
-                mStreamingDevice = device;
             } else if (device != null && !mIsSplitSink) {
                 mStreamingDevice = device;
             }
