@@ -65,8 +65,9 @@ final class JniCallbacks {
         mBondStateMachine.bondStateChangeCallback(status, address, newState);
     }
 
-    void aclStateChangeCallback(int status, byte[] address, int newState) {
-        mRemoteDevices.aclStateChangeCallback(status, address, newState);
+    void aclStateChangeCallback(int status, byte[] address, int newState, int link_type,
+                                           int hci_reason) {
+        mRemoteDevices.aclStateChangeCallback(status, address, newState, link_type, hci_reason);
     }
 
     void stateChangeCallback(int status) {
