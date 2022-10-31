@@ -177,6 +177,13 @@ public class A2dpSinkStreamHandler extends Handler {
                 break;
 
             case SRC_PLAY:
+                HeadsetClientService mHeadsetClientService
+                       = HeadsetClientService.getHeadsetClientService();
+                if(mHeadsetClientService!= null
+                        && mHeadsetClientService.isA2dpSinkPossible() == false) {
+                    sendAvrcpPause();
+                    break;
+                }
                 mStreamAvailable = true;
                 // Remote play command.
                 if (isIotDevice() || isTvDevice() || shouldRequestFocus()) {
