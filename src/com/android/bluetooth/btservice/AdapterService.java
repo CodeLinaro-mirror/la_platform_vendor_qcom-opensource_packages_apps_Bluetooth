@@ -123,8 +123,10 @@ import android.bluetooth.BluetoothAdapter.ActiveDeviceProfile;
 import android.bluetooth.BluetoothAdapter.ActiveDeviceUse;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothMap;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothProtoEnums;
+import android.bluetooth.BluetoothSap;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.bluetooth.BluetoothStatusCodes;
@@ -1073,9 +1075,6 @@ public class AdapterService extends Service {
             mAdapter = null;
         }
 
-        BluetoothAdapter.invalidateGetProfileConnectionStateCache();
-        BluetoothAdapter.invalidateIsOffloadedFilteringSupportedCache();
-
         clearAdapterService(this);
 
         mCleaningUp = true;
@@ -1184,6 +1183,9 @@ public class AdapterService extends Service {
         BluetoothAdapter.invalidateIsOffloadedFilteringSupportedCache();
         BluetoothDevice.invalidateBluetoothGetBondStateCache();
         BluetoothAdapter.invalidateBluetoothGetStateCache();
+        BluetoothAdapter.invalidateGetAdapterConnectionStateCache();
+        BluetoothMap.invalidateBluetoothGetConnectionStateCache();
+        BluetoothSap.invalidateBluetoothGetConnectionStateCache();
     }
 
     private void setProfileServiceState(Class service, int state) {
@@ -1898,7 +1900,7 @@ public class AdapterService extends Service {
         try {
             bluetoothServerSocket =
                     mAdapter.listenUsingRfcommWithServiceRecord(name, uuid);
-        } catch (IOException e) {
+        } catch (IOException|SecurityException e) {
             Log.e(TAG, "handleIncomingRfcommConnections IOException:" + e.getMessage());
             return;
         }
@@ -4691,9 +4693,18 @@ public class AdapterService extends Service {
                 return false;
         }
 
+        boolean isLeAudioDeviceActive = false;
+        for (BluetoothDevice dev : getActiveDevices(BluetoothProfile.LE_AUDIO)) {
+            if (dev != null) {
+                Log.i(TAG, "setActiveDevice: LE audio device is active");
+                isLeAudioDeviceActive = true;
+                break;
+            }
+        }
+
         //Make only Le-A device setactive when qti LE-A not enabled.
         if (!isQtiLeAudioEnabled &&
-            mLeAudioService != null && (device == null
+            mLeAudioService != null && (device == null && isLeAudioDeviceActive
                 || mLeAudioService.getConnectionPolicy(device)
                 == BluetoothProfile.CONNECTION_POLICY_ALLOWED)) {
             Log.i(TAG, "setActiveDevice: Setting active Le Audio device " + device);
@@ -4750,7 +4761,17 @@ public class AdapterService extends Service {
                 if (mHeadsetService == null) {
                     Log.e(TAG, "getActiveDevices: HeadsetService is null");
                 } else {
-                    activeDevices.add(mHeadsetService.getActiveDevice());
+                    BluetoothDevice defaultValue = null;
+                    if (ApmConstIntf.getQtiLeAudioEnabled()) {
+                        Log.i(TAG, "getQtiLeAudioEnabled() is true, get HFP active dev from APM");
+                        ActiveDeviceManagerServiceIntf activeDeviceManager =
+                                                  ActiveDeviceManagerServiceIntf.get();
+                        defaultValue = activeDeviceManager.
+                                  getActiveAbsoluteDevice(ApmConstIntf.AudioFeatures.CALL_AUDIO);
+                        activeDevices.add(defaultValue);
+                    } else {
+                        activeDevices.add(mHeadsetService.getActiveDevice());
+                    }
                     Log.i(TAG, "getActiveDevices: Headset device: " + activeDevices.get(0));
                 }
                 break;
@@ -6301,6 +6322,9 @@ public class AdapterService extends Service {
     @GuardedBy("mDeviceConfigLock")
     private int mScreenOffBalancedIntervalMillis =
             ScanManager.SCAN_MODE_SCREEN_OFF_BALANCED_INTERVAL_MS;
+    @GuardedBy("mDeviceConfigLock")
+    private int mScanUpgradeDurationMillis =
+            DeviceConfigListener.DEFAULT_SCAN_UPGRADE_DURATION_MILLIS;
 
     public @NonNull Predicate<String> getLocationDenylistName() {
         synchronized (mDeviceConfigLock) {
@@ -6374,6 +6398,15 @@ public class AdapterService extends Service {
         }
     }
 
+    /**
+     * Returns scan upgrade duration in millis.
+     */
+    public long getScanUpgradeDurationMillis() {
+        synchronized (mDeviceConfigLock) {
+            return mScanUpgradeDurationMillis;
+        }
+    }
+
     private final DeviceConfigListener mDeviceConfigListener = new DeviceConfigListener();
 
     private class DeviceConfigListener implements DeviceConfig.OnPropertiesChangedListener {
@@ -6397,7 +6430,8 @@ public class AdapterService extends Service {
                 "screen_off_balanced_window_millis";
         private static final String SCREEN_OFF_BALANCED_INTERVAL_MILLIS =
                 "screen_off_balanced_interval_millis";
-
+        private static final String SCAN_UPGRADE_DURATION_MILLIS =
+                "scan_upgrade_duration_millis";
         /**
          * Default denylist which matches Eddystone and iBeacon payloads.
          */
@@ -6407,6 +6441,7 @@ public class AdapterService extends Service {
         private static final int DEFAULT_SCAN_QUOTA_COUNT = 5;
         private static final long DEFAULT_SCAN_QUOTA_WINDOW_MILLIS = 30 * SECOND_IN_MILLIS;
         private static final long DEFAULT_SCAN_TIMEOUT_MILLIS = 30 * MINUTE_IN_MILLIS;
+        private static final int DEFAULT_SCAN_UPGRADE_DURATION_MILLIS = (int) SECOND_IN_MILLIS * 6;
 
         public void start() {
             DeviceConfig.addOnPropertiesChangedListener(DeviceConfig.NAMESPACE_BLUETOOTH,
@@ -6444,6 +6479,8 @@ public class AdapterService extends Service {
                 mScreenOffBalancedIntervalMillis = properties.getInt(
                         SCREEN_OFF_BALANCED_INTERVAL_MILLIS,
                         ScanManager.SCAN_MODE_SCREEN_OFF_BALANCED_INTERVAL_MS);
+                mScanUpgradeDurationMillis = properties.getInt(SCAN_UPGRADE_DURATION_MILLIS,
+                        DEFAULT_SCAN_UPGRADE_DURATION_MILLIS);
             }
         }
     }
