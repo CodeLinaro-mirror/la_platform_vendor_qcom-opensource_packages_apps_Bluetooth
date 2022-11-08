@@ -75,6 +75,7 @@ public class A2dpSinkService extends ProfileService {
     private static A2dpSinkStreamHandler mA2dpSinkStreamHandler;
     private static A2dpSinkService sService;
     protected static BluetoothDevice mStreamingDevice;
+    protected static BluetoothDevice mStreamPendingDevice = null;
     protected static BluetoothDevice mHandOffPendingDevice = null;
     private HeadsetClientService mHeadsetClientService;
 
@@ -615,7 +616,7 @@ public class A2dpSinkService extends ProfileService {
         BluetoothDevice device = getDevice(address);
         Log.d(TAG, "onConnectionStateChanged. State = " + state + ", device:" + device
                 + ", streaming:" + mStreamingDevice);
-
+        BluetoothDevice sinkDevice = mAdapter.getRemoteDevice("FA:CE:FA:CE:FA:CE");
         StackEvent event = StackEvent.connectionStateChanged(getDevice(address), state);
         A2dpSinkStateMachine stateMachine = getOrCreateStateMachine(event.mDevice);
 
@@ -650,6 +651,17 @@ public class A2dpSinkService extends ProfileService {
             mStreamingDevice = null;
         }
 
+        if(state == BluetoothProfile.STATE_DISCONNECTED &&
+           (mStreamPendingDevice != null && mStreamPendingDevice.equals(device))) {
+            Log.d(TAG, "Device disconnected while stream establishment " + device);
+            if(sAudioIsEnabled == true) {
+              mA2dpSinkStreamHandler.obtainMessage(
+                  A2dpSinkStreamHandler.STOP_SINK).sendToTarget();
+              sAudioIsEnabled = false;
+            }
+            mStreamPendingDevice = null;
+        }
+
         // Intiate Handoff operations when state has been connectiond
         if (state == BluetoothProfile.STATE_CONNECTED) {
             if (mStreamingDevice != null && !mStreamingDevice.equals(device)) {
@@ -682,17 +694,23 @@ public class A2dpSinkService extends ProfileService {
                     } else {
                         Message msg = mA2dpSinkStreamHandler.obtainMessage(
                                         A2dpSinkStreamHandler.SET_ACTIVE);
-                        msg.obj = device;
+                        msg.obj = sinkDevice;
                         mA2dpSinkStreamHandler.sendMessage(msg);
                     }
                 }
             } else if(state == BluetoothProfile.STATE_DISCONNECTED) {
                 connectedDevices.remove(device);
                 if (mAudioManager != null && (connectedDevices.size() == 0)) {
+                    if(sAudioIsEnabled == true) {
+                        Log.d(TAG, "Update STOP_SINK to Audio HAL " + device);
+                        mA2dpSinkStreamHandler.obtainMessage(
+                            A2dpSinkStreamHandler.STOP_SINK).sendToTarget();
+                        sAudioIsEnabled = false;
+                    }
                     Log.d(TAG, "RemoveActive to MM Audio: ");
                     Message msg = mA2dpSinkStreamHandler.obtainMessage(
                                       A2dpSinkStreamHandler.REMOVE_ACTIVE);
-                    msg.obj = device;
+                    msg.obj = sinkDevice;
                     mA2dpSinkStreamHandler.sendMessageDelayed(msg, DELAY_REMOVE_ACTIVE_DEV);
                 }
             }
@@ -712,11 +730,16 @@ public class A2dpSinkService extends ProfileService {
     private void onAudioStateChanged(byte[] address, int state) {
         BluetoothDevice device = getDevice(address);
         Log.d(TAG, "onAudioStateChanged. Audio State = " + state + ", device:" + device);
-        Log.d(TAG, "onAudioStateChanged. mStreamingDevice = " + mStreamingDevice);
+        Log.d(TAG, "onAudioStateChanged. mStreamingDevice = " + mStreamingDevice +
+                              " mStreamPendingDevice = " + mStreamPendingDevice);
         A2dpSinkStateMachine stateMachine = mDeviceStateMap.get(device);
         if (stateMachine == null) {
             Log.d(TAG, "onAudioStateChanged return");
             return;
+        }
+
+        if(mStreamPendingDevice != null && mStreamPendingDevice.equals(device)) {
+            mStreamPendingDevice = null;
         }
 
         if (state == StackEvent.AUDIO_STATE_STARTED) {
@@ -788,9 +811,11 @@ public class A2dpSinkService extends ProfileService {
             return;
         }
 
-        if(sAudioIsEnabled == false) {
+        if(sAudioIsEnabled == false ||
+           (mStreamingDevice != null && mStreamingDevice.equals(device))) {
              mA2dpSinkStreamHandler.obtainMessage(
                  A2dpSinkStreamHandler.START_SINK).sendToTarget();
+            mStreamPendingDevice = device;
             sAudioIsEnabled = true;
         }
     }
