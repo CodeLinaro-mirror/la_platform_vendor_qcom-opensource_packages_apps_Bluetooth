@@ -311,6 +311,8 @@ public class AdapterService extends Service {
 
     private int mAdapterIndex = 0;
     private BluetoothAdapter mAdapter = null;
+    private boolean mEnableNewAdapter = false;
+    private boolean mDisableNewAdapter = false;
 
     private void initAdapter() {
         mAdapterIndex = AdapterUtil.getAdapterIndex();
@@ -4052,12 +4054,20 @@ public class AdapterService extends Service {
                 // In dual adapter mode, default adapter enable/disable
                 // new adapter concurrently.
                 if (enable) {
-                    AdapterExt.enable();
+                    mEnableNewAdapter = AdapterExt.enable();
                 } else {
-                    AdapterExt.disable();
+                    mDisableNewAdapter = AdapterExt.disable();
                 }
             }
         }
+    }
+
+    public boolean canEnableNewAdapter() {
+        return mEnableNewAdapter;
+    }
+
+    public boolean canDisableNewAdapter() {
+        return mDisableNewAdapter;
     }
 
     public void notifyNewAdapterState(boolean isOn) {

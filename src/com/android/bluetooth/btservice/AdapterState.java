@@ -369,7 +369,8 @@ final class AdapterState extends StateMachine {
         }
 
         private void handleOn() {
-            if (isDualAdapterMode()) {
+            if (isDualAdapterMode() &&
+                mAdapterService.canEnableNewAdapter()) {
                 mPendingOn = true;
                 transitionTo(mNewAdapterState);
             } else {
@@ -448,7 +449,7 @@ final class AdapterState extends StateMachine {
 
                 case BLE_STOP_TIMEOUT:
                     errorLog(messageString(msg.what));
-                    transitionTo(mOffState);
+                    handleTimeoutOff();
                     break;
 
                 default:
@@ -459,8 +460,20 @@ final class AdapterState extends StateMachine {
         }
 
         private void handleOff() {
-            if (isDualAdapterMode()) {
+            if (isDualAdapterMode() &&
+                mAdapterService.canDisableNewAdapter()) {
                 mPendingOff = true;
+                transitionTo(mNewAdapterState);
+            } else {
+                transitionTo(mOffState);
+            }
+        }
+
+        private void handleTimeoutOff() {
+            if (isDualAdapterMode() &&
+                !AdapterExt.isOff(AdapterExt.getState())) {
+                mPendingOff = true;
+                AdapterExt.disable();
                 transitionTo(mNewAdapterState);
             } else {
                 transitionTo(mOffState);
