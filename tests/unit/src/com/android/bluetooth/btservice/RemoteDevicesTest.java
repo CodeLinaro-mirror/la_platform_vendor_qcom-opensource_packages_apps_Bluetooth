@@ -275,8 +275,9 @@ public class RemoteDevicesTest {
         // Verify that when device is completely disconnected, RemoteDevices reset battery level to
         // BluetoothDevice.BATTERY_LEVEL_UNKNOWN
         when(mAdapterService.getState()).thenReturn(BluetoothAdapter.STATE_ON);
+        // HCI code 19 remote terminated
         mRemoteDevices.aclStateChangeCallback(0, Utils.getByteAddress(mDevice1),
-                AbstractionLayer.BT_ACL_STATE_DISCONNECTED, 19); // HCI code 19 remote terminated
+                AbstractionLayer.BT_ACL_STATE_DISCONNECTED, 19, BluetoothDevice.TRANSPORT_BREDR);
         // Verify ACTION_ACL_DISCONNECTED and BATTERY_LEVEL_CHANGED intent are sent
         verify(mAdapterService, times(3)).sendBroadcast(mIntentArgument.capture(),
                 mStringArgument.capture(), any(Bundle.class));
