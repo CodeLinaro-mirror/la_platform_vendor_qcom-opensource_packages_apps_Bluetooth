@@ -13,6 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
+*/
 
 /**
  * Bluetooth MAP MCE StateMachine
@@ -57,6 +63,10 @@ import android.provider.Telephony;
 import android.telecom.PhoneAccount;
 import android.telephony.SmsManager;
 import android.util.Log;
+import android.util.Base64;
+import android.graphics.BitmapFactory;
+import android.graphics.Bitmap;
+import android.webkit.MimeTypeMap;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
@@ -73,6 +83,8 @@ import com.android.vcard.VCardProperty;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -321,6 +333,61 @@ class MceStateMachine extends StateMachine {
         return false;
     }
 
+    public synchronized boolean sendMapImageMessage(Uri[] contacts, String imgPath,
+            PendingIntent sentIntent, PendingIntent deliveredIntent) {
+        if (DBG) {
+            Log.d(TAG, "Send Image ");
+        }
+        if (contacts == null || contacts.length <= 0) {
+            return false;
+        }
+        if (this.getCurrentState() == mConnected) {
+            Bmessage bmsg = new Bmessage();
+            bmsg.setType(getDefaultMessageType());
+            bmsg.setStatus(Bmessage.Status.READ);
+            bmsg.setEncoding("8BIT");//8BIT encoding
+            bmsg.setFolder("telecom/msg/outbox");
+            bmsg.setFileType(getFileExtension(imgPath));
+            bmsg.SetImageMMS(true);
+
+            for (Uri contact : contacts) {
+                if (DBG) {
+                    Log.d(TAG, "Scheme " + contact.getScheme());
+                }
+                if (PhoneAccount.SCHEME_TEL.equals(contact.getScheme())) {
+                    String path = contact.getPath();
+                    if (path != null && path.contains(Telephony.Threads.CONTENT_URI.toString())) {
+                    } else {
+                        VCardEntry destEntry = new VCardEntry();
+                        VCardProperty destEntryPhone = new VCardProperty();
+                        destEntryPhone.setName(VCardConstants.PROPERTY_TEL);
+                        destEntryPhone.addValues(contact.getSchemeSpecificPart());
+                        destEntry.addProperty(destEntryPhone);
+                        bmsg.addRecipient(destEntry);
+                        if (DBG) {
+                            Log.d(TAG, "Sending to phone numbers " + destEntryPhone.getValueList());
+                        }
+                    }
+                } else {
+                    if (DBG) {
+                        Log.w(TAG, "Scheme " + contact.getScheme() + " not supported.");
+                    }
+                    return false;
+                }
+            }
+            bmsg.setBodyContent(ImageToBase64(imgPath));
+            if (sentIntent != null) {
+                mSentReceiptRequested.put(bmsg, sentIntent);
+            }
+            if (deliveredIntent != null) {
+                mDeliveryReceiptRequested.put(bmsg, deliveredIntent);
+            }
+            sendMessage(MSG_OUTBOUND_MESSAGE, bmsg);
+            return true;
+        }
+        return false;
+    }
+
     synchronized boolean getMessage(String handle) {
         if (DBG) {
             Log.d(TAG, "getMessage" + handle);
@@ -394,6 +461,37 @@ class MceStateMachine extends StateMachine {
     private String getContactURIFromPhone(String number) {
         return PhoneAccount.SCHEME_TEL + ":" + number;
     }
+
+private String ImageToBase64(String path) {
+    String Base64Image = "";
+    Bitmap bitmap = null;;
+    if(path !=null) {
+        File file = new File(path);
+        if (file.exists()) {
+            try {
+                bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+            } catch(Exception e) {
+                e.printStackTrace();
+            }
+        }
+        if(bitmap != null) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+            byte[] imageInByte = baos.toByteArray();
+            String imageString = Base64.encodeToString(imageInByte, Base64.DEFAULT);
+            Base64Image = imageString;
+        }else {
+             Log.e(TAG,"Unable to read Image");
+        }
+    } else {
+        Log.e(TAG,"Image path is null");
+    }
+    return Base64Image;
+}
+
+private String getFileExtension(String path){
+    return MimeTypeMap.getFileExtensionFromUrl(path);
+}
 
     Bmessage.Type getDefaultMessageType() {
         synchronized (mDefaultMessageType) {
@@ -552,7 +650,7 @@ class MceStateMachine extends StateMachine {
                 case MSG_INBOUND_MESSAGE:
                     mMasClient.makeRequest(
                             new RequestGetMessage((String) message.obj, MasClient.CharsetType.UTF_8,
-                                    false));
+                                    true));
                     break;
 
                 case MSG_NOTIFICATION:

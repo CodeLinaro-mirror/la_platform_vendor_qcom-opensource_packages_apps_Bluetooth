@@ -84,6 +84,7 @@ public class A2dpSinkService extends ProfileService {
     private static boolean sIsHandOffPending = false;
     private static boolean mIsSplitSink = false;
     private List<BluetoothDevice> connectedDevices = null;
+    private static final int DELAY_REMOVE_ACTIVE_DEV = 1000;
 
     static {
         classInitNative();
@@ -397,6 +398,7 @@ public class A2dpSinkService extends ProfileService {
                 mA2dpSinkStreamHandler.obtainMessage(
                     A2dpSinkStreamHandler.SRC_PAUSE).sendToTarget();
             } else {
+                mStateMachine.setMediaControl(A2dpSinkStateMachine.MEDIA_CONTROL_NONE);
                 // Soft-Handoff from AVRCP Cmd (if received before AVDTP_START)
                 initiateHandoffOperations(device);
                 if (mStreamingDevice != null && !mStreamingDevice.equals(device)) {
@@ -426,12 +428,17 @@ public class A2dpSinkService extends ProfileService {
                    // Send Passthrough Command for PAUSE
                    AvrcpControllerService avrcpService =
                            AvrcpControllerService.getAvrcpControllerService();
-                  avrcpService.sendPassThroughCommandNative(Utils.getByteAddress(mStreamingDevice),
-                              AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
-                               AvrcpControllerService.KEY_STATE_PRESSED);
-                  avrcpService.sendPassThroughCommandNative(Utils.getByteAddress(mStreamingDevice),
-                              AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
-                                AvrcpControllerService.KEY_STATE_RELEASED);
+                   if(otherSm.getMediaControl() == A2dpSinkStateMachine.MEDIA_CONTROL_NONE) {
+                      otherSm.setMediaControl(A2dpSinkStateMachine.MEDIA_CONTROL_PAUSE);
+                      avrcpService.sendPassThroughCommandNative(Utils.getByteAddress(mStreamingDevice),
+                                  AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
+                                   AvrcpControllerService.KEY_STATE_PRESSED);
+                      avrcpService.sendPassThroughCommandNative(Utils.getByteAddress(mStreamingDevice),
+                                  AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
+                                   AvrcpControllerService.KEY_STATE_RELEASED);
+                   } else {
+                      Log.d(TAG, "skip sending redundant pause for " + otherDevice);
+                   }
                    /* set autoconnect priority of non-streaming device to PRIORITY_ON and priority
                     *  of streaming device to PRIORITY_AUTO_CONNECT */
                    avrcpService.onDeviceUpdated(device);
@@ -646,7 +653,6 @@ public class A2dpSinkService extends ProfileService {
             if (mStreamingDevice != null && !mStreamingDevice.equals(device)) {
                 Log.d(TAG, "current connected device: " + device + "is different from previous device");
                 initiateHandoffOperations(device);
-                mStreamingDevice = device;
             } else if (device != null && !mIsSplitSink) {
                 mStreamingDevice = device;
             }
@@ -666,10 +672,17 @@ public class A2dpSinkService extends ProfileService {
                 connectedDevices.add(device);
                 if (mAudioManager != null && (connectedDevices.size() == 1)) {
                     Log.d(TAG, "SetActive device to MM Audio: ");
-                    Message msg = mA2dpSinkStreamHandler.obtainMessage(
-                                    A2dpSinkStreamHandler.SET_ACTIVE);
-                    msg.obj = device;
-                    mA2dpSinkStreamHandler.sendMessage(msg);
+                    if(mA2dpSinkStreamHandler.hasMessages(
+                                         A2dpSinkStreamHandler.REMOVE_ACTIVE)) {
+                        Log.d(TAG, "Delayed remove active is peding ");
+                        mA2dpSinkStreamHandler.removeMessages(
+                                         A2dpSinkStreamHandler.REMOVE_ACTIVE);
+                    } else {
+                        Message msg = mA2dpSinkStreamHandler.obtainMessage(
+                                        A2dpSinkStreamHandler.SET_ACTIVE);
+                        msg.obj = device;
+                        mA2dpSinkStreamHandler.sendMessage(msg);
+                    }
                 }
             } else if(state == BluetoothProfile.STATE_DISCONNECTED) {
                 connectedDevices.remove(device);
@@ -678,7 +691,7 @@ public class A2dpSinkService extends ProfileService {
                     Message msg = mA2dpSinkStreamHandler.obtainMessage(
                                       A2dpSinkStreamHandler.REMOVE_ACTIVE);
                     msg.obj = device;
-                    mA2dpSinkStreamHandler.sendMessage(msg);
+                    mA2dpSinkStreamHandler.sendMessageDelayed(msg, DELAY_REMOVE_ACTIVE_DEV);
                 }
             }
         }
@@ -775,7 +788,8 @@ public class A2dpSinkService extends ProfileService {
     public void onSuspendIndCallback(byte[] address) {
         BluetoothDevice device = getDevice(address);
         Log.d(TAG, "onSuspendIndCallback" + device);
-        if(sAudioIsEnabled == true) {
+        if(sAudioIsEnabled == true ||
+            (!sAudioIsEnabled && mStreamingDevice != null)) {
           mA2dpSinkStreamHandler.obtainMessage(
               A2dpSinkStreamHandler.STOP_SINK).sendToTarget();
           sAudioIsEnabled = false;
