@@ -696,6 +696,10 @@ public class HeadsetClientService extends ProfileService {
         return true;
     }
 
+    public boolean InternalConnectAudio(BluetoothDevice device) {
+        return connectAudio(device);
+    }
+
     boolean holdCall(BluetoothDevice device) {
 
         HeadsetClientStateMachine sm = getStateMachine(device);

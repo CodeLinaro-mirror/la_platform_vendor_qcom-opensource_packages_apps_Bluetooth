@@ -60,6 +60,7 @@ import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.internal.annotations.VisibleForTesting;
@@ -137,6 +138,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     private long mClccTimer = 0;
 
     private final HeadsetClientService mService;
+    private A2dpSinkService mA2dpService;
 
     // Set of calls that represent the accurate state of calls that exists on AG and the calls that
     // are currently in process of being notified to the AG from HF.
@@ -710,6 +712,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         mService = context;
         mNativeInterface = nativeInterface;
         mAudioManager = mService.getAudioManager();
+        mA2dpService = A2dpSinkService.getA2dpSinkService();
 
         mVendorProcessor = new VendorCommandResponseProcessor(mService, mNativeInterface);
 
@@ -1411,6 +1414,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                         case StackEvent.EVENT_TYPE_CLIP:
                         case StackEvent.EVENT_TYPE_CALL_WAITING:
                             sendMessage(QUERY_CURRENT_CALLS);
+                            mA2dpService.NotifyHFcallsChanged();
                             break;
                         case StackEvent.EVENT_TYPE_CURRENT_CALLS:
                             queryCallsUpdate(event.valueInt, event.valueInt3, event.valueString,
@@ -1418,6 +1422,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                                             == HeadsetClientHalConstants.CALL_MPTY_TYPE_MULTI,
                                     event.valueInt2
                                             == HeadsetClientHalConstants.CALL_DIRECTION_OUTGOING);
+                            mA2dpService.NotifyHFcallsChanged();
                             break;
                         case StackEvent.EVENT_TYPE_VOLUME_CHANGED:
                             if (event.valueInt == HeadsetClientHalConstants.VOLUME_TYPE_SPK) {
