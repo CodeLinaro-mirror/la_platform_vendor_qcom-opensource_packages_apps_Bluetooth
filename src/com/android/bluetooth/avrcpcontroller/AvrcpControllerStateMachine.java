@@ -381,6 +381,24 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int CMD_TIMEOUT_MILLIS = 10000;
     static final int ABS_VOL_TIMEOUT_MILLIS = 1000; //1s
 
+    private final CarAudioManager.CarVolumeCallback mVolumeChangeCallback =
+        new CarAudioManager.CarVolumeCallback() {
+            @Override
+            public void onGroupVolumeChanged(int zoneId, int groupId, int flags) {
+                logD("zoneId:" + zoneId + ", groupId:" + groupId);
+
+                if (zoneId == CarAudioManager.PRIMARY_AUDIO_ZONE
+                        && groupId == mVolumeGroupId) {
+                    int volume = getAbsVolume();
+                    logD("notify abs volume changed: " + volume);
+                    // send volume changed notification
+                    mService.sendRegisterAbsVolRspNative(mDeviceAddress,
+                            NOTIFICATION_RSP_TYPE_CHANGED,
+                            volume, mVolumeNotificationLabel);
+                }
+            }
+        };
+
     AvrcpControllerStateMachine(BluetoothDevice device, AvrcpControllerService service) {
         super(TAG);
         mDevice = device;
@@ -417,6 +435,9 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     public void doQuit() {
         logD("doQuit");
+        if (mCarAudioManager != null)
+            mCarAudioManager.unregisterCarVolumeCallback(mVolumeChangeCallback);
+
         if (mCar != null && mCar.isConnected()) {
             mCar.disconnect();
             mCar = null;
@@ -942,6 +963,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                         BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mRootNode);
                     }
                     removeUnusedArtworkFromBrowseTree();
+                    // Get playback state for new addressed player
+                    mService.getPlaybackStateNative(mDeviceAddress);
                     return true;
 
                 case MESSAGE_PROCESS_SUPPORTED_APPLICATION_SETTINGS:
@@ -1672,9 +1695,12 @@ class AvrcpControllerStateMachine extends StateMachine {
         public void onServiceConnected(ComponentName name, IBinder service) {
             try {
                 mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
-                mVolumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(AudioAttributes.USAGE_MEDIA);
+                if (mCarAudioManager != null) {
+                    mVolumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(AudioAttributes.USAGE_MEDIA);
 
-                mMaxVolume = mCarAudioManager.getGroupMaxVolume(mVolumeGroupId);
+                    mMaxVolume = mCarAudioManager.getGroupMaxVolume(mVolumeGroupId);
+                    mCarAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
+                }
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car is not connected!", e);
             } catch (NullPointerException e) {
