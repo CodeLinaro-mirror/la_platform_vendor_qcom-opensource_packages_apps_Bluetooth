@@ -527,11 +527,13 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         private synchronized void msgDeviceUpdated(BluetoothDevice device) {
             if (device != null && device.equals(mA2dpDevice)) {
+                BluetoothMediaBrowserService.addressedPlayerChanged(mSessionCallbacks);
                 return;
             }
             Log.d(TAG, "msgDeviceUpdated. Previous: " + mA2dpDevice + " New: " + device);
             // We are connected to a new device via A2DP now.
             mA2dpDevice = device;
+            BluetoothMediaBrowserService.addressedPlayerChanged(mSessionCallbacks);
             Log.w(TAG, "mA2dpDevice: " + mA2dpDevice +
                                       " mBrowsingConnected: " + mBrowsingConnected);
             if (mBrowsingConnected) {
