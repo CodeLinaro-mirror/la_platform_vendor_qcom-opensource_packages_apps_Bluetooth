@@ -517,8 +517,11 @@ public class A2dpSinkService extends ProfileService {
                }
            }
        } else if (mStreamingDevice == null && device != null) {
-           Log.d(TAG, "Prev Device: Null. New Streaming Device: " + device);
-           // No Action Required
+            Log.d(TAG, "Prev Device: Null. New Streaming Device: " + device);
+            AvrcpControllerService avrcpService =
+                   AvrcpControllerService.getAvrcpControllerService();
+            Log.d(TAG, "Updating avrcp device : " + device);
+            avrcpService.onDeviceUpdated(device);
        }
     }
 
