@@ -26,6 +26,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
+import com.android.bluetooth.btservice.AdapterUtil;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.List;
@@ -38,7 +39,7 @@ public abstract class MetadataDatabase extends RoomDatabase {
     /**
      * The metadata database file name
      */
-    public static final String DATABASE_NAME = "bluetooth_db";
+    public static final String DATABASE_NAME = AdapterUtil.isAdapter1() ? "bluetooth_db1" : "bluetooth_db";
 
     static int sCurrentConnectionNumber = 0;
 
