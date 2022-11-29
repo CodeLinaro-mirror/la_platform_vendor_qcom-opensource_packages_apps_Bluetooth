@@ -1022,8 +1022,7 @@ public class AdapterService extends Service {
             return true;
         }
         if (profile == BluetoothProfile.PBAP_CLIENT) {
-            return ArrayUtils.contains(localDeviceUuids, BluetoothUuid.PBAP_PCE)
-                    && ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.PBAP_PSE);
+            return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.PBAP_PSE);
         }
         if (profile == BluetoothProfile.HEARING_AID) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HEARING_AID);
