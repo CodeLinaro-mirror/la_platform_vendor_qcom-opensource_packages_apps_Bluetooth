@@ -1059,7 +1059,7 @@ public class HeadsetService extends ProfileService {
         return getNonIdleAudioDevices().size() > 0;
     }
 
-    boolean isAudioConnected(BluetoothDevice device) {
+    public boolean isAudioConnected(BluetoothDevice device) {
         synchronized (mStateMachines) {
             final HeadsetStateMachine stateMachine = mStateMachines.get(device);
             if (stateMachine == null) {
