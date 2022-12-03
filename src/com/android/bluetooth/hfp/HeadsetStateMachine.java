@@ -494,7 +494,7 @@ public class HeadsetStateMachine extends StateMachine {
                 Log.e(TAG, "HeadsetService is null");
                 return;
             }
-            if(ApmConstIntf.getQtiLeAudioEnabled()) {
+            if(ApmConstIntf.getQtiLeAudioEnabled() || ApmConstIntf.getAospLeaEnabled()) {
                 mHeadsetService.updateConnState(device, toState);
             }
             mHeadsetService.onConnectionStateChangedFromStateMachine(device, fromState, toState);
