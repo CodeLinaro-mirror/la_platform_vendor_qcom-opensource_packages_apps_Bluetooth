@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.btservice.storage;
@@ -51,6 +56,9 @@ class Metadata {
     public long last_active_time;
     public boolean is_active_a2dp_device;
 
+    public String a2dpMediaPlayer;
+    public int a2dpAudioZone;
+
     Metadata(String address) {
         this.address = address;
         migrated = false;
@@ -60,6 +68,8 @@ class Metadata {
         a2dpOptionalCodecsEnabled = BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN;
         last_active_time = MetadataDatabase.sCurrentConnectionNumber++;
         is_active_a2dp_device = true;
+        a2dpMediaPlayer = "";
+        a2dpAudioZone = 0;
     }
 
     String getAddress() {
@@ -325,6 +335,10 @@ class Metadata {
             .append(a2dpSupportsOptionalCodecs)
             .append("|enabled=")
             .append(a2dpOptionalCodecsEnabled)
+            .append("), media player(")
+            .append(a2dpMediaPlayer)
+            .append("), audio zone(")
+            .append(a2dpAudioZone)
             .append("), custom metadata(")
             .append(publicMetadata)
             .append(")}");

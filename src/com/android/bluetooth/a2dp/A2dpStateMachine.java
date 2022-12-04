@@ -41,6 +41,10 @@
  *                 <---------------
  *                      CONNECT
  *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.a2dp;
@@ -60,6 +64,7 @@ import android.util.Log;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.R;
 import com.android.bluetooth.statemachine.State;
 import com.android.bluetooth.statemachine.StateMachine;
 import com.android.internal.annotations.VisibleForTesting;
@@ -79,6 +84,8 @@ final class A2dpStateMachine extends StateMachine {
     @VisibleForTesting
     static final int STACK_EVENT = 101;
     private static final int CONNECT_TIMEOUT = 201;
+    static final int SET_MEDIA_PLAYER = 301;
+    static final int CLEAR_MEDIA_PLAYER = 302;
 
     // NOTE: the value is not "final" - it is modified in the unit tests
     @VisibleForTesting
@@ -98,6 +105,10 @@ final class A2dpStateMachine extends StateMachine {
     private final BluetoothDevice mDevice;
     private boolean mIsPlaying = false;
     private BluetoothCodecStatus mCodecStatus;
+    private A2dpAudioZone mA2dpAudioZone;
+    private boolean mBroadcastSetMediaPlayer = false;
+
+    private static final String CAR_SETTINGS_PACKAGE_NAME = "com.android.car.settings";
 
     A2dpStateMachine(BluetoothDevice device, A2dpService a2dpService,
                      A2dpNativeInterface a2dpNativeInterface, Looper looper) {
@@ -106,6 +117,10 @@ final class A2dpStateMachine extends StateMachine {
         mDevice = device;
         mA2dpService = a2dpService;
         mA2dpNativeInterface = a2dpNativeInterface;
+        mA2dpAudioZone = A2dpAudioZone.isAudioZoneAvailable(a2dpService) ?
+                new A2dpAudioZone(mA2dpService, device) : null;
+        mBroadcastSetMediaPlayer = mA2dpService.getResources()
+                .getBoolean(R.bool.a2dp_source_broadcast_set_media_player);
 
         mDisconnected = new Disconnected();
         mConnecting = new Connecting();
@@ -130,6 +145,10 @@ final class A2dpStateMachine extends StateMachine {
         return a2dpSm;
     }
 
+    static void destroy() {
+        A2dpAudioZone.clear();
+    }
+
     public void doQuit() {
         log("doQuit for device " + mDevice);
         if (mIsPlaying) {
@@ -144,6 +163,7 @@ final class A2dpStateMachine extends StateMachine {
 
     public void cleanup() {
         log("cleanup for device " + mDevice);
+        processClearMediaPlayer();
     }
 
     @VisibleForTesting
@@ -166,6 +186,10 @@ final class A2dpStateMachine extends StateMachine {
                     broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING,
                                         BluetoothA2dp.STATE_PLAYING);
                 }
+            }
+            if (mA2dpAudioZone != null) {
+                mA2dpAudioZone.clearMediaPlayer();
+                mA2dpAudioZone.notifyA2dpStatus(false);
             }
         }
 
@@ -216,6 +240,9 @@ final class A2dpStateMachine extends StateMachine {
                             Log.e(TAG, "Disconnected: ignoring stack event: " + event);
                             break;
                     }
+                    break;
+                case CLEAR_MEDIA_PLAYER:
+                    processClearMediaPlayer();
                     break;
                 default:
                     return NOT_HANDLED;
@@ -480,6 +507,12 @@ final class A2dpStateMachine extends StateMachine {
             // Upon connected, the audio starts out as stopped
             broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING,
                                 BluetoothA2dp.STATE_PLAYING);
+            if (mA2dpAudioZone != null) {
+                setMediaPlayer();
+                mA2dpAudioZone.notifyA2dpStatus(true);
+                // Always notify app to set media player if needed
+                broadcastSetMediaPlayerRequest();
+            }
         }
 
         @Override
@@ -529,6 +562,14 @@ final class A2dpStateMachine extends StateMachine {
                             Log.e(TAG, "Connected: ignoring stack event: " + event);
                             break;
                     }
+                    break;
+                case SET_MEDIA_PLAYER:
+                    MediaPlayerInfo mediaPlayerInfo = (MediaPlayerInfo) message.obj;
+                    processSetMediaPlayer(mediaPlayerInfo.getMediaPlayer(),
+                            mediaPlayerInfo.getAudioZoneIndex());
+                    break;
+                case CLEAR_MEDIA_PLAYER:
+                    processClearMediaPlayer();
                     break;
                 default:
                     return NOT_HANDLED;
@@ -587,6 +628,31 @@ final class A2dpStateMachine extends StateMachine {
                     Log.e(TAG, "Audio State Device: " + mDevice + " bad state: " + state);
                     break;
             }
+        }
+
+        // in Connected state
+        private void processSetMediaPlayer(String mediaPlayer, int audioZoneIndex) {
+            Log.i(TAG, "processSetMediaPlayer: media player " + mediaPlayer +
+                    ", audio zone index " + audioZoneIndex);
+            if (mA2dpAudioZone != null) {
+                mA2dpAudioZone.setMediaPlayer(mediaPlayer, audioZoneIndex);
+            }
+        }
+    }
+
+    private class MediaPlayerInfo {
+        private String mMediaPlayer;
+        private int mAudioZoneIndex;
+
+        MediaPlayerInfo(String mediaPlayer, int audioZoneIndex) {
+            mMediaPlayer = mediaPlayer;
+            mAudioZoneIndex = audioZoneIndex;
+        }
+        String getMediaPlayer() {
+            return mMediaPlayer;
+        }
+        int getAudioZoneIndex() {
+            return mAudioZoneIndex;
         }
     }
 
@@ -701,6 +767,45 @@ final class A2dpStateMachine extends StateMachine {
                 Utils.getTempAllowlistBroadcastOptions());
     }
 
+    private void broadcastSetMediaPlayerRequest() {
+        if (!mBroadcastSetMediaPlayer) {
+            return;
+        }
+        log("broadcastSetMediaPlayerRequest");
+        Intent intent = new Intent(BluetoothA2dp.ACTION_SET_MEDIA_PLAYER);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mDevice);
+        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+        intent.setPackage(CAR_SETTINGS_PACKAGE_NAME);
+        mA2dpService.sendBroadcast(intent, BLUETOOTH_CONNECT,
+                Utils.getTempAllowlistBroadcastOptions());
+    }
+
+    public void setMediaPlayer(String mediaPlayer, int audioZoneIndex) {
+        MediaPlayerInfo mediaPlayerInfo = new MediaPlayerInfo(mediaPlayer, audioZoneIndex);
+        sendMessage(SET_MEDIA_PLAYER, mediaPlayerInfo);
+    }
+
+    public void clearMediaPlayer() {
+        sendMessage(CLEAR_MEDIA_PLAYER);
+    }
+
+    private void setMediaPlayer() {
+        String mediaPlayer = mA2dpService.getMediaPlayer(mDevice);
+        int audioZoneIndex = mA2dpService.getAudioZoneIndex(mDevice);
+        if (A2dpAudioZone.validMediaPlayer(mA2dpService, mediaPlayer) &&
+            A2dpAudioZone.validZoneIndex(audioZoneIndex)) {
+            // Set media player ever stored in DB
+            setMediaPlayer(mediaPlayer, audioZoneIndex);
+        }
+    }
+
+    private void processClearMediaPlayer() {
+        if (mA2dpAudioZone != null) {
+            Log.i(TAG, "clear media player");
+            mA2dpAudioZone.clearMediaPlayer();
+        }
+    }
+
     @Override
     protected String getLogRecString(Message msg) {
         StringBuilder builder = new StringBuilder();
@@ -735,6 +840,10 @@ final class A2dpStateMachine extends StateMachine {
                 return "STACK_EVENT";
             case CONNECT_TIMEOUT:
                 return "CONNECT_TIMEOUT";
+            case SET_MEDIA_PLAYER:
+                return "SET_MEDIA_PLAYER";
+            case CLEAR_MEDIA_PLAYER:
+                return "CLEAR_MEDIA_PLAYER";
             default:
                 break;
         }

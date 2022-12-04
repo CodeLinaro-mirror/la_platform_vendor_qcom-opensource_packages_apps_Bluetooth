@@ -529,6 +529,102 @@ public class DatabaseManager {
     }
 
     /**
+     * Set the A2DP media player
+     *
+     * @param device {@link BluetoothDevice} wish to set
+     * @param mediaPlayer media player's name
+     * @param audioZoneIndex audio zone's index in
+     * {@link A2dpAudioZone#sCarAudioZone}
+     */
+    @VisibleForTesting
+    public boolean setA2dpMediaPlayer(BluetoothDevice device, String mediaPlayer, int audioZoneIndex) {
+        synchronized (mMetadataCache) {
+            if (device == null) {
+                Log.e(TAG, "setA2dpMediaPlayer: device is null");
+                return false;
+            }
+            if (mediaPlayer == null) {
+                Log.e(TAG, "setA2dpMediaPlayer: invalid mediaPlayer");
+                return false;
+            }
+
+            String address = device.getAddress();
+
+            if (!mMetadataCache.containsKey(address)) {
+                return false;
+            }
+            Metadata data = mMetadataCache.get(address);
+            String oldMediaPlayer = data.a2dpMediaPlayer;
+            int oldAudioZoneIndex = data.a2dpAudioZone;
+            if (oldMediaPlayer.equals(mediaPlayer) &&
+                (oldAudioZoneIndex == audioZoneIndex)) {
+                return true;
+            }
+            logMetadataChange(address, "A2DP media player changed: "
+                    + oldMediaPlayer + " -> " + mediaPlayer
+                    + ", audio zone changed: " + oldAudioZoneIndex
+                    + " -> " + audioZoneIndex);
+
+            data.a2dpMediaPlayer = mediaPlayer;
+            data.a2dpAudioZone = audioZoneIndex;
+            updateDatabase(data);
+            return true;
+        }
+    }
+
+    /**
+     * Get the A2DP media player
+     *
+     * @param device {@link BluetoothDevice} wish to get
+     * @return the A2DP media player
+     */
+    @VisibleForTesting
+    public String getA2dpMediaPlayer(BluetoothDevice device) {
+        synchronized (mMetadataCache) {
+            if (device == null) {
+                Log.e(TAG, "getA2dpMediaPlayer: device is null");
+                return "";
+            }
+
+            String address = device.getAddress();
+
+            if (!mMetadataCache.containsKey(address)) {
+                Log.d(TAG, "getA2dpMediaPlayer: device " + address + " is not in cache");
+                return "";
+            }
+
+            Metadata data = mMetadataCache.get(address);
+            return data.a2dpMediaPlayer;
+        }
+    }
+
+    /**
+     * Get the A2DP audio zone
+     *
+     * @param device {@link BluetoothDevice} wish to get
+     * @return the A2DP audio zone index
+     */
+    @VisibleForTesting
+    public int getA2dpAudioZone(BluetoothDevice device) {
+        synchronized (mMetadataCache) {
+            if (device == null) {
+                Log.e(TAG, "getA2dpAudioZone: device is null");
+                return -1;
+            }
+
+            String address = device.getAddress();
+
+            if (!mMetadataCache.containsKey(address)) {
+                Log.d(TAG, "getA2dpAudioZone: device " + address + " is not in cache");
+                return -1;
+            }
+
+            Metadata data = mMetadataCache.get(address);
+            return data.a2dpAudioZone;
+        }
+    }
+
+    /**
      * Updates the time this device was last connected
      *
      * @param device is the remote bluetooth device for which we are setting the connection time

@@ -78,6 +78,9 @@
     <!-- If true, device requests audio focus and start avrcp updates on source start or play -->
     <bool name="a2dp_sink_automatically_request_audio_focus">false</bool>
 
+    <!--For A2DP source set media player feature. -->
+    <bool name="a2dp_source_broadcast_set_media_player">true</bool>
+
     <!-- For enabling the AVRCP Controller Cover Artwork feature -->
     <bool name="avrcp_controller_enable_cover_art">true</bool>
 

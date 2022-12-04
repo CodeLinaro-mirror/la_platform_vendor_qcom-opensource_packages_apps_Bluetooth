@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.a2dp;
@@ -221,6 +226,7 @@ public class A2dpService extends ProfileService {
     @Override
     protected void cleanup() {
         Log.i(TAG, "cleanup()");
+        A2dpStateMachine.destroy();
     }
 
     public static synchronized A2dpService getA2dpService() {
@@ -864,6 +870,138 @@ public class A2dpService extends ProfileService {
     }
 
     /**
+     * Get A2DP media player
+     *
+     * @param device is the remote bluetooth device
+     * @return media player's name
+     */
+    public String getMediaPlayer(BluetoothDevice device) {
+        return mDatabaseManager.getA2dpMediaPlayer(device);
+    }
+
+    /**
+     * Get A2DP audio zone index
+     *
+     * @param device is the remote bluetooth device
+     * @return A2DP audio zone index
+     */
+    public int getAudioZoneIndex(BluetoothDevice device) {
+        return mDatabaseManager.getA2dpAudioZone(device);
+    }
+
+    /**
+     * Get A2DP audio zone
+     *
+     * @param device is the remote bluetooth device
+     * @param mediaPlayer is the media player's name
+     * @return A2DP audio zone index
+     */
+    private int getAudioZoneIndex(BluetoothDevice device, String mediaPlayer) {
+        int audioZoneIndex = -1;
+        // Get media player stored in DB
+        String oldMediaPlayer = getMediaPlayer(device);
+        if (oldMediaPlayer.isEmpty()) {
+            audioZoneIndex = A2dpAudioZone.getAudioZoneAvailable(mediaPlayer);
+        } else {
+            if (oldMediaPlayer.equals(mediaPlayer)) {
+                // Get audio zone index stored in DB
+                audioZoneIndex = getAudioZoneIndex(device);
+            } else {
+                // Clear old media player
+                A2dpAudioZone.clearMediaPlayer(device);
+                audioZoneIndex = A2dpAudioZone.getAudioZoneAvailable(mediaPlayer);
+            }
+        }
+        return audioZoneIndex;
+    }
+
+    /**
+     * Set A2DP media player
+     *
+     * @param device is the remote bluetooth device
+     * @param media player's name
+     * @return true for success, false for failure
+     */
+    public boolean setMediaPlayer(BluetoothDevice device, String mediaPlayer) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
+        if (DBG) {
+            Log.d(TAG, "setMediaPlayer " + device + ", media player: " + mediaPlayer);
+        }
+
+        if (mediaPlayer == null) {
+            return false;
+        }
+
+        if (mediaPlayer.isEmpty()) {
+            return clearMediaPlayer(device);
+        }
+
+        if (!A2dpAudioZone.validMediaPlayer(this, mediaPlayer)) {
+            Log.e(TAG, "Ignored setMediaPlayer for " + device + " : media player not found");
+            return false;
+        }
+
+        if (!A2dpAudioZone.isAudioZoneAvailable(this)) {
+            Log.e(TAG, "Ignored setMediaPlayer for " + device + " : none audio zone for A2DP");
+            return false;
+        }
+
+        if (A2dpAudioZone.isMediaPlayerMapped(device, mediaPlayer)) {
+            Log.w(TAG, "Ignored setMediaPlayer for " + device + " : media player already mapped");
+            return true;
+        }
+
+        synchronized (mStateMachines) {
+            A2dpStateMachine sm = mStateMachines.get(device);
+            if (sm == null) {
+                Log.e(TAG, "Ignored setMediaPlayer for " + device + " : no state machine");
+                return false;
+            }
+
+            int audioZoneIndex = getAudioZoneIndex(device, mediaPlayer);
+            if (!A2dpAudioZone.validZoneIndex(audioZoneIndex)) {
+                Log.e(TAG, "Ignored setMediaPlayer for " + device + " : audio zone not available");
+                return false;
+            }
+
+            if (!mDatabaseManager.setA2dpMediaPlayer(device, mediaPlayer, audioZoneIndex)) {
+                return false;
+            }
+
+            sm.setMediaPlayer(mediaPlayer, audioZoneIndex);
+            return true;
+        }
+    }
+
+    /**
+     * Clear A2DP media player
+     *
+     * @param device is the remote bluetooth device
+     * @return true for success, false for failure
+     */
+    public boolean clearMediaPlayer(BluetoothDevice device) {
+        if (DBG) {
+            Log.d(TAG, "clearMediaPlayer " + device);
+        }
+
+        synchronized (mStateMachines) {
+            A2dpStateMachine sm = mStateMachines.get(device);
+            if (sm == null) {
+                Log.e(TAG, "Ignored clearMediaPlayer for " + device + " : no state machine");
+                return false;
+            }
+
+            if (!mDatabaseManager.setA2dpMediaPlayer(device, "", -1)) {
+                return false;
+            }
+
+            sm.clearMediaPlayer();
+            return true;
+        }
+    }
+
+    /**
      * Get dynamic audio buffer size supported type
      *
      * @return support <p>Possible values are
@@ -1458,6 +1596,27 @@ public class A2dpService extends ProfileService {
                 return;
             }
             service.setOptionalCodecsEnabled(device, value);
+        }
+
+        @Override
+        public String getMediaPlayer(BluetoothDevice device, AttributionSource source) {
+            Attributable.setAttributionSource(device, source);
+            A2dpService service = getService(source);
+            if (service == null) {
+                return "";
+            }
+            return service.getMediaPlayer(device);
+        }
+
+        @Override
+        public boolean setMediaPlayer(BluetoothDevice device, String mediaPlayer,
+                AttributionSource source) {
+            Attributable.setAttributionSource(device, source);
+            A2dpService service = getService(source);
+            if (service == null) {
+                return false;
+            }
+            return service.setMediaPlayer(device, mediaPlayer);
         }
 
         @Override
