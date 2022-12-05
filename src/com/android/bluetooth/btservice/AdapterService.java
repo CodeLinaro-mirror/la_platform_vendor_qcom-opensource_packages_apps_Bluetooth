@@ -1486,6 +1486,11 @@ public class AdapterService extends Service {
 
             enforceBluetoothPrivilegedPermission(service);
 
+            if (service.isDualLoopbackTestEnabled()) {
+                service.debugLog("setScanMode: set mode " + mode + ", duration " + duration + " for dual loopback test");
+                AdapterExt.setScanMode(mode, duration);
+            }
+
             service.mAdapterProperties.setDiscoverableTimeout(duration);
             return service.mAdapterProperties.setScanMode(convertScanModeToHal(mode));
         }
@@ -4072,6 +4077,16 @@ public class AdapterService extends Service {
     public void notifyNewAdapterState(boolean isOn) {
         mAdapterStateMachine.sendMessage(AdapterState.NEW_ADAPTER_STATE_CHANGED,
                 isOn ? 1 : 0);
+    }
+
+    public boolean isDualLoopbackTestEnabled() {
+        return AdapterUtil.isDualLoopbackTestEnabled() &&
+                AdapterUtil.isAdapterDefault();
+    }
+
+    public boolean allowAutomaticPairing(BluetoothDevice device) {
+        return isDualLoopbackTestEnabled() &&
+                AdapterUtil.isCounterpartDevice(device);
     }
 
     static native void classInitNative();

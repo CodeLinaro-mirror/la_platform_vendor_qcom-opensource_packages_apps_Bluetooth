@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAdapterCommon;
 import android.bluetooth.BluetoothAdapterExt;
 import android.bluetooth.BluetoothAdapterUtil;
+import android.bluetooth.BluetoothClass;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -21,6 +22,13 @@ public final class AdapterExt {
 
     public static final int ENABLE_TIMEOUT = 2000;
     public static final int DISABLE_TIMEOUT = 2000;
+
+    // CoD of phone
+    private static final int BLUETOOTH_COD_PHONE =
+            (BluetoothClass.Service.CAPTURE |
+            BluetoothClass.Service.TELEPHONY) |
+            BluetoothClass.Device.Major.PHONE |
+            BluetoothClass.Device.PHONE_SMART;
 
     private static final int ADAPTER_1 = BluetoothAdapterCommon.ADAPTER_1;
 
@@ -73,6 +81,9 @@ public final class AdapterExt {
         AdapterService adapterService = AdapterService.getAdapterService();
         if (adapterService != null) {
             if (isOn(state)) {
+                if (adapterService.isDualLoopbackTestEnabled()) {
+                    handleDualLoopbackTest();
+                }
                 adapterService.notifyNewAdapterState(true);
             } else if (isOff(state)) {
                 adapterService.notifyNewAdapterState(false);
@@ -92,6 +103,37 @@ public final class AdapterExt {
     public static boolean disable() {
         BluetoothAdapter adapter = getAdapter();
         return (adapter != null) ? adapter.disable() : false;
+    }
+
+    public static boolean setScanMode(int mode, long durationMillis) {
+        BluetoothAdapter adapter = getAdapter();
+        return (adapter != null) ? adapter.setScanMode(mode, durationMillis) : false;
+    }
+
+    private static String getName() {
+        BluetoothAdapter adapter = getAdapter();
+        return (adapter != null) ? adapter.getName() : "";
+    }
+
+    private static boolean setName(String name) {
+        BluetoothAdapter adapter = getAdapter();
+        return (adapter != null) ? adapter.setName(name) : false;
+    }
+
+    private static boolean setBluetoothClass(BluetoothClass btClass) {
+        BluetoothAdapter adapter = getAdapter();
+        return (adapter != null) ? adapter.setBluetoothClass(btClass) : false;
+    }
+
+    private static void handleDualLoopbackTest() {
+        String name = getName();
+        String newName = name.endsWith("_NEW") ? name : name + "_NEW";
+        debugLog("handleDualLoopbackTest: setName " + newName);
+        setName(newName);
+
+        BluetoothClass btClass = new BluetoothClass(BLUETOOTH_COD_PHONE);
+        debugLog("handleDualLoopbackTest: setBluetoothClass " + btClass);
+        setBluetoothClass(btClass);
     }
 
     public static int getState() {

@@ -257,7 +257,11 @@ final class BondStateMachine extends StateMachine {
                 case SSP_REQUEST:
                     int passkey = msg.arg1;
                     int variant = msg.arg2;
-                    sendDisplayPinIntent(devProp.getAddress(), passkey, variant);
+                    if (mAdapterService.allowAutomaticPairing(dev)) {
+                        dev.setPairingConfirmation(true);
+                    } else {
+                        sendDisplayPinIntent(devProp.getAddress(), passkey, variant);
+                    }
                     break;
                 case PIN_REQUEST:
                     BluetoothClass btClass = dev.getBluetoothClass();
