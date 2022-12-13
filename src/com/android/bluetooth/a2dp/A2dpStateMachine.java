@@ -103,12 +103,14 @@ final class A2dpStateMachine extends StateMachine {
     private final BluetoothDevice mDevice;
     private boolean mIsPlaying = false;
     private BluetoothCodecStatus mCodecStatus;
+    private boolean mCodecConfigUpdated = false;
 
     A2dpStateMachine(BluetoothDevice device, A2dpService a2dpService,
                      A2dpNativeInterface a2dpNativeInterface, Looper looper) {
         super(TAG, looper);
         setDbg(DBG);
         mDevice = device;
+        mCodecConfigUpdated = false;
         mA2dpService = a2dpService;
         mA2dpNativeInterface = a2dpNativeInterface;
 
@@ -159,6 +161,7 @@ final class A2dpStateMachine extends StateMachine {
             Message currentMessage = getCurrentMessage();
             Log.i(TAG, "Enter Disconnected(" + mDevice + "): " + (currentMessage == null ? "null"
                     : messageWhatToString(currentMessage.what)));
+            mCodecConfigUpdated = false;
             synchronized (this) {
                 mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
             }
@@ -382,6 +385,7 @@ final class A2dpStateMachine extends StateMachine {
             Message currentMessage = getCurrentMessage();
             Log.i(TAG, "Enter Disconnecting(" + mDevice + "): " + (currentMessage == null ? "null"
                     : messageWhatToString(currentMessage.what)));
+            mCodecConfigUpdated = false;
             sendMessageDelayed(CONNECT_TIMEOUT, sConnectTimeoutMs);
             synchronized (this) {
                 mConnectionState = BluetoothProfile.STATE_DISCONNECTING;
@@ -478,6 +482,7 @@ final class A2dpStateMachine extends StateMachine {
                     break;
                 case A2dpStackEvent.CONNECTION_STATE_DISCONNECTING:
                     // We are already disconnecting, do nothing
+                    Log.i(TAG, " already disconnecting, do nothing ");
                     break;
                 default:
                     Log.e(TAG, "Incorrect event: " + event);
@@ -712,31 +717,42 @@ final class A2dpStateMachine extends StateMachine {
             // for this codec change event.
             mA2dpService.updateOptionalCodecsSupport(mDevice);
         }
+        Log.d(TAG, " mA2dpOffloadEnabled: " + mA2dpOffloadEnabled);
         if (mA2dpOffloadEnabled) {
             boolean update = false;
             BluetoothCodecConfig newCodecConfig = mCodecStatus.getCodecConfig();
             if ((prevCodecConfig != null)
                     && (prevCodecConfig.getCodecType() != newCodecConfig.getCodecType())) {
+                Log.d(TAG, " previous codec is different from new codec ");
                 update = true;
             } else if (!newCodecConfig.sameAudioFeedingParameters(prevCodecConfig)) {
+                Log.d(TAG, " codec config parameters mismatched from previous config ");
                 update = true;
             } else if ((newCodecConfig.getCodecType()
                         == BluetoothCodecConfig.SOURCE_CODEC_TYPE_LDAC)
                     && (prevCodecConfig != null)
                     && (prevCodecConfig.getCodecSpecific1()
                         != newCodecConfig.getCodecSpecific1())) {
+                Log.d(TAG, "LDAC: codec config parameters mismatched from previous config ");
                 update = true;
             } else if (prevCodecStatus != null &&
                        newCodecStatus.getCodecsSelectableCapabilities().length !=
                        prevCodecStatus.getCodecsSelectableCapabilities().length){
+                Log.d(TAG, " codec selectable caps mismatched from previous config ");
+                update = true;
+            } else if (!mCodecConfigUpdated) {
+                Log.d(TAG, " mCodecConfigUpdated is false, codecConfigUpdated is required");
                 update = true;
             }
+            Log.d(TAG, " update: " + update);
             if (update) {
                 mA2dpService.codecConfigUpdated(mDevice, mCodecStatus, false);
+                mCodecConfigUpdated = true;
             }
             return;
         }
 
+        Log.d(TAG, " isSplitA2dpEnabled: " + isSplitA2dpEnabled);
         if (!isSplitA2dpEnabled) {
             boolean isUpdateRequired = false;
             if ((prevCodecConfig != null) && (prevCodecConfig.getCodecType() != new_codec_type)) {
@@ -752,11 +768,16 @@ final class A2dpStateMachine extends StateMachine {
                         != newCodecStatus.getCodecConfig().getCodecSpecific1())) {
                 Log.d(TAG, "LDAC: codec config parameters mismatched with previous config: ");
                 isUpdateRequired = true;
+            } else if(!mCodecConfigUpdated) {
+                Log.d(TAG, " mCodecConfigUpdated is false, codecConfigUpdated is required ");
+                isUpdateRequired = true;
             }
             Log.d(TAG, "isUpdateRequired: " + isUpdateRequired);
-            //update MM only when previous and current codec config has been changed.
+            //update MM only when previous and current codec config has been changed
+            // OR reconnection has happened
             if (isUpdateRequired) {
                 mA2dpService.codecConfigUpdated(mDevice, mCodecStatus, false);
+                mCodecConfigUpdated = true;
             }
         }
     }
