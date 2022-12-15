@@ -13,6 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+ /*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
+*/
 
 package com.android.bluetooth.mapclient;
 
@@ -22,6 +28,7 @@ import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothUuid;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.IBluetoothMapClient;
 import android.bluetooth.SdpMasRecord;
@@ -46,23 +53,23 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MapClientService extends ProfileService {
     private static final String TAG = "MapClientService";
 
-    static final boolean DBG = false;
+    static final boolean DBG = true;
     static final boolean VDBG = false;
 
     static final int MAXIMUM_CONNECTED_DEVICES = 4;
 
     private Map<BluetoothDevice, MceStateMachine> mMapInstanceMap = new ConcurrentHashMap<>(1);
     private MnsService mMnsServer;
-    private BluetoothAdapter mAdapter;
+
+    private AdapterService mAdapterService;
     private DatabaseManager mDatabaseManager;
     private static MapClientService sMapClientService;
-    private MapBroadcastReceiver mMapReceiver = new MapBroadcastReceiver();
+    private MapBroadcastReceiver mMapReceiver;
 
     public static synchronized MapClientService getMapClientService() {
         if (sMapClientService == null) {
@@ -205,7 +212,7 @@ public class MapClientService extends ProfileService {
     public synchronized List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
         if (DBG) Log.d(TAG, "getDevicesMatchingConnectionStates" + Arrays.toString(states));
         List<BluetoothDevice> deviceList = new ArrayList<>();
-        Set<BluetoothDevice> bondedDevices = mAdapter.getBondedDevices();
+        BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
         int connectionState;
         for (BluetoothDevice device : bondedDevices) {
             connectionState = getConnectionState(device);
@@ -290,14 +297,15 @@ public class MapClientService extends ProfileService {
     }
 
     @Override
-    protected IProfileServiceBinder initBinder() {
+    public IProfileServiceBinder initBinder() {
         return new Binder(this);
     }
 
     @Override
-    protected boolean start() {
+    protected synchronized boolean start() {
         Log.e(TAG, "start()");
 
+        mAdapterService = AdapterService.getAdapterService();
         mDatabaseManager = Objects.requireNonNull(AdapterService.getAdapterService().getDatabase(),
                 "DatabaseManager cannot be null when MapClientService starts");
 
@@ -310,8 +318,7 @@ public class MapClientService extends ProfileService {
             }
         }
 
-        mAdapter = BluetoothAdapter.getDefaultAdapter();
-
+        mMapReceiver = new MapBroadcastReceiver();
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_SDP_RECORD);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
@@ -326,7 +333,11 @@ public class MapClientService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "stop()");
         }
-        unregisterReceiver(mMapReceiver);
+
+        if (mMapReceiver != null) {
+            unregisterReceiver(mMapReceiver);
+            mMapReceiver = null;
+        }
         if (mMnsServer != null) {
             mMnsServer.stop();
         }
@@ -429,6 +440,12 @@ public class MapClientService extends ProfileService {
         }
         return mapStateMachine.setMessageStatus(handle, status);
     }
+    public synchronized boolean sendImage(BluetoothDevice device, Uri[] contacts, String ImagePath,
+            PendingIntent sentIntent, PendingIntent deliveredIntent) {
+        MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
+         return mapStateMachine != null
+                 && mapStateMachine.sendMapImageMessage(contacts, ImagePath, sentIntent, deliveredIntent);
+    }
 
     @Override
     public void dump(StringBuilder sb) {
@@ -456,7 +473,7 @@ public class MapClientService extends ProfileService {
 
         @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
         private MapClientService getService(AttributionSource source) {
-            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
+            if (!(MapUtils.isSystemUser() || Utils.checkCallerIsSystemOrActiveUser(TAG))
                     || !Utils.checkServiceAvailable(mService, TAG)
                     || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
@@ -518,7 +535,8 @@ public class MapClientService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states,
+                AttributionSource source) {
             if (VDBG) {
                 Log.v(TAG, "getDevicesMatchingConnectionStates()");
             }
@@ -572,6 +590,19 @@ public class MapClientService extends ProfileService {
                     "Need SEND_SMS permission");
 
             return service.sendMessage(device, contacts, message, sentIntent, deliveredIntent);
+        }
+
+        @Override
+        public boolean sendImage(BluetoothDevice device, Uri[] contacts, String ImagePath,
+                PendingIntent sentIntent, PendingIntent deliveredIntent, AttributionSource source) {
+            MapClientService service = getService(source);
+            if (service == null) {
+                return false;
+            }
+            if (DBG) Log.d(TAG, "Checking Permission of sendMessage");
+            mService.enforceCallingOrSelfPermission(Manifest.permission.SEND_SMS,
+                    "Need SEND_SMS permission");
+            return service.sendImage(device, contacts, ImagePath, sentIntent, deliveredIntent);
         }
 
         @Override
@@ -629,8 +660,7 @@ public class MapClientService extends ProfileService {
                 return;
             }
             if (DBG) {
-                Log.d(TAG, "broadcast has device: (" + device.getAddress() + ", "
-                        + device.getName() + ")");
+                Log.d(TAG, "broadcast has device: (" + device.getAddress() + ")");
             }
             MceStateMachine stateMachine = mMapInstanceMap.get(device);
             if (stateMachine == null) {

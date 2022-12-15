@@ -64,6 +64,7 @@ public class HeadsetClientService extends ProfileService {
     private HeadsetClientStateMachineFactory mSmFactory = null;
     private DatabaseManager mDatabaseManager;
     private AudioManager mAudioManager = null;
+    private HfpClientA2DPSync mHfpClientA2dpSinkSync = null;
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
 
@@ -101,6 +102,7 @@ public class HeadsetClientService extends ProfileService {
 
         mSmFactory = new HeadsetClientStateMachineFactory();
         mStateMachineMap.clear();
+        mHfpClientA2dpSinkSync = new HfpClientA2DPSync(this);
 
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         registerReceiver(mBroadcastReceiver, filter);
@@ -694,6 +696,10 @@ public class HeadsetClientService extends ProfileService {
         return true;
     }
 
+    public boolean InternalConnectAudio(BluetoothDevice device) {
+        return connectAudio(device);
+    }
+
     boolean holdCall(BluetoothDevice device) {
 
         HeadsetClientStateMachine sm = getStateMachine(device);
@@ -831,6 +837,12 @@ public class HeadsetClientService extends ProfileService {
         msg.obj = call;
         sm.sendMessage(msg);
         return call;
+    }
+
+    public boolean isA2dpSinkPossible() {
+        if(mHfpClientA2dpSinkSync != null)
+            return mHfpClientA2dpSinkSync.isA2dpStreamAllowed();
+        return false;
     }
 
     public boolean sendDTMF(BluetoothDevice device, byte code) {
