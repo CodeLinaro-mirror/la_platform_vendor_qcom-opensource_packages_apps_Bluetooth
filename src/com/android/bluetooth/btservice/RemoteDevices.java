@@ -1017,6 +1017,12 @@ final class RemoteDevices {
 
     void aclStateChangeCallback(int status, byte[] address, int newState, int hciReason) {
         BluetoothDevice device = getDevice(address);
+        boolean IsBLETransport = false;
+
+        if((hciReason & 0x80) == 0x80) {
+            hciReason &= ~hciReason;
+            IsBLETransport = true;
+        }
 
         if (device == null) {
             errorLog("aclStateChangeCallback: device is NULL, address="
@@ -1027,20 +1033,22 @@ final class RemoteDevices {
 
         Intent intent = null;
         if (newState == AbstractionLayer.BT_ACL_STATE_CONNECTED) {
-            if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_TURNING_ON) {
+            if ((state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_TURNING_ON )
+                    && !IsBLETransport) {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_CONNECTED);
             } else if (state == BluetoothAdapter.STATE_BLE_ON
-                    || state == BluetoothAdapter.STATE_BLE_TURNING_ON) {
+                    || state == BluetoothAdapter.STATE_BLE_TURNING_ON || IsBLETransport) {
                 intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_CONNECTED);
             }
             debugLog(
                     "aclStateChangeCallback: Adapter State: " + BluetoothAdapter.nameForState(state)
                             + " Connected: " + device);
         } else {
-            if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_TURNING_OFF) {
+            if ((state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_TURNING_OFF)
+                    && !IsBLETransport) {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_DISCONNECTED);
             } else if (state == BluetoothAdapter.STATE_BLE_ON
-                    || state == BluetoothAdapter.STATE_BLE_TURNING_OFF) {
+                    || state == BluetoothAdapter.STATE_BLE_TURNING_OFF || IsBLETransport) {
                 intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_DISCONNECTED);
             }
             // Reset battery level on complete disconnection
