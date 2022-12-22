@@ -44,6 +44,8 @@ public abstract class ProfileService extends Service {
 
     public static final String BLUETOOTH_PRIVILEGED =
             android.Manifest.permission.BLUETOOTH_PRIVILEGED;
+    public static final String BLUETOOTH_PERM =
+            android.Manifest.permission.BLUETOOTH;
 
     public interface IProfileServiceBinder extends IBinder {
         /**
