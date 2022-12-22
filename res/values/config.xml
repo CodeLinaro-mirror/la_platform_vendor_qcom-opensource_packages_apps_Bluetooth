@@ -13,27 +13,27 @@
    limitations under the License.
 -->
 <resources>
-    <bool name="profile_supported_a2dp">true</bool>
+    <bool name="profile_supported_a2dp">false</bool>
     <bool name="profile_supported_ca">true</bool>
-    <bool name="profile_supported_a2dp_sink">false</bool>
-    <bool name="profile_supported_hs_hfp">true</bool>
-    <bool name="profile_supported_hfpclient">false</bool>
+    <bool name="profile_supported_a2dp_sink">true</bool>
+    <bool name="profile_supported_hs_hfp">false</bool>
+    <bool name="profile_supported_hfpclient">true</bool>
     <bool name="profile_supported_hfp_incallservice">true</bool>
     <bool name="profile_supported_hid_host">true</bool>
     <bool name="profile_supported_opp">true</bool>
     <bool name="profile_supported_pc">true</bool>
     <bool name="profile_supported_pan">true</bool>
-    <bool name="profile_supported_pbap">true</bool>
+    <bool name="profile_supported_pbap">false</bool>
     <bool name="profile_supported_gatt">true</bool>
     <bool name="pbap_include_photos_in_vcard">true</bool>
     <bool name="pbap_use_profile_for_owner_vcard">true</bool>
-    <bool name="profile_supported_map">true</bool>
+    <bool name="profile_supported_map">false</bool>
     <bool name="profile_supported_avrcp_target">true</bool>
     <bool name="profile_supported_avrcp_controller">true</bool>
     <bool name="profile_supported_bac">true</bool>
     <bool name="profile_supported_sap">true</bool>
-    <bool name="profile_supported_pbapclient">false</bool>
-    <bool name="profile_supported_mapmce">false</bool>
+    <bool name="profile_supported_pbapclient">true</bool>
+    <bool name="profile_supported_mapmce">true</bool>
     <bool name="profile_supported_broadcast">true</bool>
     <bool name="profile_supported_hid_device">true</bool>
     <bool name="profile_supported_le_audio">true</bool>
@@ -84,7 +84,7 @@
     <bool name="a2dp_sink_automatically_request_audio_focus">false</bool>
 
     <!-- For enabling the hfp client connection service -->
-    <bool name="hfp_client_connection_service_enabled">false</bool>
+    <bool name="hfp_client_connection_service_enabled">true</bool>
 
     <!-- For supporting emergency call through the hfp client connection service  -->
     <bool name="hfp_client_connection_service_support_emergency_call">false</bool>
