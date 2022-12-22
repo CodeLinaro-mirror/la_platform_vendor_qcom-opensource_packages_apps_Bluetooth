@@ -40,6 +40,7 @@ class MapUtils {
     static MnsService newMnsServiceInstance(MapClientService mapClientService) {
         return (sMnsService == null) ? new MnsService(mapClientService) : sMnsService;
     }
+
     static byte fetchMessageType() {
         if (Utils.isPtsTestMode()) {
             return (byte) SystemProperties.getInt(FETCH_MESSAGE_TYPE,

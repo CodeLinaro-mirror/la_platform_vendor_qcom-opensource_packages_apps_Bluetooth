@@ -447,6 +447,14 @@ public class MapClientService extends ProfileService {
                  && mapStateMachine.sendMapImageMessage(contacts, ImagePath, sentIntent, deliveredIntent);
     }
 
+    public synchronized boolean abort(BluetoothDevice device) {
+        MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
+        if (mapStateMachine == null) {
+            return false;
+        }
+        return mapStateMachine.abort();
+    }
+
     @Override
     public void dump(StringBuilder sb) {
         super.dump(sb);
@@ -639,6 +647,15 @@ public class MapClientService extends ProfileService {
             mService.enforceCallingOrSelfPermission(Manifest.permission.READ_SMS,
                     "Need READ_SMS permission");
             return service.setMessageStatus(device, handle, status);
+        }
+
+        @Override
+        public boolean abort(BluetoothDevice device, AttributionSource source) {
+            MapClientService service = getService(source);
+            if (service == null) {
+                return false;
+            }
+            return service.abort(device);
         }
     }
 
