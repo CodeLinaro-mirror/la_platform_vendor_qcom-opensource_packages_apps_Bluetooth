@@ -2590,6 +2590,28 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public int setLeHighPriorityMode(BluetoothDevice device, boolean enable,
+                                         AttributionSource attributionSource) {
+            AdapterService service = getService();
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                    service, attributionSource, "setLeHighPriorityMode")) {
+                return BluetoothDevice.LE_HIGH_PRIOTY_MODE_FAIL;
+            }
+            return service.setLeHighPriorityMode(device, enable);
+        }
+
+        @Override
+        public boolean isLeHighPriorityModeSet(BluetoothDevice device,
+                AttributionSource attributionSource) {
+            AdapterService service = getService();
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                    service, attributionSource, "isLeHighPriorityModeSet")) {
+                return false;
+            }
+            return service.isLeHighPriorityModeSet(device);
+       }
+
+        @Override
         public int getBatteryLevel(BluetoothDevice device, AttributionSource attributionSource) {
             AdapterService service = getService();
             if (service == null || !callerIsSystemOrActiveUser(TAG, "getBatteryLevel")
@@ -3211,6 +3233,15 @@ public class AdapterService extends Service {
         byte[] address = deviceProp.getTwsPlusPeerAddress();
         return Utils.getAddressStringFromByte(address);
     }
+
+    public int setLeHighPriorityMode(BluetoothDevice device, boolean enable) {
+        return mVendor.setLeHighPriorityMode(device.toString(), enable);
+    }
+
+    public boolean isLeHighPriorityModeSet(BluetoothDevice device) {
+        return mVendor.isLeHighPriorityModeSet(device.toString());
+    }
+
 
     public BluetoothDevice getTwsPlusPeerDevice(BluetoothDevice device) {
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
