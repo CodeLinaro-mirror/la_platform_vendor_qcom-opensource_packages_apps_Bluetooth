@@ -1244,6 +1244,13 @@ public class AdapterService extends Service {
         public int setSocketOpt(int type, int port, int optionName, byte [] optionVal, int optionLen) { return -1; }
         @Override
         public int getSocketOpt(int type, int port, int optionName, byte [] optionVal) { return -1; }
+
+        public int setLeHighPriorityMode(BluetoothDevice device, boolean enable,
+                 AttributionSource attributionSource) { return -1; }
+
+        public boolean isLeHighPriorityModeSet(BluetoothDevice device,
+                AttributionSource attributionSource) { return false; }
+
         @Override
         public int getDeviceType(BluetoothDevice device, AttributionSource source)
             { return TYPE_BREDR; }
