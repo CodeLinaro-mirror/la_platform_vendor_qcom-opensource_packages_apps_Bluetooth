@@ -468,6 +468,7 @@ final class BondStateMachine extends StateMachine {
     })
     private boolean createBond(BluetoothDevice dev, int transport, OobData remoteP192Data,
             OobData remoteP256Data, boolean transition) {
+				byte[] dev_addr = dev.getAddress().getBytes();
         if (mAdapterService == null) return false;
         if (dev.getBondState() == BluetoothDevice.BOND_NONE) {
             infoLog("Bond address is:" + dev);
@@ -483,8 +484,8 @@ final class BondStateMachine extends StateMachine {
             } else {
                 result = mAdapterService.createBondNative(addr, transport);
             }
-            BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
-                    mAdapterService.obfuscateAddress(dev), transport, dev.getType(),
+            BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED, dev_addr, transport, dev.getType(),
+                    //mAdapterService.obfuscateAddress(dev), transport, dev.getType(),
                     BluetoothDevice.BOND_BONDING,
                     remoteP192Data == null && remoteP256Data == null
                             ? BluetoothProtoEnums.BOND_SUB_STATE_UNKNOWN
@@ -492,8 +493,8 @@ final class BondStateMachine extends StateMachine {
                     BluetoothProtoEnums.UNBOND_REASON_UNKNOWN);
 
             if (!result) {
-                BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
-                        mAdapterService.obfuscateAddress(dev), transport, dev.getType(),
+                BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED, dev_addr, transport, dev.getType(),
+                        //mAdapterService.obfuscateAddress(dev), transport, dev.getType(),
                         BluetoothDevice.BOND_NONE, BluetoothProtoEnums.BOND_SUB_STATE_UNKNOWN,
                         BluetoothDevice.UNBOND_REASON_REPEATED_ATTEMPTS);
                 // Using UNBOND_REASON_REMOVED for legacy reason
@@ -577,6 +578,7 @@ final class BondStateMachine extends StateMachine {
     })
     void sendIntent(BluetoothDevice device, int newState, int reason,
             boolean isTriggerFromDelayMessage) {
+        byte[] dev_addr = device.getAddress().getBytes();
         DeviceProperties devProp = mRemoteDevices.getDeviceProperties(device);
         int oldState = BluetoothDevice.BOND_NONE;
         if (newState != BluetoothDevice.BOND_NONE
@@ -612,13 +614,13 @@ final class BondStateMachine extends StateMachine {
             return;
         }
 
-        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
-                mAdapterService.obfuscateAddress(device), 0, device.getType(),
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED, dev_addr, 0, device.getType(),
+                //mAdapterService.obfuscateAddress(device), 0, device.getType(),
                 newState, BluetoothProtoEnums.BOND_SUB_STATE_UNKNOWN, reason);
         BluetoothClass deviceClass = device.getBluetoothClass();
         int classOfDevice = deviceClass == null ? 0 : deviceClass.getClassOfDevice();
-        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_CLASS_OF_DEVICE_REPORTED,
-                mAdapterService.obfuscateAddress(device), classOfDevice, 0);
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_CLASS_OF_DEVICE_REPORTED, dev_addr, classOfDevice, 0);
+                //mAdapterService.obfuscateAddress(device), classOfDevice, 0);
 
         mAdapterProperties.onBondStateChanged(device, newState);
 
@@ -802,8 +804,8 @@ final class BondStateMachine extends StateMachine {
             device = Objects.requireNonNull(mRemoteDevices.getDevice(address));
         }
 
-        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
-                mAdapterService.obfuscateAddress(device), 0, device.getType(),
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED, address, 0, device.getType(),
+                //mAdapterService.obfuscateAddress(device), 0, device.getType(),
                 BluetoothDevice.BOND_BONDING,
                 BluetoothProtoEnums.BOND_SUB_STATE_LOCAL_SSP_REQUESTED, 0);
 
@@ -819,15 +821,14 @@ final class BondStateMachine extends StateMachine {
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     void pinRequestCallback(byte[] address, byte[] name, int cod, boolean min16Digits) {
         //TODO(BT): Get wakelock and update name and cod
-
         BluetoothDevice bdDevice = mRemoteDevices.getDevice(address);
         if (bdDevice == null) {
             mRemoteDevices.addDeviceProperties(address);
             bdDevice = Objects.requireNonNull(mRemoteDevices.getDevice(address));
         }
 
-        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
-                mAdapterService.obfuscateAddress(bdDevice), 0, bdDevice.getType(),
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED, address, 0, bdDevice.getType(),
+                //mAdapterService.obfuscateAddress(bdDevice), 0, bdDevice.getType(),
                 BluetoothDevice.BOND_BONDING,
                 BluetoothProtoEnums.BOND_SUB_STATE_LOCAL_PIN_REQUESTED, 0);
 

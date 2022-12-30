@@ -111,7 +111,7 @@ android_app {
         enabled: false,
     },
     required: [
-        "libbluetooth",
+        "libbtif_qti",
         "bluetoothapk_qti-platform-compat-config",
     ],
 

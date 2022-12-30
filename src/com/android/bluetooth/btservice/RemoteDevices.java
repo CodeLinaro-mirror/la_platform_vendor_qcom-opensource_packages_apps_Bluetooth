@@ -1061,7 +1061,6 @@ final class RemoteDevices {
     void aclStateChangeCallback(int status, byte[] address, int newState,
                                 int transportLinkType, int hciReason) {
         BluetoothDevice device = getDevice(address);
-
         if (device == null) {
             errorLog("aclStateChangeCallback: device is NULL, address="
                     + Utils.getAddressStringFromByte(address) + ", newState=" + newState);
@@ -1100,12 +1099,12 @@ final class RemoteDevices {
 
         int connectionState = newState == AbstractionLayer.BT_ACL_STATE_CONNECTED
                 ? BluetoothAdapter.STATE_CONNECTED : BluetoothAdapter.STATE_DISCONNECTED;
-        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_ACL_CONNECTION_STATE_CHANGED,
-                sAdapterService.obfuscateAddress(device), connectionState, 0);
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_ACL_CONNECTION_STATE_CHANGED, address, connectionState, 0);
+                //sAdapterService.obfuscateAddress(device), connectionState, 0);
         BluetoothClass deviceClass = device.getBluetoothClass();
         int classOfDevice = deviceClass == null ? 0 : deviceClass.getClassOfDevice();
-        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_CLASS_OF_DEVICE_REPORTED,
-                sAdapterService.obfuscateAddress(device), classOfDevice, 0);
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_CLASS_OF_DEVICE_REPORTED, address, classOfDevice, 0);
+                //sAdapterService.obfuscateAddress(device), classOfDevice, 0);
 
         if (intent != null) {
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);

@@ -606,9 +606,9 @@ public class AdapterService extends Service {
                         mAdapterProperties.onBluetoothReady();
                         updateUuids();
                         initProfileServices();
-                        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS);
-                        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_RESERVED_0F);
-                        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_DYNAMIC_AUDIO_BUFFER);
+                        //getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS);
+                        //getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_RESERVED_0F);
+                        //getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_DYNAMIC_AUDIO_BUFFER);
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
                         mBtCompanionManager.loadCompanionInfo();
                         //update wifi state to lower layers
@@ -640,7 +640,7 @@ public class AdapterService extends Service {
                     } else if (mRunningProfiles.size() == 0) {
                         Log.w(TAG,"onProfileServiceStateChange() - All profile services stopped..");
                         mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
-                        disableNative();
+                        //disableNative();
                     }
                     break;
                 default:
@@ -741,9 +741,9 @@ public class AdapterService extends Service {
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
         mAppOps = getSystemService(AppOpsManager.class);
         //Load the name and address
-        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_BDADDR);
-        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_BDNAME);
-        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_CLASS_OF_DEVICE);
+        //getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_BDADDR);
+        //getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_BDNAME);
+        //getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_CLASS_OF_DEVICE);
         mAlarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         mPowerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
         mUserManager = (UserManager) getSystemService(Context.USER_SERVICE);
@@ -978,16 +978,17 @@ public class AdapterService extends Service {
     }
 
     void stateChangeCallback(int status) {
+        debugLog("stateChangeCallback: status is :: "+status);
         if (status == AbstractionLayer.BT_STATE_OFF) {
             debugLog("stateChangeCallback: disableNative() completed");
             mAdapterStateMachine.sendMessage(AdapterState.STACK_DISABLED);
         } else if (status == AbstractionLayer.BT_STATE_ON) {
-            String BT_SOC = getSocName();
+            /*String BT_SOC = getSocName();
 
             if (BT_SOC.equals("pronto")) {
                 debugLog( "setting max audio connection to 2");
                 mAdapterProperties.setMaxConnectedAudioDevices(2);
-            }
+            }*/
             mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
         } else {
             Log.e(TAG, "Incorrect status " + status + " in stateChangeCallback");
@@ -1040,6 +1041,9 @@ public class AdapterService extends Service {
         mAdapterProperties.onBluetoothDisable();
         if (isVendorIntfEnabled()) {
             mVendor.bredrCleanup();
+            // Calling startBluetoothDisable() from here as Vendor is not completely up.
+            // To be removed after Vendor is properly up.
+            startBluetoothDisable();
         } else {
             mAdapterStateMachine.sendMessage(
             mAdapterStateMachine.obtainMessage(AdapterState.BEGIN_BREDR_STOP));
@@ -6033,8 +6037,9 @@ public class AdapterService extends Service {
     void logUserBondResponse(BluetoothDevice device, boolean accepted, int event) {
         final long token = Binder.clearCallingIdentity();
         try {
-            BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
-                    obfuscateAddress(device), 0, device.getType(),
+			byte[] dev_addr = device.getAddress().getBytes();
+            BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED, dev_addr, 0, device.getType(),
+                    //obfuscateAddress(device), 0, device.getType(),
                     BluetoothDevice.BOND_BONDING,
                     event,
                     accepted ? 0 : BluetoothDevice.UNBOND_REASON_AUTH_REJECTED);
@@ -7600,7 +7605,7 @@ public class AdapterService extends Service {
         UUID uuid = reg_uuid.getUuid();
         debugLog(" Registering UUID  " + uuid);
 
-        mVendor.registerUuidSrvcDisc(uuid);
+        //mVendor.registerUuidSrvcDisc(uuid);
     }
 
     public static void setAdvanceAudioSupport() {

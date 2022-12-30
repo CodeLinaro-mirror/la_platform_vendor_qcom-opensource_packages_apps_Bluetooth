@@ -902,15 +902,17 @@ static bt_os_callouts_t sBluetoothOsCallouts = {
 
 #define PROPERTY_BT_LIBRARY_NAME "ro.bluetooth.library_name"
 #define DEFAULT_BT_LIBRARY_NAME "libbluetooth.so"
+#define DEFAULT_BTIF_LIBRARY_NAME "libbtif_qti.so"
 
 int hal_util_load_bt_library(const bt_interface_t** interface) {
   const char* sym = BLUETOOTH_INTERFACE_STRING;
   bt_interface_t* itf = nullptr;
 
   // The library name is not set by default, so the preset library name is used.
-  char path[PROPERTY_VALUE_MAX] = "";
-  property_get(PROPERTY_BT_LIBRARY_NAME, path, DEFAULT_BT_LIBRARY_NAME);
-  void* handle = dlopen(path, RTLD_NOW);
+  //char path[PROPERTY_VALUE_MAX] = "";
+  //property_get(PROPERTY_BT_LIBRARY_NAME, path, DEFAULT_BT_LIBRARY_NAME);
+  //void* handle = dlopen(path, RTLD_NOW);
+  void* handle = dlopen(DEFAULT_BTIF_LIBRARY_NAME, RTLD_NOW);
   if (!handle) {
     const char* err_str = dlerror();
     ALOGE("%s: failed to load Bluetooth library, error=%s", __func__,
@@ -926,7 +928,7 @@ int hal_util_load_bt_library(const bt_interface_t** interface) {
   }
 
   // Success.
-  ALOGI("%s: loaded Bluetooth library successfully", __func__);
+  ALOGI("%s: loaded Bluetooth library successfully :: path is :: %s", __func__,DEFAULT_BTIF_LIBRARY_NAME);
   *interface = itf;
   return 0;
 
