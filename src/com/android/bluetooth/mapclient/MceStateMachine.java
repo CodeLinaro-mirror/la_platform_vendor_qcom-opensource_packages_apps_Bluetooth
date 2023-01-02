@@ -438,7 +438,11 @@ class MceStateMachine extends StateMachine {
             Log.d(TAG, "getUnreadMessages");
         }
         if (this.getCurrentState() == mConnected && !isAbort()) {
-            sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_INBOX);
+            if (Utils.isPtsTestMode()) {
+                sendMessage(MSG_GET_MESSAGE_LISTING, "");
+            } else {
+                sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_INBOX);
+            }
             return true;
         }
         return false;
@@ -718,11 +722,16 @@ private String getFileExtension(String path){
             mMasClient.makeRequest(new RequestSetPath(FOLDER_MSG));
             mMasClient.makeRequest(new RequestSetPath(FOLDER_INBOX));
             mMasClient.makeRequest(new RequestGetFolderListing(0, 0));
-            mMasClient.makeRequest(new RequestSetPath(false));
-            mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
-            if (Utils.isPtsTestMode()) return;
-            sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_SENT);
-            sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_INBOX);
+            if (Utils.isPtsTestMode()) {
+                if (isTestUpload()) return;
+                mMasClient.makeRequest(new RequestUpdateInbox());
+                mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
+            } else {
+                mMasClient.makeRequest(new RequestSetPath(false));
+                mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
+                sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_SENT);
+                sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_INBOX);
+            }
         }
 
         @Override
