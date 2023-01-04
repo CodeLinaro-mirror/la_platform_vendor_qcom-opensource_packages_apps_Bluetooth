@@ -178,7 +178,10 @@ public class PanService extends ProfileService {
     protected boolean stop() {
         Log.i(TAG, " stop");
         mAdapterService = null;
-        mTetheringManager.unregisterTetheringEventCallback(mTetheringCallback);
+        if (mTetheringManager != null) {
+            mTetheringManager.unregisterTetheringEventCallback(mTetheringCallback);
+            mTetheringManager = null;
+        }
         mHandler.removeCallbacksAndMessages(null);
         mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
         return true;

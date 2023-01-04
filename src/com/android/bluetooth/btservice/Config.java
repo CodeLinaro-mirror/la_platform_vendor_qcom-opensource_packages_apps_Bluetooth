@@ -255,6 +255,7 @@ public class Config {
         getAudioProperties();
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = false;
+            boolean isAoAEnabled = false;
             if (config.mClass == HearingAidService.class) {
                 supported =
                         BluetoothProperties.isProfileAshaCentralEnabled().orElse(false);
@@ -274,6 +275,16 @@ public class Config {
                                 .isEnabled(ctx, FeatureFlagUtils.HEARING_AID_SETTINGS)) {
                 Log.v(TAG, "Feature Flag enables support for HearingAidService");
                 supported = true;
+            }
+
+            if (config.mClass.getSimpleName().equals("AtpLocatorService")) {
+                isAoAEnabled = SystemProperties.getBoolean(
+                        "persist.vendor.service.bt.aoa", false);
+                Log.d(TAG, " isAoAEnabled:" + isAoAEnabled);
+                if (!isAoAEnabled) {
+                    Log.d(TAG, " AoA property set to false");
+                    continue;
+                }
             }
 
             if (supported && !isProfileDisabled(ctx, config.mMask)) {

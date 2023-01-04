@@ -47,6 +47,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 /*
@@ -4504,6 +4505,15 @@ public class AdapterService extends Service {
             remoteOobDatasBundle.putParcelable(BondStateMachine.OOBDATAP256, remoteP256Data);
             setData = true;
         }
+
+        int groupId = getGroupId(device);
+        if (deviceProp.isCoordinatedSetMember() || groupId != INVALID_GROUP_ID) {
+            Log.d(TAG, "createBond(): Process Coordinated SetMember");
+            if (processGroupMember(groupId, device, remoteOobDatasBundle)) {
+                return true;
+            }
+        }
+
         if (setData) {
             msg.setData(remoteOobDatasBundle);
         }
@@ -4779,8 +4789,18 @@ public class AdapterService extends Service {
                 if (mA2dpService == null) {
                     Log.e(TAG, "getActiveDevices: A2dpService is null");
                 } else {
-                    activeDevices.add(mA2dpService.getActiveDevice());
-                    Log.i(TAG, "getActiveDevices: A2dp device: " + activeDevices.get(0));
+                    BluetoothDevice defaultValue = null;
+                    if (ApmConstIntf.getQtiLeAudioEnabled()) {
+                        Log.i(TAG, "getQtiLeAudioEnabled() is true, get A2DP active dev from APM");
+                        ActiveDeviceManagerServiceIntf activeDeviceManager =
+                                                   ActiveDeviceManagerServiceIntf.get();
+                        defaultValue = activeDeviceManager.
+                                  getActiveDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+                        activeDevices.add(defaultValue);
+                    } else {
+                        activeDevices.add(mA2dpService.getActiveDevice());
+                    }
+                    Log.i(TAG, "getActiveDevices: A2DP device: " + activeDevices.get(0));
                 }
                 break;
             case BluetoothProfile.HEARING_AID:
@@ -5772,6 +5792,15 @@ public class AdapterService extends Service {
     }
 
     /**
+     * Check whether ISO CIG Parameter calculator enabled.
+     *
+     * @return true if ISO CIG Parameter calculator is enabled
+     */
+    public boolean isISOCIGParameterCalculator() {
+        return mAdapterProperties.isISOCIGParameterCalculator();
+    }
+
+    /**
      * Check  AddonFeatures Cmd Support.
      *
      * @return true if AddonFeatures Cmd is Supported
@@ -6699,37 +6728,47 @@ public class AdapterService extends Service {
         return false;
     }
 
-    public void processGroupMember(int groupId, BluetoothDevice device) {
-        if (mGroupService == null) {
+    public boolean processGroupMember(int groupId, BluetoothDevice device) {
+        return processGroupMember(groupId, device, null);
+    }
+
+    public boolean processGroupMember(int groupId, BluetoothDevice device, Bundle data) {
+        if (mGroupService == null && mCsipSetCoordinatorService == null) {
             if (VERBOSE) Log.v(TAG, "processGroupMember GroupService not enabled");
-            return;
+            return false;
         }
 
         if (DBG) {
-            Log.d(TAG," processGroupMember " + device +
-                    " BondState " + device.getBondState());
+            Log.d(TAG, "processGroupMember " + device +
+                       " BondState " + device.getBondState());
         }
-      DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
-      if (deviceProp == null) {
-        byte[] addrByte = Utils.getByteAddress(device);
-        deviceProp = mRemoteDevices.addDeviceProperties(addrByte);
-      }
-      if (deviceProp != null) {
-          int tempBluetoothClass = BluetoothClass.Service.LE_AUDIO |
-            deviceProp.getBluetoothClass();
-          deviceProp.setBluetoothClass(tempBluetoothClass);
-          deviceProp.setBondingInitiatedLocally(true);
-          Log.i(TAG," Processing Group Member " + device +
-              " tempBluetoothClass " + tempBluetoothClass);
-      }
-      if (device.getBondState() == BluetoothDevice.BOND_NONE) {
-          Message msg =
-            mBondStateMachine.obtainMessage(BondStateMachine.ADD_DEVICE_BOND_QUEUE);
-          msg.obj = device;
-          msg.arg1 = groupId;
 
-          mBondStateMachine.sendMessage(msg);
-      }
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        if (deviceProp == null) {
+          byte[] addrByte = Utils.getByteAddress(device);
+          deviceProp = mRemoteDevices.addDeviceProperties(addrByte);
+        }
+        if (deviceProp != null) {
+            int tempBluetoothClass = BluetoothClass.Service.LE_AUDIO |
+              deviceProp.getBluetoothClass();
+            deviceProp.setBluetoothClass(tempBluetoothClass);
+            deviceProp.setBondingInitiatedLocally(true);
+            Log.i(TAG," Processing Group Member " + device +
+                " tempBluetoothClass " + tempBluetoothClass);
+        }
+        if (device.getBondState() == BluetoothDevice.BOND_NONE) {
+            Message msg =
+              mBondStateMachine.obtainMessage(BondStateMachine.ADD_DEVICE_BOND_QUEUE);
+            msg.obj = device;
+            msg.arg1 = groupId;
+            if (data != null) {
+                msg.setData(data);
+            }
+
+            mBondStateMachine.sendMessage(msg);
+            return true;
+        }
+        return false;
     }
 
     public boolean isGroupDevice(BluetoothDevice device) {
@@ -6768,8 +6807,17 @@ public class AdapterService extends Service {
     }
 
     public int getGroupId(BluetoothDevice device) {
-        if (mGroupService == null) return INVALID_GROUP_ID;
-        int groupId = mGroupService.getRemoteDeviceGroupId(device, new ParcelUuid(EMPTY_UUID));
+        if (mGroupService == null && mCsipSetCoordinatorService == null) {
+            return INVALID_GROUP_ID;
+        }
+
+        int groupId = INVALID_GROUP_ID;
+        if (mGroupService != null) {
+            groupId = mGroupService.getRemoteDeviceGroupId(device, null);
+        } else if (mCsipSetCoordinatorService != null) {
+            groupId = mCsipSetCoordinatorService.getRemoteDeviceGroupId(device, null);
+        }
+
         debugLog("getGroupId " + groupId);
         return groupId;
     }

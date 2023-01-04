@@ -49,6 +49,12 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 package com.android.bluetooth.btservice;
 
 import static android.Manifest.permission.BLUETOOTH_CONNECT;
@@ -574,7 +580,7 @@ final class RemoteDevices {
         /**
          * @return the mIsCoordinatedSetMember
         */
-        private boolean isCoordinatedSetMember() {
+        boolean isCoordinatedSetMember() {
             synchronized (mObject) {
                 return mIsCoordinatedSetMember;
             }

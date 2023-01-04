@@ -255,13 +255,13 @@ public class HeadsetStateMachine extends StateMachine {
     private HeadsetAgIndicatorEnableState mAgIndicatorEnableState;
     private boolean mA2dpSuspend;
     private boolean mIsCsCall = true;
-    private boolean mPendingScoForVR = false;
     private boolean mIsCallIndDelay = false;
     private boolean mIsBlacklistedDevice = false;
     private boolean mIsBlacklistedForSCOAfterSLC = false;
     private int retryConnectCount = 0;
     private boolean mIsRetrySco = false;
     private boolean mIsBlacklistedDeviceforRetrySCO = false;
+    private boolean mIsSwbSupportedByRemote = false;
 
     private static boolean mIsAvailable = false;
 
@@ -703,6 +703,7 @@ public class HeadsetStateMachine extends StateMachine {
             mIsBlacklistedDevice = false;
             mIsRetrySco = false;
             mIsBlacklistedDeviceforRetrySCO = false;
+            mIsSwbSupportedByRemote = false;
         }
 
         @Override
@@ -958,6 +959,8 @@ public class HeadsetStateMachine extends StateMachine {
                             mSystemInterface.hangupCall(event.device, ApmConstIntf.AudioProfiles.HFP);
                             break;
                         case HeadsetStackEvent.EVENT_TYPE_SWB:
+                            Log.w(TAG, "Remote supports SWB. setting mIsSwbSupportedByRemote to true");
+                            mIsSwbSupportedByRemote = true;
                             processSWBEvent(event.valueInt);
                             break;
                         default:
@@ -1071,6 +1074,18 @@ public class HeadsetStateMachine extends StateMachine {
                             break;
                     }
                     break;
+                case RESUME_A2DP:
+                      /* If the call started/ended by the time A2DP suspend ack
+                      * is received, send the call indicators before resuming
+                      * A2DP.
+                      */
+                     if (mPendingCallStates.size() == 0) {
+                         stateLogD("RESUME_A2DP evt, resuming A2DP");
+                         mHeadsetService.getHfpA2DPSyncInterface().releaseA2DP(mDevice);
+                     } else {
+                         stateLogW("RESUME_A2DP evt, pending call states to be sent, not resuming");
+                     }
+                     break;
                 default:
                     stateLogE("Unexpected msg " + getMessageName(message.what) + ": " + message);
                     return NOT_HANDLED;
@@ -1520,7 +1535,10 @@ public class HeadsetStateMachine extends StateMachine {
                         break;
                     }
 
-                    if (mHeadsetService.isSwbEnabled() && mHeadsetService.isSwbPmEnabled()) {
+                    Log.w(TAG, "mIsSwbSupportedByRemote is " + mIsSwbSupportedByRemote);
+
+                    if (mIsSwbSupportedByRemote && mHeadsetService.isSwbEnabled() &&
+                            mHeadsetService.isSwbPmEnabled()) {
                         if (!mHeadsetService.isVirtualCallStarted() &&
                              mSystemInterface.isHighDefCallInProgress()) {
                            log("CONNECT_AUDIO: enable SWB for HD call ");
@@ -2415,7 +2433,10 @@ public class HeadsetStateMachine extends StateMachine {
                 + callState.mNumHeld + " mCallState: " + callState.mCallState);
         log("processCallState: mNumber: " + callState.mNumber + " mType: " + callState.mType);
 
-        if (mHeadsetService.isSwbEnabled() && mHeadsetService.isSwbPmEnabled()) {
+        Log.w(TAG, "processCallState: mIsSwbSupportedByRemote is " + mIsSwbSupportedByRemote);
+
+        if (mIsSwbSupportedByRemote && mHeadsetService.isSwbEnabled() &&
+               mHeadsetService.isSwbPmEnabled()) {
             if (mHeadsetService.isVirtualCallStarted()) {
                  log("processCallState: enable SWB for all voip calls ");
                  mHeadsetService.enableSwbCodec(true);
@@ -2426,9 +2447,11 @@ public class HeadsetStateMachine extends StateMachine {
                  if (!mSystemInterface.isHighDefCallInProgress()) {
                     log("processCallState: disable SWB for non-HD call ");
                     mHeadsetService.enableSwbCodec(false);
+                    mAudioParams.put(HEADSET_SWB, HEADSET_SWB_DISABLE);
                  } else {
                     log("processCallState: enable SWB for HD call ");
                     mHeadsetService.enableSwbCodec(true);
+                    mAudioParams.put(HEADSET_SWB, "0");
                  }
             }
         }

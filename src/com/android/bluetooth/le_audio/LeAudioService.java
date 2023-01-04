@@ -431,17 +431,18 @@ public class LeAudioService extends ProfileService {
 
         Log.d(TAG, "connect(): mPtsMediaAndVoice: " + mPtsMediaAndVoice +
                    ", mPtsTmapConfBandC: " + mPtsTmapConfBandC);
-        if (!mPtsTmapConfBandC &&
-            (mPtsMediaAndVoice == 1 || mPtsMediaAndVoice == 3)) {
-            if (mMediaAudio != null) {
-                mMediaAudio.connect(device);
-            }
-        }
 
         if (!mPtsTmapConfBandC &&
             (mPtsMediaAndVoice == 2 || mPtsMediaAndVoice == 3)) {
             if (mCallAudio != null) {
                 mCallAudio.connect(device);
+            }
+        }
+
+        if (!mPtsTmapConfBandC &&
+            (mPtsMediaAndVoice == 1 || mPtsMediaAndVoice == 3)) {
+            if (mMediaAudio != null) {
+                mMediaAudio.connect(device);
             }
         }
 
@@ -1065,11 +1066,20 @@ public class LeAudioService extends ProfileService {
         ActiveDeviceManagerServiceIntf activeDeviceManager =
                                             ActiveDeviceManagerServiceIntf.get();
         activeDeviceManager.setActiveDevice(device,
-                                            ApmConstIntf.AudioFeatures.MEDIA_AUDIO/*,
-                                            true*/);
+                                            ApmConstIntf.AudioFeatures.CALL_AUDIO);
         activeDeviceManager.setActiveDevice(device,
-                                            ApmConstIntf.AudioFeatures.CALL_AUDIO/*,
-                                            true*/);
+                                            ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+        return true;
+    }
+
+    public boolean setActiveDeviceBlocking(BluetoothDevice device) {
+        Log.d(TAG, "setActiveDeviceBlocking() for device: " + device);
+        ActiveDeviceManagerServiceIntf activeDeviceManager =
+                                            ActiveDeviceManagerServiceIntf.get();
+        activeDeviceManager.setActiveDeviceBlocking(device,
+                                            ApmConstIntf.AudioFeatures.CALL_AUDIO);
+        activeDeviceManager.setActiveDevice(device,
+                                            ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
         return true;
     }
 
@@ -1140,9 +1150,13 @@ public class LeAudioService extends ProfileService {
 
     public void onLeCodecConfigChange(BluetoothDevice device,
             BluetoothLeAudioCodecStatus codecStatus, int audioType) {
-        Log.d(TAG, "onLeCodecConfigChange");
-        notifyUnicastCodecConfigChanged(1 /*group id*/, codecStatus);
 
+        int groupId = getGroupId(device);
+        Log.d(TAG, "onLeCodecConfigChange(): device: " + device + ", groupId: " + groupId);
+
+        if (groupId != LE_AUDIO_GROUP_ID_INVALID) {
+            notifyUnicastCodecConfigChanged(groupId, codecStatus);
+        }
     }
 
     /*void connectSet(BluetoothDevice device) {
@@ -2156,8 +2170,16 @@ public class LeAudioService extends ProfileService {
 
                 LeAudioService service = getService(source);
                 boolean defaultValue = false;
+                boolean defaultValueVoice = false;
+                boolean defaultValueMedia = false;
                 if (service != null) {
-                    defaultValue = service.setActiveDevice(device);
+                    ActiveDeviceManagerServiceIntf activeDeviceManager =
+                                                ActiveDeviceManagerServiceIntf.get();
+                    defaultValueVoice = activeDeviceManager.setActiveDevice(device,
+                                          ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
+                    defaultValueMedia = activeDeviceManager.setActiveDevice(device,
+                                          ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
+                    defaultValue = (defaultValueVoice & defaultValueMedia);
                 }
                 receiver.send(defaultValue);
             } catch (RuntimeException e) {

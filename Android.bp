@@ -54,6 +54,9 @@ android_app {
         ":vendor_qcom_opensource_commonsys_bluetooth_ext_packages_apps_bluetooth_ext",
         ":statslog-bluetooth-java-gen",
     ],
+    exclude_srcs: [
+        "src/com/android/bluetooth/directionfinder/*.java",
+    ],
     platform_apis: true,
     certificate: "platform",
     aaptflags: [ "--custom-package", "com.android.bluetooth" ],
