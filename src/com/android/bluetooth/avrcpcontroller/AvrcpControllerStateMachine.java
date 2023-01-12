@@ -954,12 +954,13 @@ class AvrcpControllerStateMachine extends StateMachine {
                 }
 
                 case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                    logD(STATE_TAG + " playStatus " + msg.what);
+                    logD(STATE_TAG + " playStatus " + msg.arg1);
                     mAddressedPlayer.setPlayStatus(msg.arg1);
 
                     // Pause music when SCO is connected
                     if (msg.arg1 == PlaybackStateCompat.STATE_PLAYING
-                        && HeadsetClientService.isScoConnected()) {
+                        && HeadsetClientService.isScoConnected()
+                        && !A2dpSinkService.allowConcurrentA2dpHfAudio()) {
                         sendMessage(MSG_AVRCP_PASSTHRU,
                                 AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
                         return true;
@@ -2303,6 +2304,10 @@ class AvrcpControllerStateMachine extends StateMachine {
     }
 
     private boolean isPassThruAllowed(int cmd) {
+        if (A2dpSinkService.allowConcurrentA2dpHfAudio()) {
+            logD("Allow concurrent A2DP/HFP audio");
+            return true;
+        }
         if (!(HeadsetClientService.isScoConnected())) {
             return true;
         } else {

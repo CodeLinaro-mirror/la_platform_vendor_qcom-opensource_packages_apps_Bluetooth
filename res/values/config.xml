@@ -151,4 +151,7 @@
 
     <!-- [Dual A2DP Sink] Flag whether or not to set active device when remote device play music -->
     <bool name="set_active_when_remote_device_play">true</bool>
+
+    <!-- Flag whether or not to allow to play A2DP music during HFP call -->
+    <bool name="concurrent_a2dp_hf_audio">false</bool>
 </resources>

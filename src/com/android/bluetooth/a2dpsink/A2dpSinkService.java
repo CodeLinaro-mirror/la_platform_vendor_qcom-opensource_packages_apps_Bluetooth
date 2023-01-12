@@ -28,6 +28,7 @@ import android.util.Log;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.AdapterUtil;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.internal.annotations.VisibleForTesting;
@@ -570,5 +571,9 @@ public class A2dpSinkService extends ProfileService {
                 channelCount);
         A2dpSinkStateMachine stateMachine = getOrCreateStateMachine(event.mDevice);
         stateMachine.sendMessage(A2dpSinkStateMachine.STACK_EVENT, event);
+    }
+
+    public static boolean allowConcurrentA2dpHfAudio() {
+        return AdapterUtil.allowConcurrentA2dpHfAudio();
     }
 }

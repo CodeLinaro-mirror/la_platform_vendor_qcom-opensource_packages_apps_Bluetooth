@@ -173,4 +173,8 @@ public final class AdapterUtil {
     private static BluetoothAdapter getAdapter(int adapterIndex) {
         return BluetoothAdapterUtil.getAdapter(adapterIndex);
     }
+
+    public static boolean allowConcurrentA2dpHfAudio() {
+        return sContext.getResources().getBoolean(R.bool.concurrent_a2dp_hf_audio);
+    }
 }
