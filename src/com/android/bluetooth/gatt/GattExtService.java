@@ -42,7 +42,7 @@ public class GattExtService extends GattService {
     }
 
     public IBluetoothGatt getBluetoothGatt() {
-        return IBluetoothGatt.Stub.asInterface(super.getBinder());
+        return IBluetoothGatt.Stub.asInterface(super.initBinder());
     }
 
     /**
