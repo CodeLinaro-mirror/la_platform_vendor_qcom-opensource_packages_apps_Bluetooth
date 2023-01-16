@@ -893,10 +893,12 @@ final class RemoteDevices {
                                 + bdDevice.getAddress() + " addrValid "
                                 + device.mBdAddrValid);
                             break;
-                        case AbstractionLayer.BT_PROPERTY_ADV_AUDIO_ID_BD_ADDR:
+                        case AbstractionLayer.BT_PROPERTY_REM_DEV_IDENT_BD_ADDR:
                             device.mMapBdAddress = val;
-                            debugLog("BT_PROPERTY_ADV_AUDIO_ID_BD_ADDR Remote Address MAP is:"
+                            debugLog("BT_PROPERTY_REM_DEV_IDENT_BD_ADDR Remote Address MAP is:"
                                 + Utils.getAddressStringFromByte(val));
+                            break;
+
                         case AbstractionLayer.BT_PROPERTY_REMOTE_RSSI:
                             // RSSI from hal is in one byte
                             device.mRssi = val[0];

@@ -143,6 +143,8 @@ public class LeAudioService extends ProfileService {
     ServiceFactory mServiceFactory = new ServiceFactory();
 
     //LeAudioNativeInterface mLeAudioNativeInterface;
+    boolean mLeAudioNativeIsInitialized = false;
+    BluetoothDevice mHfpHandoverDevice = null;
     //LeAudioBroadcasterNativeInterface mLeAudioBroadcasterNativeInterface = null;
     @VisibleForTesting
     AudioManager mAudioManager;
@@ -176,21 +178,20 @@ public class LeAudioService extends ProfileService {
     private final Map<BluetoothDevice, Integer> mDeviceGroupIdMap = new ConcurrentHashMap<>();
     private final Map<BluetoothDevice, Integer> mDeviceAudioLocationMap = new ConcurrentHashMap<>();
 
-    private final int mContextSupportingInputAudio =
-            BluetoothLeAudio.CONTEXT_TYPE_COMMUNICATION |
-            BluetoothLeAudio.CONTEXT_TYPE_MAN_MACHINE;
+    private final int mContextSupportingInputAudio = BluetoothLeAudio.CONTEXT_TYPE_CONVERSATIONAL
+            | BluetoothLeAudio.CONTEXT_TYPE_VOICE_ASSISTANTS;
 
-    private final int mContextSupportingOutputAudio = BluetoothLeAudio.CONTEXT_TYPE_COMMUNICATION |
-            BluetoothLeAudio.CONTEXT_TYPE_MEDIA |
-            BluetoothLeAudio.CONTEXT_TYPE_INSTRUCTIONAL |
-            BluetoothLeAudio.CONTEXT_TYPE_ATTENTION_SEEKING |
-            BluetoothLeAudio.CONTEXT_TYPE_IMMEDIATE_ALERT |
-            BluetoothLeAudio.CONTEXT_TYPE_MAN_MACHINE |
-            BluetoothLeAudio.CONTEXT_TYPE_EMERGENCY_ALERT |
-            BluetoothLeAudio.CONTEXT_TYPE_RINGTONE |
-            BluetoothLeAudio.CONTEXT_TYPE_TV |
-            BluetoothLeAudio.CONTEXT_TYPE_LIVE |
-            BluetoothLeAudio.CONTEXT_TYPE_GAME;
+    private final int mContextSupportingOutputAudio = BluetoothLeAudio.CONTEXT_TYPE_CONVERSATIONAL
+            | BluetoothLeAudio.CONTEXT_TYPE_MEDIA
+            | BluetoothLeAudio.CONTEXT_TYPE_GAME
+            | BluetoothLeAudio.CONTEXT_TYPE_INSTRUCTIONAL
+            | BluetoothLeAudio.CONTEXT_TYPE_VOICE_ASSISTANTS
+            | BluetoothLeAudio.CONTEXT_TYPE_LIVE
+            | BluetoothLeAudio.CONTEXT_TYPE_SOUND_EFFECTS
+            | BluetoothLeAudio.CONTEXT_TYPE_NOTIFICATIONS
+            | BluetoothLeAudio.CONTEXT_TYPE_RINGTONE
+            | BluetoothLeAudio.CONTEXT_TYPE_ALERTS
+            | BluetoothLeAudio.CONTEXT_TYPE_EMERGENCY_ALARM;
 
     private BroadcastReceiver mBondStateChangedReceiver;
     private BroadcastReceiver mConnectionStateChangedReceiver;
@@ -1661,6 +1662,32 @@ public class LeAudioService extends ProfileService {
     }
 
     /**
+     * Set In Call state
+     * @param inCall True if device in call (any state), false otherwise.
+     */
+    public void setInCall(boolean inCall) {
+        // if (!mLeAudioNativeIsInitialized) {
+        //     Log.e(TAG, "Le Audio not initialized properly.");
+        //     return;
+        // }
+        // mLeAudioNativeInterface.setInCall(inCall);
+    }
+
+    /**
+     * Set Inactive by HFP during handover
+     */
+    public void setInactiveForHfpHandover(BluetoothDevice hfpHandoverDevice) {
+        if (!mLeAudioNativeIsInitialized) {
+            Log.e(TAG, "Le Audio not initialized properly.");
+            return;
+        }
+        if (getActiveGroupId() != LE_AUDIO_GROUP_ID_INVALID) {
+            mHfpHandoverDevice = hfpHandoverDevice;
+            setActiveDevice(null);
+        }
+    }
+
+    /**
      * Set connection policy of the profile and connects it if connectionPolicy is
      * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED} or disconnects if connectionPolicy is
      * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN}
@@ -2321,6 +2348,45 @@ public class LeAudioService extends ProfileService {
                 enforceBluetoothPrivilegedPermission(service);
                 defaultValue = service.groupAddNode(group_id, device);
                 receiver.send(defaultValue);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+
+        @Override
+        public void setInCall(boolean inCall, AttributionSource source,
+                SynchronousResultReceiver receiver) {
+            try {
+                Objects.requireNonNull(source, "source cannot be null");
+                Objects.requireNonNull(receiver, "receiver cannot be null");
+
+                LeAudioService service = getService(source);
+                if (service == null) {
+                    throw new IllegalStateException("service is null");
+                }
+                enforceBluetoothPrivilegedPermission(service);
+                service.setInCall(inCall);
+                receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+
+        @Override
+        public void setInactiveForHfpHandover(BluetoothDevice hfpHandoverDevice,
+                AttributionSource source,
+                SynchronousResultReceiver receiver) {
+            try {
+                Objects.requireNonNull(source, "source cannot be null");
+                Objects.requireNonNull(receiver, "receiver cannot be null");
+
+                LeAudioService service = getService(source);
+                if (service == null) {
+                    throw new IllegalStateException("service is null");
+                }
+                enforceBluetoothPrivilegedPermission(service);
+                service.setInactiveForHfpHandover(hfpHandoverDevice);
+                receiver.send(null);
             } catch (RuntimeException e) {
                 receiver.propagateException(e);
             }
