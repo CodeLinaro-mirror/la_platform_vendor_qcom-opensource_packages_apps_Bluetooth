@@ -276,8 +276,14 @@ class ActiveDeviceManager {
                         }
                         mHfpConnectedDevices.add(device);
                         if (mHearingAidActiveDevice == null) {
-                            // New connected device: select it as active
-                            setHfpActiveDevice(device);
+                            // If the current active HFP device is in audio connected state,
+                            // do not update the active device
+                            if (!isHfpAudioConnected(mHfpActiveDevice)) {
+                                // New connected device: select it as active
+                                setHfpActiveDevice(device);
+                            } else {
+                                Log.d(TAG, "current HFP active device " + mHfpActiveDevice + " is audio connected, do nothing!");
+                            }
                             break;
                         }
                         break;
@@ -461,6 +467,15 @@ class ActiveDeviceManager {
             return;
         }
         mHfpActiveDevice = device;
+    }
+
+    private boolean isHfpAudioConnected(BluetoothDevice device) {
+        final HeadsetService headsetService = mFactory.getHeadsetService();
+        if (headsetService == null) {
+            return false;
+        }
+
+        return headsetService.isAudioConnected(device);
     }
 
     private void setHearingAidActiveDevice(BluetoothDevice device) {
