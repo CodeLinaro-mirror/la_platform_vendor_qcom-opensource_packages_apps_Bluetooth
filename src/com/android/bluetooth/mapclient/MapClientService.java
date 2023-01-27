@@ -435,6 +435,14 @@ public class MapClientService extends ProfileService {
         return mapStateMachine.setMessageStatus(handle, status);
     }
 
+    public synchronized boolean abort(BluetoothDevice device) {
+        MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
+        if (mapStateMachine == null) {
+            return false;
+        }
+        return mapStateMachine.abort();
+    }
+
     @Override
     public void dump(StringBuilder sb) {
         super.dump(sb);
@@ -700,6 +708,15 @@ public class MapClientService extends ProfileService {
                 receiver.propagateException(e);
             }
         }
+
+        /*@Override
+        public boolean abort(BluetoothDevice device, AttributionSource source) {
+            MapClientService service = getService(source);
+            if (service == null) {
+                return false;
+            }
+            return service.abort(device);
+        }*/
     }
 
     private class MapBroadcastReceiver extends BroadcastReceiver {
