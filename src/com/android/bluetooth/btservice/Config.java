@@ -67,7 +67,7 @@ public class Config {
     private static Class mCcServiceClass = null;
     private static Class mGroupServiceClass = null;
     private static ArrayList<Class> profiles = new ArrayList<>();
-    private static boolean mIsA2dpSink, mIsSplitSink, mIsBAEnabled, mIsSplitA2dpEnabled;
+    private static boolean mIsA2dpSink, mIsBAEnabled, mIsSplitA2dpEnabled;
     private static boolean mIsHfpClient;
 
     static {
@@ -207,18 +207,6 @@ public class Config {
 
             if (supported && !isProfileDisabled(ctx, config.mMask)) {
                 if (!addAudioProfiles(config.mClass.getSimpleName())) {
-                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
-                    continue;
-                }
-                // ignore adding map server service for targets where map client is enabled
-                if ((config.mClass.getSimpleName().equals("BluetoothMapService")) &&
-                    (mIsSplitSink)) {
-                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
-                    continue;
-                }
-                // ignore adding map client service for targets where map client is disabled
-                if ((config.mClass.getSimpleName().equals("MapClientService")) &&
-                    (!mIsSplitSink)) {
                     Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
                     continue;
                 }
@@ -458,7 +446,7 @@ public class Config {
     }
 
     private static void getAudioProperties() {
-        mIsSplitSink = SystemProperties.getBoolean("persist.vendor.bluetooth.split_a2dp_sink", false);
+        boolean mIsSplitSink = SystemProperties.getBoolean("persist.vendor.bluetooth.split_a2dp_sink", false);
 
         if (mIsSplitSink) {
            SystemProperties.set("persist.vendor.service.bt.a2dp.sink", "true");

@@ -29,17 +29,8 @@ public final class ObexTime {
 
     public ObexTime(String time) {
         /*
-         * Match OBEX time string: YYYYMMDDTHHMMSS with optional UTF offset +/-hhmm
-         *
-         * Matched groups are numberes as follows:
-         *
-         *     YYYY MM DD T HH MM SS + hh mm
-         *     ^^^^ ^^ ^^   ^^ ^^ ^^ ^ ^^ ^^
-         *     1    2  3    4  5  6  8 9  10
-         *                          |---7---|
-         *
-         * All groups are guaranteed to be numeric so conversion will always succeed (except group 8
-         * which is either + or -)
+         * match OBEX time string: YYYYMMDDTHHMMSS with optional UTF offset
+         * +/-hhmm
          */
         Pattern p = Pattern.compile(
                 "(\\d{4})(\\d{2})(\\d{2})T(\\d{2})(\\d{2})(\\d{2})(([+-])(\\d{2})(\\d{2})" + ")?");
@@ -48,26 +39,20 @@ public final class ObexTime {
         if (m.matches()) {
 
             /*
-             * MAP spec says to default to "Local Time basis" for a message listing timestamp. We'll
-             * use the system default timezone and assume it knows best what our local timezone is.
-             * The builder defaults to the default locale and timezone if none is provided.
+             * matched groups are numberes as follows: YYYY MM DD T HH MM SS +
+             * hh mm ^^^^ ^^ ^^ ^^ ^^ ^^ ^ ^^ ^^ 1 2 3 4 5 6 8 9 10 all groups
+             * are guaranteed to be numeric so conversion will always succeed
+             * (except group 8 which is either + or -)
              */
-            Calendar.Builder builder = new Calendar.Builder();
 
-            /* Note that Calendar months are zero-based */
-            builder.setDate(Integer.parseInt(m.group(1)), /* year */
-                    Integer.parseInt(m.group(2)) - 1,     /* month */
-                    Integer.parseInt(m.group(3)));        /* day of month */
-
-            /* Note the MAP timestamp doesn't have milliseconds and we're explicitly setting to 0 */
-            builder.setTimeOfDay(Integer.parseInt(m.group(4)), /* hours */
-                    Integer.parseInt(m.group(5)),              /* minutes */
-                    Integer.parseInt(m.group(6)),              /* seconds */
-                    0);                                        /* milliseconds */
+            Calendar cal = Calendar.getInstance();
+            cal.set(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)) - 1,
+                    Integer.parseInt(m.group(3)), Integer.parseInt(m.group(4)),
+                    Integer.parseInt(m.group(5)), Integer.parseInt(m.group(6)));
 
             /*
-             * If 7th group is matched then we're no longer using "Local Time basis" and instead
-             * have a UTC based timestamp and offset information included
+             * if 7th group is matched then we have UTC offset information
+             * included
              */
             if (m.group(7) != null) {
                 int ohh = Integer.parseInt(m.group(9));
@@ -83,10 +68,10 @@ public final class ObexTime {
                 TimeZone tz = TimeZone.getTimeZone("UTC");
                 tz.setRawOffset(offset);
 
-                builder.setTimeZone(tz);
+                cal.setTimeZone(tz);
             }
 
-            mDate = builder.build().getTime();
+            mDate = cal.getTime();
         }
     }
 

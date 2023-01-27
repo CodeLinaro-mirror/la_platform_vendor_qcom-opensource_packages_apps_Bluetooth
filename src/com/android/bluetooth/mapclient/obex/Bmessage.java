@@ -101,21 +101,6 @@ public class Bmessage {
         return mBmsgType;
     }
 
-    public String getTypeString() {
-        switch (mBmsgType) {
-            case EMAIL:
-                return "EMAIL";
-            case SMS_GSM:
-                return "SMS_GSM";
-            case SMS_CDMA:
-                return "SMS_CDMA";
-            case MMS:
-                return "MMS";
-            default:
-                return "";
-        }
-    }
-
     public Bmessage setType(Type type) {
         mBmsgType = type;
         return this;
