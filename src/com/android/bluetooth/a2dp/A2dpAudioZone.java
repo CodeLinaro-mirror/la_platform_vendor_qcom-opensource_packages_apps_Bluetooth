@@ -129,6 +129,8 @@ public final class A2dpAudioZone {
     }
 
     public static boolean validMediaPlayer(Context context, String mediaPlayer) {
+        if ("".equals(mediaPlayer))
+            return false;
         return getApplicationInfo(context, mediaPlayer) != null;
     }
 
@@ -175,7 +177,7 @@ public final class A2dpAudioZone {
 
             debugLog("mapAudioZone: bt addr: " + addr + ", audio bus: " + bus);
             mAudioManager.setParameters(String.format(
-                    "bt_a2dp: addr=%s, bus=%s",
+                    "bdaddress=%s;bus=%s",
                     addr, bus));
 
             audioZone.setMediaPlayerMapped(mDevice);
@@ -336,6 +338,8 @@ public final class A2dpAudioZone {
             if (mMediaPlayerList.containsKey(device)) {
                 MediaPlayerInfo mpInfo = mMediaPlayerList.get(device);
                 mpInfo.setMapped();
+            } else {
+                Log.w(TAG, "No MediaPlayerInfo for " + device);
             }
         }
 
