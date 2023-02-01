@@ -288,7 +288,8 @@ public class A2dpSinkStreamHandler extends Handler {
                         .build();
         int focusRequestStatus = mAudioManager.requestAudioFocus(focusRequest);
         // If the request is granted begin streaming immediately and schedule an upgrade.
-        if (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+        if (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED ||
+                A2dpSinkService.allowConcurrentA2dpHfAudio()) {
             startFluorideStreaming();
             mAudioFocus = AudioManager.AUDIOFOCUS_GAIN;
         }

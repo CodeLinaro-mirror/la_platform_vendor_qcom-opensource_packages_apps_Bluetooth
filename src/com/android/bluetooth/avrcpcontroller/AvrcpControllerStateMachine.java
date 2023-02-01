@@ -992,7 +992,7 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                     if (playbackState.getState() == PlaybackStateCompat.STATE_PLAYING) {
                         if (focusState == AudioManager.AUDIOFOCUS_NONE) {
-                            if (shouldRequestFocus()) {
+                            if (shouldRequestFocus() || A2dpSinkService.allowConcurrentA2dpHfAudio()) {
                                 logD(STATE_TAG + " Get audio focus");
                                 mSessionCallbacks.onPrepare();
                                 mService.setActiveDevice(mDevice);
