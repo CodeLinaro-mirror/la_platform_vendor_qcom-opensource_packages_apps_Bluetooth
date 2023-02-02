@@ -830,8 +830,9 @@ class AvrcpControllerStateMachine extends StateMachine {
                                 mAddressedPlayer.getPlaybackState());
                         BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mNowPlayingNode);
                     } else {
-                        // Always clear cache when device becomes inactive
-                        refreshSearchNode(false);
+                        // NOT refresh search node because it brings up switching
+                        // active device frequently so as to make browsing media
+                        // file system fail
                         sendMessage(MSG_AVRCP_PASSTHRU,
                                 AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
                     }
