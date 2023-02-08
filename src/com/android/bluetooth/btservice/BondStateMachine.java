@@ -321,6 +321,8 @@ final class BondStateMachine extends StateMachine {
                     break;
                 case PIN_REQUEST:
                     BluetoothClass btClass = dev.getBluetoothClass();
+                    int new_state = mAdapterService.getState();
+                    if (new_state != BluetoothAdapter.STATE_ON) return false;
                     int btDeviceClass = btClass.getDeviceClass();
                     if (devProp == null)
                     {
