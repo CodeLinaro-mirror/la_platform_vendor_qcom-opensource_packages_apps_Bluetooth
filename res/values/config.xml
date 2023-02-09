@@ -154,4 +154,7 @@
 
     <!-- Flag whether or not to allow to play A2DP music during HFP call -->
     <bool name="concurrent_a2dp_hf_audio">false</bool>
+
+    <!-- [Dual Bluetooth] Flag whether or not to enable opp client in new bluetooth adapter -->
+    <bool name="opp_client_in_new_adapter">true</bool>
 </resources>

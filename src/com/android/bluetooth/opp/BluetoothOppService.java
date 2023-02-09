@@ -58,6 +58,7 @@ import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.IObexConnectionHandler;
 import com.android.bluetooth.ObexServerSockets;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.AdapterUtil;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.internal.annotations.VisibleForTesting;
@@ -120,7 +121,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
     private ArrayList<BluetoothOppBatch> mBatches;
 
-    private BluetoothOppTransfer mTransfer;
+    private BluetoothOppTransfer mTransfer = null;
 
     private BluetoothOppTransfer mServerTransfer;
 
@@ -175,6 +176,10 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
      */
     private BluetoothOppObexServerSession mServerSession;
 
+    private boolean mOppSupported = true;
+    private boolean mOppServerEnabled = true;
+    private boolean mOppClientEnabled = true;
+
     @Override
     protected IProfileServiceBinder initBinder() {
         return new OppBinder(this);
@@ -224,6 +229,14 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         if (V) {
             Log.v(TAG, "start()");
         }
+        mOppSupported = isOppSupported();
+        if (!mOppSupported) {
+            Log.w(TAG, "start() OPP isn't supported, return");
+            return true;
+        }
+        mOppServerEnabled = isOppServerEnabled();
+        mOppClientEnabled = isOppClientEnabled();
+
         mAdapterService = AdapterService.getAdapterService();
         mObserver = new BluetoothShareContentObserver();
         getContentResolver().registerContentObserver(BluetoothShare.CONTENT_URI, true, mObserver);
@@ -237,6 +250,10 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
     @Override
     public boolean stop() {
+        if (!mOppSupported) {
+            Log.w(TAG, "stop() OPP isn't supported, return");
+            return true;
+        }
         if (sBluetoothOppService == null) {
             Log.w(TAG, "stop() called before start()");
             return true;
@@ -523,6 +540,9 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                         if (V) {
                             Log.v(TAG, "Bluetooth state changed: STATE_ON");
                         }
+                        if (!mOppServerEnabled) {
+                            break;
+                        }
                         startListener();
                         // If this is within a sending process, continue the handle
                         // logic to display device picker dialog.
@@ -549,6 +569,9 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                     case BluetoothAdapter.STATE_TURNING_OFF:
                         if (V) {
                             Log.v(TAG, "Bluetooth state changed: STATE_TURNING_OFF");
+                        }
+                        if (!mOppServerEnabled) {
+                            break;
                         }
                         mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
                         break;
@@ -756,6 +779,12 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         /* Mark the info as failed if it's in invalid status */
         if (info.isObsolete()) {
             Constants.updateShareStatus(this, info.mId, BluetoothShare.STATUS_UNKNOWN_ERROR);
+        }
+
+        if (info.mDirection == BluetoothShare.DIRECTION_OUTBOUND && (!mOppClientEnabled)
+                || info.mDirection == BluetoothShare.DIRECTION_INBOUND && (!mOppServerEnabled)) {
+            Log.w(TAG, "OPP role(Client/Server) is not supported!");
+            return;
         }
         /*
          * Add info into a batch. The logic is
@@ -1207,5 +1236,29 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
      */
     void acceptNewConnections() {
         mAcceptNewConnections = true;
+    }
+
+    private boolean isOppSupported() {
+        return AdapterUtil.isAdapterDefault() ||
+                AdapterUtil.isOppClientInNewAdapter();
+    }
+
+    private boolean isOppClientEnabled() {
+        if (!AdapterUtil.isDualBluetoothEnabled()) {
+            return true;
+        }
+
+        boolean isAdapterDefault = AdapterUtil.isAdapterDefault();
+        boolean isOppClientInNewAdapter = AdapterUtil.isOppClientInNewAdapter();
+        boolean oppClientEnabled = (isAdapterDefault && !isOppClientInNewAdapter) ||
+                (!isAdapterDefault && isOppClientInNewAdapter);
+        Log.d(TAG, "adapter index: " + AdapterUtil.getAdapterIndex() +
+                ", OPP client enabled: " + oppClientEnabled);
+        return oppClientEnabled;
+    }
+
+    private boolean isOppServerEnabled() {
+        // Limit OPP server in default Bluetooth adapter
+        return AdapterUtil.isAdapterDefault();
     }
 }
