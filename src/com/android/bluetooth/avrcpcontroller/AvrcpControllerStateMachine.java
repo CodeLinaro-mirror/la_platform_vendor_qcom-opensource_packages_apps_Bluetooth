@@ -626,8 +626,8 @@ class AvrcpControllerStateMachine extends StateMachine {
         mBrowseTree.mNowPlayingNode.setCached(false);
         mBrowseTree.mRootNode.setCached(false);
         if (isActive()) {
-            BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mNowPlayingNode);
-            BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mRootNode);
+            notifyChanged(mBrowseTree.mNowPlayingNode);
+            notifyChanged(mBrowseTree.mRootNode);
         }
         removeUnusedArtwork(previousTrackUuid);
         removeUnusedArtworkFromBrowseTree();
@@ -694,12 +694,8 @@ class AvrcpControllerStateMachine extends StateMachine {
     }
 
     private void notifyChanged(BrowseTree.BrowseNode node) {
-        // We should only notify now playing content updates if we're the active device. VFS
-        // updates are fine at any time
-        int scope = node.getScope();
-        if (scope != AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING
-                || (scope == AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING
-                && isActive())) {
+        // We should only notify media item content updates if we're the active device.
+        if (isActive()) {
             BluetoothMediaBrowserService.notifyChanged(node);
         }
     }
@@ -736,7 +732,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                 currBrPlayer.removeChild(mBrowseTree.mSearchNode);
             }
 
-            BluetoothMediaBrowserService.notifyChanged(currBrPlayer);
+            notifyChanged(currBrPlayer);
         } else {
             Log.d(TAG, "currBrPlayer is NULL");
         }
@@ -828,7 +824,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                                 mAddressedPlayer.getCurrentTrack());
                         BluetoothMediaBrowserService.notifyChanged(
                                 mAddressedPlayer.getPlaybackState());
-                        BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mNowPlayingNode);
+                        notifyChanged(mBrowseTree.mNowPlayingNode);
                     } else {
                         // NOT refresh search node because it brings up switching
                         // active device frequently so as to make browsing media
@@ -1025,7 +1021,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                     // invalid
                     mBrowseTree.mNowPlayingNode.setCached(false);
                     if (isActive()) {
-                        BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mNowPlayingNode);
+                        notifyChanged(mBrowseTree.mNowPlayingNode);
                     }
                     removeUnusedArtworkFromBrowseTree();
 
@@ -1281,7 +1277,7 @@ class AvrcpControllerStateMachine extends StateMachine {
             logD("processAvailablePlayerChanged");
             mBrowseTree.mRootNode.setCached(false);
             mBrowseTree.mRootNode.setExpectedChildren(255);
-            BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mRootNode);
+            notifyChanged(mBrowseTree.mRootNode);
             removeUnusedArtworkFromBrowseTree();
             requestContents(mBrowseTree.mRootNode);
         }
