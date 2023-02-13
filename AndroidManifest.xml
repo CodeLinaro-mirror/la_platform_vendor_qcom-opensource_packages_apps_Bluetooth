@@ -129,12 +129,24 @@
              android:name=".opp.BluetoothOppService"
              android:permission="android.permission.ACCESS_BLUETOOTH_SHARE"
              android:enabled="@bool/profile_supported_opp"/>
+        <service android:process="@string/new_process"
+             android:name=".opp.BluetoothOppExtService"
+             android:permission="android.permission.ACCESS_BLUETOOTH_SHARE"
+             android:enabled="@bool/profile_supported_opp"/>
         <receiver android:process="@string/process"
              android:exported="true"
              android:name=".opp.BluetoothOppReceiver"
              android:enabled="@bool/profile_supported_opp">
             <intent-filter>
                 <action android:name="android.btopp.intent.action.OPEN_RECEIVED_FILES"/>
+            </intent-filter>
+        </receiver>
+        <receiver android:process="@string/new_process"
+             android:exported="true"
+             android:name=".opp.BluetoothOppExtReceiver"
+             android:enabled="@bool/profile_supported_opp">
+            <intent-filter>
+                <action android:name="android.bluetooth.devicepicker.action.DEVICE_SELECTED"/>
             </intent-filter>
         </receiver>
          <receiver android:process="@string/process"
@@ -157,7 +169,7 @@
             </intent-filter>
         </receiver>
         <activity android:name=".opp.BluetoothOppLauncherActivity"
-             android:process="@string/process"
+             android:process="@string/new_process"
              android:theme="@android:style/Theme.Material.Light.Dialog"
              android:label="@string/bt_share_picker_label"
              android:enabled="@bool/profile_supported_opp"
