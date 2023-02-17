@@ -1248,18 +1248,18 @@ static jboolean set_data(JNIEnv* env, bt_oob_data_t& oob_data, jobject oobData,
     jbyteArray oobDataLength = callByteArrayGetter(
         env, oobData, "android/bluetooth/OobData", "getClassicLength");
     jbyte* oobDataLengthBytes = NULL;
-    if (oobDataLength == NULL ||
-        env->GetArrayLength(oobDataLength) != OOB_DATA_LEN_SIZE) {
-      ALOGI("%s: wrong length of oobDataLength, should be empty or %d bytes.",
-            __func__, OOB_DATA_LEN_SIZE);
-      jniThrowIOException(env, EINVAL);
+    if (oobDataLength != NULL) {
+      oobDataLengthBytes = env->GetByteArrayElements(oobDataLength, NULL);
+      int len = env->GetArrayLength(oobDataLength);
+      if (oobDataLengthBytes == NULL || len != OOB_DATA_LEN_SIZE) {
+        ALOGI("%s: wrong length of oobDataLength, should be empty or %d bytes.",
+              __func__, OOB_DATA_LEN_SIZE);
+        jniThrowIOException(env, EINVAL);
+        return JNI_FALSE;
+      }
+      memcpy(oob_data.oob_data_length, oobDataLengthBytes, len);
       env->ReleaseByteArrayElements(oobDataLength, oobDataLengthBytes, 0);
-      return JNI_FALSE;
     }
-
-    oobDataLengthBytes = env->GetByteArrayElements(oobDataLength, NULL);
-    memcpy(oob_data.oob_data_length, oobDataLengthBytes, len);
-    env->ReleaseByteArrayElements(oobDataLength, oobDataLengthBytes, 0);
 
     // Optional
     jbyteArray classOfDevice = callByteArrayGetter(
