@@ -832,12 +832,19 @@ final class RemoteDevices {
                         case AbstractionLayer.BT_PROPERTY_UUIDS:
                             if (device.mAdvAudioUpdateProp) {
                                 int numUuids = val.length / AbstractionLayer.BT_UUID_SIZE;
-                                final ParcelUuid[] newUuids = Utils.byteArrayToUuid(val);
+                                debugLog(" BT_PROPERTY_UUIDS for Device" + bdDevice.getAddress());
+                                String uuids_str = new String(val);
+                                String[] uuids = uuids_str.split(" ");
+                                final ParcelUuid[] newUuids = new ParcelUuid[uuids.length];
+                                debugLog("BT_PROPERTY_UUIDS size "+uuids.length+" and those are " + uuids_str);
+                                for (int i =0; i < uuids.length; i++) {
+                                    newUuids[i] = ParcelUuid.fromString(uuids[i]);
+                                    debugLog("BT_PROPERTY_UUID "+(i + 1)+" :: " + newUuids[i].toString());
+                                }
                                 if (areUuidsEqual(newUuids, device.mUuids)) {
                                     debugLog( "Skip uuids update for " + bdDevice.getAddress());
                                     break;
                                 }
-                                debugLog(" BT_PROPERTY_UUIDS " + bdDevice.getAddress());
                                 device.mUuids = newUuids;
                                 if ((sAdapterService.getState() == BluetoothAdapter.STATE_ON) &&
                                                                 device.autoConnect) {
@@ -945,6 +952,7 @@ final class RemoteDevices {
                         case AbstractionLayer.BT_PROPERTY_ADV_AUDIO_UUID_BY_TRANSPORT:
                         {
                             int numTransUuids = val.length / AbstractionLayer.BT_UUID_SIZE;
+
                             final ParcelUuid[] transUuids = Utils.byteArrayToUuid(val);
                             int bredrTransIndex = ArrayUtils.indexOf(transUuids,
                                                     device.BR_TRANSPORT_UUID);
