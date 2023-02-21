@@ -867,10 +867,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                 Log.d(TAG, "hf_volume " + hfVol);
             }
 
-            mAudioFocusRequest = requestAudioFocus();
-
             // disable the SWB codec selection for client call
             mAudioManager.setParameters("bt_swb=65535");
+
             //this ensures that hfp audio is routed to speaker
             //mAudioManager.setParameters("hfp_route_spkr=2");
             //mAudioManager.setParameters("hfp_enable=true");
@@ -902,11 +901,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                         .setAudioAttributes(streamAttributes)
                         .build();
         int focusRequestStatus = mAudioManager.requestAudioFocus(focusRequest);
-        if (DBG) {
-            String s = (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+        String s = (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
                     ? "AudioFocus granted" : "AudioFocus NOT granted";
-            Log.d(TAG, "AudioManager requestAudioFocus returned: " + s);
-        }
+        Log.d(TAG, "AudioManager requestAudioFocus returned: " + s);
         return focusRequest;
     }
 
@@ -960,6 +957,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             mIndicatorBatteryLevel = 0;
             mInBandRing = false;
             mCallIndRcvd = 0;
+            returnAudioFocusIfNecessary();
 
             mAudioWbs = false;
 
@@ -1907,7 +1905,6 @@ public class HeadsetClientStateMachine extends StateMachine {
                     }
                     if (mNativeInterface.disconnectAudio(getByteAddress(mCurrentDevice))) {
                         routeHfpAudio(false);
-                        returnAudioFocusIfNecessary();
                     }
                     break;
 
@@ -2001,7 +1998,6 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // even if the audio connection snapped may not be a good idea.
                     Log.d(TAG, "SCO is disconnected for hfp client call");
                     routeHfpAudio(false);
-                    returnAudioFocusIfNecessary();
                     if(!IsInCall() && !mCallIsInSetup && mCallIndRcvd == 0) {
                         releaseA2DP();
                     }
@@ -2235,6 +2231,9 @@ public class HeadsetClientStateMachine extends StateMachine {
         Log.d(TAG,"enter suspendA2DP");
         mA2dpSuspendIssued = true;
 
+        // Requst audio focus
+        mAudioFocusRequest = requestAudioFocus();
+
         boolean misA2dpPlaying = false;
         if(mA2dpService != null) {
             BluetoothDevice a2dpActivedevice = mA2dpService.getActiveDevice();
@@ -2256,6 +2255,9 @@ public class HeadsetClientStateMachine extends StateMachine {
        Log.d(TAG,"enter releaseA2DP suspend ");
        mA2dpSuspend = false;
        mA2dpSuspendIssued = false;
+
+       // Release the audio focus
+       returnAudioFocusIfNecessary();
 
        HeadsetService headsetService = HeadsetService.getHeadsetService();
        if(headsetService != null && headsetService.isScoOrCallActive()) {
