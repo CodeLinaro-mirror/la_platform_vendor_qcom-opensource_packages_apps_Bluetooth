@@ -129,8 +129,6 @@ public final class A2dpAudioZone {
     }
 
     public static boolean validMediaPlayer(Context context, String mediaPlayer) {
-        if ("".equals(mediaPlayer))
-            return false;
         return getApplicationInfo(context, mediaPlayer) != null;
     }
 

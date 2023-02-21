@@ -895,7 +895,7 @@ public class MediaPlayerList {
         int action = pushed ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP;
         KeyEvent event = new KeyEvent(action, AvrcpPassthrough.toKeyCode(key));
         // Send a media key event to a media player
-        //mMediaSessionManager.dispatchMediaKeyEvent(event, getPlayerPackageName(device)); // to be fixed !!!
+        mMediaSessionManager.dispatchMediaKeyEvent(event, getPlayerPackageName(device));
     }
 
     public int getMaxVolume(BluetoothDevice device) {
