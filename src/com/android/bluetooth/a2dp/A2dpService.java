@@ -985,9 +985,12 @@ public class A2dpService extends ProfileService {
             if (mShoActive) {
                 Log.e(TAG, "setActiveDevice: Pending SHO, ignore");
                 return false;
-            } else if (Objects.equals(device, mActiveDevice)) {
+            } else if (device != null && Objects.equals(device, mActiveDevice)) {
                 Log.d(TAG, "setActiveDevice: same device");
                 return true;
+            } else if (device == null) {
+                Log.d(TAG, "setActiveDevice: Null Device received, " +
+                            "going for setActive in ActiveDeviceManagerService");
             }
             ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
             return activeDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
@@ -2304,8 +2307,8 @@ public class A2dpService extends ProfileService {
         private A2dpService mService;
 
         private A2dpService getService(AttributionSource source) {
-            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
-                    || !Utils.checkServiceAvailable(mService, TAG)
+            if (!Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)
                     || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }

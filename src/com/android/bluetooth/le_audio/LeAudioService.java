@@ -42,7 +42,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
-//import android.media.BluetoothProfileConnectionInfo;
 import android.bluetooth.BluetoothAdapter;
 
 import android.os.Handler;
@@ -57,15 +56,15 @@ import android.util.Log;
 import android.util.Pair;
 import android.os.SystemProperties;
 
+import android.bluetooth.DeviceGroup;
+import android.bluetooth.BluetoothDeviceGroup;
 import com.android.bluetooth.CsipWrapper;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.ServiceFactory;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
-//import com.android.bluetooth.mcp.McpService;
 import com.android.bluetooth.lebroadcast.LeBroadcastServIntf;
-//import com.android.bluetooth.vc.VolumeControlService;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.SynchronousResultReceiver;
@@ -90,6 +89,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 /**
  * Provides Bluetooth LeAudio profile, as a service in the Bluetooth application.
@@ -101,6 +102,12 @@ public class LeAudioService extends ProfileService {
 
     // Timeout for state machine thread join, to prevent potential ANR.
     private static final int SM_THREAD_JOIN_TIMEOUT_MS = 1000;
+
+    // Invalid CSIP Coodinator Set Id
+    private static final int INVALID_SET_ID = 0x10;
+
+    private static final int NON_CSIP_MIN_GROUP_ID = 0x11;
+    private static final int NON_CSIP_MAX_GROUP_ID = 0x20;
 
     // Upper limit of all LeAudio devices: Bonded or Connected
     private static final int MAX_LE_AUDIO_STATE_MACHINES = 10;
@@ -139,6 +146,7 @@ public class LeAudioService extends ProfileService {
     private HandlerThread mStateMachinesThread;
     private BluetoothDevice mActiveAudioOutDevice;
     private BluetoothDevice mActiveAudioInDevice;
+    private int mLeActiveGroupID;
     private LeAudioCodecConfig mLeAudioCodecConfig;
     ServiceFactory mServiceFactory = new ServiceFactory();
 
@@ -175,7 +183,8 @@ public class LeAudioService extends ProfileService {
     private final Map<Integer, LeAudioGroupDescriptor> mGroupDescriptors = new LinkedHashMap<>();
     //private final Map<BluetoothDevice, LeAudioStateMachine> mStateMachines = new LinkedHashMap<>();
 
-    private final Map<BluetoothDevice, Integer> mDeviceGroupIdMap = new ConcurrentHashMap<>();
+    private final Map<BluetoothDevice, Integer> mDeviceGroupIdMap = new LinkedHashMap<>();
+    //private final Map<BluetoothDevice, Integer> mDeviceGroupIdMap = new ConcurrentHashMap<>();
     private final Map<BluetoothDevice, Integer> mDeviceAudioLocationMap = new ConcurrentHashMap<>();
 
     private final int mContextSupportingInputAudio = BluetoothLeAudio.CONTEXT_TYPE_CONVERSATIONAL
@@ -195,11 +204,13 @@ public class LeAudioService extends ProfileService {
 
     private BroadcastReceiver mBondStateChangedReceiver;
     private BroadcastReceiver mConnectionStateChangedReceiver;
+    private BroadcastReceiver mActiveDeviceChangedReceiver;
     private Handler mHandler = new Handler(Looper.getMainLooper());
 
     private final Map<Integer, Integer> mBroadcastStateMap = new HashMap<>();
     private final Map<Integer, Boolean> mBroadcastsPlaybackMap = new HashMap<>();
     private final List<BluetoothLeBroadcastMetadata> mBroadcastMetadataList = new ArrayList<>();
+    private static SortedSet<Integer> mNonCSIPGruopID = new TreeSet();
 
     @Override
     protected IProfileServiceBinder initBinder() {
@@ -251,6 +262,10 @@ public class LeAudioService extends ProfileService {
         filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
         mConnectionStateChangedReceiver = new ConnectionStateChangedReceiver();
         registerReceiver(mConnectionStateChangedReceiver, filter);
+        filter = new IntentFilter();
+        filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_ACTIVE_DEVICE_CHANGED);
+        mActiveDeviceChangedReceiver = new ActiveDeviceChangedReceiver();
+        registerReceiver(mActiveDeviceChangedReceiver, filter);
         mLeAudioCallbacks = new RemoteCallbackList<IBluetoothLeAudioCallback>();
 
         // Initialize Broadcast native interface
@@ -269,6 +284,7 @@ public class LeAudioService extends ProfileService {
 
         // Setup codec config
         mLeAudioCodecConfig = new LeAudioCodecConfig(this);
+        mLeActiveGroupID = LE_AUDIO_GROUP_ID_INVALID;
 
         // Delay the call to init by posting it. This ensures TBS and MCS are fully initialized
         // before we start accepting connections
@@ -327,6 +343,8 @@ public class LeAudioService extends ProfileService {
         mBondStateChangedReceiver = null;
         unregisterReceiver(mConnectionStateChangedReceiver);
         mConnectionStateChangedReceiver = null;
+        unregisterReceiver(mActiveDeviceChangedReceiver);
+        mActiveDeviceChangedReceiver = null;
 
         // Destroy state machines and stop handler thread
         /*synchronized (mStateMachines) {
@@ -527,22 +545,69 @@ public class LeAudioService extends ProfileService {
     }
 
     public BluetoothDevice getConnectedGroupLeadDevice(int groupId) {
+         Log.w(TAG, "requested getConnectedGroupLeadDevice for groupId " + groupId);
          BluetoothDevice lead_device = null;
-         List<BluetoothDevice> devices = getConnectedDevices();
-         if (devices.size() > 0) {
-             lead_device = devices.get(0);
+         if (groupId == LE_AUDIO_GROUP_ID_INVALID) {
+             Log.w(TAG, "Invalid groupId requested return device " + lead_device);
+             return lead_device;
          }
-         Log.w(TAG, "returning group lead device as first connected device" + lead_device);
+
+         ActiveDeviceManagerServiceIntf activeDeviceManager =
+                 ActiveDeviceManagerServiceIntf.get();
+         BluetoothDevice curr_active_device =
+           activeDeviceManager.getActiveAbsoluteDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+
+         Log.w(TAG, "req groupId " + groupId + " active group " + mLeActiveGroupID);
+
+         if (groupId < INVALID_SET_ID) {
+             lead_device = getFirstDeviceFromGroup(groupId);
+             Log.w(TAG, "returning group lead device from CSIP group " + lead_device);
+         } else {
+             if (groupId == INVALID_SET_ID) {
+                 if (mLeActiveGroupID >= INVALID_SET_ID) {
+                     lead_device = curr_active_device;
+                 } else {
+                     // TO-DO: check for better way
+                     if (mNonCSIPGruopID.size() > 0) {
+                         for (int gid = NON_CSIP_MIN_GROUP_ID;gid <= NON_CSIP_MAX_GROUP_ID;++gid) {
+                             List<BluetoothDevice> d = getGroupDevices(gid);
+                             lead_device = d.isEmpty() ? null : d.get(0);
+                             if (lead_device != null) {
+                                 Log.w(TAG, "return 1st connected grp lead device " + lead_device +
+                                         " for group id " + groupId + " placeholder gid " + gid);
+                                 break;
+                             }
+                         }
+                     }
+                     Log.w(TAG, "returning group lead device from non-CSIP group " + lead_device);
+                 }
+             } else {
+                 List<BluetoothDevice> d = getGroupDevices(groupId);
+                 lead_device = d.isEmpty() ? null : d.get(0);
+                 Log.w(TAG, "returning group lead device from non CSIP group " + lead_device);
+             }
+         }
+
+         Log.w(TAG, "returning group lead device " + lead_device + " for group " + groupId);
          return lead_device;
    }
 
     public List<BluetoothDevice> getConnectedGroupLeadDevices() {
-        List<BluetoothDevice> devices = new ArrayList<>();
+        List<BluetoothDevice> result = new ArrayList<>();
+        List<BluetoothDevice> devices = getConnectedDevices();
+        SortedSet<Integer> group = new TreeSet();
+        for (BluetoothDevice dev : devices) {
+            int groupId = getGroupId(dev);
+            if (!group.contains(groupId)) {
+                group.add(groupId);
+                result.add(dev);
+            }
+        }
         /*for (Map.Entry<Integer, LeAudioGroupDescriptor> entry : mGroupDescriptors.entrySet()) {
             Integer groupId = entry.getKey();
             devices.add(getFirstDeviceFromGroup(groupId));
         }*/
-        return devices;
+        return result;
     }
 
     List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
@@ -665,8 +730,10 @@ public class LeAudioService extends ProfileService {
      * @return all devices within a given group or empty list
      */
     public List<BluetoothDevice> getGroupDevices(int group_id) {
+        Log.d(TAG, "getGroupDevices for group ID " + group_id);
         List<BluetoothDevice> result = new ArrayList<>();
-
+        if (group_id == LE_AUDIO_GROUP_ID_INVALID)
+            return result;
         /*if (group_id != LE_AUDIO_GROUP_ID_INVALID) {
             for (BluetoothDevice storedDevice : mDeviceGroupIdMap.keySet()) {
                 if (getGroupId(storedDevice) == group_id) {
@@ -674,7 +741,19 @@ public class LeAudioService extends ProfileService {
                 }
             }
         }*/
-        return result;
+        if (group_id >= INVALID_SET_ID) {
+            for (Map.Entry<BluetoothDevice, Integer> entry : mDeviceGroupIdMap.entrySet()) {
+                if (entry.getValue() == group_id) {
+                    Log.d(TAG, "non-CSIP device " + entry.getKey());
+                    result.add(entry.getKey());
+                    break;
+                }
+            }
+            return result;
+        } else {
+            Log.d(TAG, "CSIP device group ID " + group_id);
+            return getCsipGroupMembers(group_id);
+        }
     }
 
     /**
@@ -834,6 +913,30 @@ public class LeAudioService extends ProfileService {
     }
 
     private BluetoothDevice getFirstDeviceFromGroup(Integer groupId) {
+         Log.d(TAG, "requested grp " + groupId + " map size " +  mDeviceGroupIdMap.size());
+         BluetoothDevice first_group_device = null;
+         if (groupId == LE_AUDIO_GROUP_ID_INVALID)
+             return first_group_device;
+
+         List<BluetoothDevice> devices = getConnectedDevices();
+         Log.d(TAG, "connected devices size " +  devices.size());
+         if (devices.isEmpty())
+             return first_group_device;
+
+         for (Map.Entry<BluetoothDevice, Integer> entry : mDeviceGroupIdMap.entrySet()) {
+             Log.d(TAG, "Device " + entry.getKey() + " grp " + entry.getValue());
+             if (entry.getValue() == groupId) {
+                 if (groupId == mLeActiveGroupID) {
+                     first_group_device = entry.getKey();
+                     break;
+                 } else {
+                     if (devices.contains(entry.getKey())) {
+                         first_group_device = entry.getKey();
+                         break;
+                    }
+                 }
+             }
+         }
         /*if (groupId != LE_AUDIO_GROUP_ID_INVALID) {
             for(Map.Entry<BluetoothDevice, Integer> entry : mDeviceGroupIdMap.entrySet()) {
                 if (entry.getValue() != groupId) {
@@ -849,7 +952,8 @@ public class LeAudioService extends ProfileService {
             }
         }*/
 
-        return null;
+        Log.d(TAG, "returning first group device as " + first_group_device);
+        return first_group_device;
     }
 
     private boolean updateActiveInDevice(BluetoothDevice device, Integer groupId,
@@ -1079,7 +1183,7 @@ public class LeAudioService extends ProfileService {
                                             ActiveDeviceManagerServiceIntf.get();
         activeDeviceManager.setActiveDeviceBlocking(device,
                                             ApmConstIntf.AudioFeatures.CALL_AUDIO);
-        activeDeviceManager.setActiveDevice(device,
+        activeDeviceManager.setActiveDeviceBlocking(device,
                                             ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
         return true;
     }
@@ -1423,19 +1527,17 @@ public class LeAudioService extends ProfileService {
             Log.d(TAG, "Bond state changed for device: " + device + " state: " + bondState);
         }
 
-/*
-        // Remove state machine if the bonding for a device is removed
-        if (bondState != BluetoothDevice.BOND_NONE) {
+        /*if (bondState == BluetoothDevice.BOND_NONE) {
             return;
         }
 
+        // Remove state machine if the bonding for a device is removed
         int groupId = getGroupId(device);
         if (groupId != LE_AUDIO_GROUP_ID_INVALID) {
             // In case device is still in the group, let's remove it
             mLeAudioNativeInterface.groupRemoveNode(groupId, device);
         }
 
-        mDeviceGroupIdMap.remove(device);
         synchronized (mStateMachines) {
             LeAudioStateMachine sm = mStateMachines.get(device);
             if (sm == null) {
@@ -1451,8 +1553,7 @@ public class LeAudioService extends ProfileService {
         mAcmService.bondStateChanged(device, bondState);
     }
 
-/*
-    private void removeStateMachine(BluetoothDevice device) {
+    /*private void removeStateMachine(BluetoothDevice device) {
         synchronized (mStateMachines) {
             LeAudioStateMachine sm = mStateMachines.get(device);
             if (sm == null) {
@@ -1469,24 +1570,70 @@ public class LeAudioService extends ProfileService {
 
     private List<BluetoothDevice> getConnectedPeerDevices(int groupId) {
         List<BluetoothDevice> result = new ArrayList<>();
-        /*for (BluetoothDevice peerDevice : getConnectedDevices()) {
+        for (BluetoothDevice peerDevice : getConnectedDevices()) {
             if (getGroupId(peerDevice) == groupId) {
                 result.add(peerDevice);
             }
-        }*/
+        }
         return result;
+    }
+
+    private int getNonCsipGroupId() {
+        int groupid = LE_AUDIO_GROUP_ID_INVALID;
+        if (mNonCSIPGruopID.size() == 0) {
+            groupid = NON_CSIP_MIN_GROUP_ID;
+        } else if (mNonCSIPGruopID.last() < NON_CSIP_MAX_GROUP_ID) {
+            groupid = mNonCSIPGruopID.last() + 1;
+        } else if (mNonCSIPGruopID.first() > NON_CSIP_MIN_GROUP_ID) {
+            groupid = mNonCSIPGruopID.first() - 1;
+        } else {
+            int first_groupid_avail = mNonCSIPGruopID.first() + 1;
+            while (first_groupid_avail < NON_CSIP_MAX_GROUP_ID - 1) {
+                if (!mNonCSIPGruopID.contains(first_groupid_avail)) {
+                    groupid = first_groupid_avail;
+                    break;
+                }
+                first_groupid_avail++;
+            }
+        }
+        Log.d(TAG, "Returning non-CSIP group ID " + groupid);
+        return groupid;
+    }
+
+    private List<BluetoothDevice> getCsipGroupMembers(int groupid) {
+        CsipWrapper csipWrapper = CsipWrapper.getInstance();
+        DeviceGroup set = csipWrapper.getCoordinatedSet(groupid);
+        if (set != null)
+            return set.getDeviceGroupMembers();
+        return null;
     }
 
     @VisibleForTesting
     synchronized void connectionStateChanged(BluetoothDevice device, int fromState,
                                                      int toState) {
+        Log.e(TAG, "connectionStateChanged: invocation. device=" + device
+                + " fromState=" + fromState + " toState=" + toState);
         if ((device == null) || (fromState == toState)) {
             Log.e(TAG, "connectionStateChanged: unexpected invocation. device=" + device
                     + " fromState=" + fromState + " toState=" + toState);
             return;
         }
-        if (toState == BluetoothProfile.STATE_CONNECTED) {
-            Log.d(TAG, "ADM will handle the connectionStateChanged as connected.");
+        if (toState == BluetoothProfile.STATE_CONNECTING) {
+            Log.d(TAG, "connectionStateChanged as connecting for device " + device);
+            CsipWrapper csipWrapper = CsipWrapper.getInstance();
+            int groupId = csipWrapper.getRemoteDeviceGroupId(device, null);
+            if (groupId != LE_AUDIO_GROUP_ID_INVALID) {
+                if (groupId == INVALID_SET_ID) {
+                    groupId = getNonCsipGroupId();
+                    mNonCSIPGruopID.add(groupId);
+                    Log.d(TAG, "non-CSIP device group ID " + groupId);
+                } else {
+                    Log.d(TAG, "CSIP device group ID " + groupId);
+                }
+                Log.d(TAG, "Add device " + device + " to group " + groupId);
+                mDeviceGroupIdMap.put(device, groupId);
+            }
+        } else if (toState == BluetoothProfile.STATE_CONNECTED) {
             /*int myGroupId = getGroupId(device);
             if (myGroupId == LE_AUDIO_GROUP_ID_INVALID
                     || getConnectedPeerDevices(myGroupId).size() == 1) {
@@ -1514,6 +1661,7 @@ public class LeAudioService extends ProfileService {
         }
         // Check if the device is disconnected - if unbond, remove the state machine
         if (toState == BluetoothProfile.STATE_DISCONNECTED) {
+            Log.d(TAG, "connectionStateChanged as disconnected for device " + device);
             int bondState = mAdapterService.getBondState(device);
             if (bondState == BluetoothDevice.BOND_NONE) {
                 if (DBG) {
@@ -1522,6 +1670,32 @@ public class LeAudioService extends ProfileService {
                 //removeStateMachine(device);
                 AcmServIntf mAcmService = AcmServIntf.get();
                 mAcmService.removeStateMachine(device);
+            }
+            int groupId = getGroupId(device);
+            if (groupId == LE_AUDIO_GROUP_ID_INVALID) {
+                Log.d(TAG, "Disconnect for Invalid group ID return ");
+                return;
+            }
+
+            if (groupId >= INVALID_SET_ID) {
+                Log.d(TAG, "non-CSIP remove device " + device + " group ID " + groupId);
+                mDeviceGroupIdMap.remove(device);
+                if (groupId > INVALID_SET_ID)
+                    mNonCSIPGruopID.remove(groupId);
+            } else {
+                if (getConnectedPeerDevices(groupId).size() == 0) {
+                    List<BluetoothDevice> removedevices = new ArrayList<BluetoothDevice>();
+                    for (Map.Entry<BluetoothDevice,Integer> e : mDeviceGroupIdMap.entrySet()) {
+                        if (e.getValue() == groupId) {
+                            Log.d(TAG,"CSIP remove device " + e.getKey() + " grpID " + groupId);
+                            removedevices.add(e.getKey());
+                        }
+                    }
+                    for (BluetoothDevice dev : removedevices) {
+                        mDeviceGroupIdMap.remove(dev);
+                    }
+                    removedevices.clear();
+                }
             }
 
             //Todo
@@ -1563,6 +1737,11 @@ public class LeAudioService extends ProfileService {
         }
     }
 
+    synchronized void onActiveDeviceChanged(BluetoothDevice device) {
+        mLeActiveGroupID = (device != null) ? getGroupId(device) : LE_AUDIO_GROUP_ID_INVALID;
+        Log.d(TAG, "onActiveDeviceChanged device " + device + " groupID " + mLeActiveGroupID);
+    }
+
     private class ConnectionStateChangedReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -1573,6 +1752,17 @@ public class LeAudioService extends ProfileService {
             int toState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
             int fromState = intent.getIntExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, -1);
             connectionStateChanged(device, fromState, toState);
+        }
+    }
+
+    private class ActiveDeviceChangedReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if(!BluetoothLeAudio.ACTION_LE_AUDIO_ACTIVE_DEVICE_CHANGED.equals(intent.getAction())) {
+                return;
+            }
+            BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+            onActiveDeviceChanged(device);
         }
     }
 
@@ -1589,13 +1779,11 @@ public class LeAudioService extends ProfileService {
 
             switch (action) {
                 case ACTION_LE_AUDIO_CONNECTION_TRIGGER: {
-
                     String device1 = intent.getStringExtra("bd_add_1");
                     Log.d(TAG, "device Intent address: " + device1);
                     BluetoothDevice bddevice1 = null, bddevice2 = null;
 
                     mAdapter = BluetoothAdapter.getDefaultAdapter();
-
                     if (mAdapter != null) {
                         bddevice1 = mAdapter.getRemoteDevice(device1);
                     }
@@ -1746,14 +1934,16 @@ public class LeAudioService extends ProfileService {
      * @return group id that this device currently belongs to
      */
     public int getGroupId(BluetoothDevice device) {
+        Log.d(TAG, "getGroupId device: " + device);
         if (device == null) {
             Log.d(TAG, "device is null");
             return LE_AUDIO_GROUP_ID_INVALID;
         }
         CsipWrapper csipWrapper = CsipWrapper.getInstance();
         int setId = csipWrapper.getRemoteDeviceGroupId(device, null);
-
-        Log.d(TAG, "device: " + device + " groupId: " + setId);
+        if (setId == INVALID_SET_ID)
+            setId = mDeviceGroupIdMap.getOrDefault(device, INVALID_SET_ID);
+        Log.d(TAG, "getGroupId device: " + device + " groupId: " + setId);
         return setId;
     }
 
@@ -2059,8 +2249,8 @@ public class LeAudioService extends ProfileService {
 
         @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
         private LeAudioService getService(AttributionSource source) {
-            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
-                    || !Utils.checkServiceAvailable(mService, TAG)
+            if (!Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)
                     || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }
