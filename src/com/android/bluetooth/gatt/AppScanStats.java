@@ -104,29 +104,6 @@ import java.util.Objects;
             this.filterString = "";
         }
     }
-
-    static int getNumScanDurationsKept() {
-        return AdapterService.getAdapterService().getScanQuotaCount();
-    }
-
-    // This constant defines the time window an app can scan multiple times.
-    // Any single app can scan up to |NUM_SCAN_DURATIONS_KEPT| times during
-    // this window. Once they reach this limit, they must wait until their
-    // earliest recorded scan exits this window.
-    static long getExcessiveScanningPeriodMillis() {
-        return AdapterService.getAdapterService().getScanQuotaWindowMillis();
-    }
-
-    // Maximum msec before scan gets downgraded to opportunistic
-    static long getScanTimeoutMillis() {
-        return AdapterService.getAdapterService().getScanTimeoutMillis();
-    }
-
-    // Scan mode upgrade duration after scanStart()
-    static long getScanUpgradeDurationMillis() {
-        return AdapterService.getAdapterService().getScanUpgradeDurationMillis();
-    }
-
     public String appName;
     public WorkSource mWorkSource; // Used for BatteryStats and BluetoothStatsLog
     private int mScansStarted = 0;
@@ -187,12 +164,20 @@ import java.util.Objects;
         results++;
     }
 
-    boolean isScanning() {
+    synchronized boolean isScanning() {
         return !mOngoingScans.isEmpty();
     }
 
-    LastScan getScanFromScannerId(int scannerId) {
+    synchronized LastScan getScanFromScannerId(int scannerId) {
         return mOngoingScans.get(scannerId);
+    }
+
+    synchronized boolean isScanTimeout(int scannerId) {
+        LastScan onGoingScan = getScanFromScannerId(scannerId);
+        if (onGoingScan == null) {
+            return false;
+        }
+        return onGoingScan.isTimeout;
     }
 
     synchronized void recordScanStart(ScanSettings settings, List<ScanFilter> filters,

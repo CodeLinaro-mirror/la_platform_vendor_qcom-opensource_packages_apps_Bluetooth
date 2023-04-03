@@ -6457,12 +6457,18 @@ public class AdapterService extends Service {
         }
     }
 
+    /**
+     * Returns scan quota count.
+     */
     public int getScanQuotaCount() {
         synchronized (mDeviceConfigLock) {
             return mScanQuotaCount;
         }
     }
 
+    /**
+     * Returns scan quota window in millis.
+     */
     public long getScanQuotaWindowMillis() {
         synchronized (mDeviceConfigLock) {
             return mScanQuotaWindowMillis;
@@ -6505,6 +6511,9 @@ public class AdapterService extends Service {
         }
     }
 
+    /**
+     * Returns scan timeout in millis.
+     */
     public long getScanTimeoutMillis() {
         synchronized (mDeviceConfigLock) {
             return mScanTimeoutMillis;

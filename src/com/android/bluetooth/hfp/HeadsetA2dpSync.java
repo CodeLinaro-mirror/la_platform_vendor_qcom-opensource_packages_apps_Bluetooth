@@ -47,6 +47,7 @@ import java.lang.reflect.*;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 import com.android.bluetooth.apm.CallAudioIntf;
+import com.android.bluetooth.acm.AcmService;
 
 /**
  * Defines methods used for synchronization between HFP and A2DP
@@ -156,6 +157,42 @@ public class HeadsetA2dpSync {
       }
     }
 
+    public void hfpCallBapMediaSync(boolean isBapMediaSuspend) {
+        Log.d(TAG,"hfpCallBapMediaSync(): isBapMediaSuspend: " + isBapMediaSuspend);
+        if (ApmConstIntf.getAospLeaEnabled()) {
+            ActiveDeviceManagerServiceIntf mActiveDeviceManager =
+                    ActiveDeviceManagerServiceIntf.get();
+            int MediaProfile =
+                mActiveDeviceManager.getActiveProfile(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+            int VoiceProfile =
+                mActiveDeviceManager.getActiveProfile(ApmConstIntf.AudioFeatures.CALL_AUDIO);
+            BluetoothDevice mMediaDevice =
+                mActiveDeviceManager.getActiveDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+            BluetoothDevice mVoiceDevice =
+                mActiveDeviceManager.getActiveDevice(ApmConstIntf.AudioFeatures.CALL_AUDIO);
+            Log.d(TAG,"hfpCallBapMediaSync(): MediaProfile: " + MediaProfile +
+                                      ", current active media device: " + mMediaDevice);
+            Log.d(TAG,"hfpCallBapMediaSync: VoiceProfile: " + VoiceProfile +
+                                      ", current active voice device: " + mVoiceDevice);
+
+            if (MediaProfile != ApmConstIntf.AudioProfiles.NONE &&
+                MediaProfile != ApmConstIntf.AudioProfiles.A2DP &&
+                VoiceProfile != ApmConstIntf.AudioProfiles.NONE &&
+                VoiceProfile == ApmConstIntf.AudioProfiles.HFP) {
+               AcmService mAcmService = AcmService.getAcmService();
+               if (mAcmService != null) {
+                  if (isBapMediaSuspend) {
+                      Log.d(TAG,"hfpCallBapMediaSync(): hfp call active, suspend bap Music ");
+                      mAcmService.hfpCallBapMediaSync(true);
+                  } else {
+                      Log.d(TAG,"hfpCallBapMediaSync(): hfp call ended, resume bap Music ");
+                      mAcmService.hfpCallBapMediaSync(false);
+                  }
+               }
+            }
+        }
+    }
+
     public boolean suspendA2DP(int reason, BluetoothDevice device) {
         int a2dpState = isA2dpPlaying();
         String a2dpSuspendStatus;
@@ -171,8 +208,10 @@ public class HeadsetA2dpSync {
             return false;
         }
 
-        Log.d(TAG," suspendA2DP currPlayingState = "+ a2dpState + " for reason " + reason
-              + "mA2dpSuspendTriggered = " + mA2dpSuspendTriggered + " for device " + device);
+        Log.d(TAG," suspendA2DP currPlayingState = "+ a2dpState +
+                  " for reason = " + reason +
+                  ", mA2dpSuspendTriggered = " + mA2dpSuspendTriggered +
+                  " for device: " + device);
         mBroadcastService = mAdapterService.getBroadcastService();
         mBroadcastIsActive = mAdapterService.getBroadcastActive();
         mBroadcastIsStreaming = mAdapterService.getBroadcastStreaming();
@@ -254,6 +293,7 @@ public class HeadsetA2dpSync {
             mA2dpSuspendTriggered = reason;
             updateSuspendState();
             Log.d(TAG," A2DP Playing ,wait for suspend ");
+            hfpCallBapMediaSync(true);
             return true;
         }
         return false;
@@ -295,6 +335,7 @@ public class HeadsetA2dpSync {
             }
         } else {
             mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
+            hfpCallBapMediaSync(false);
         }
         return true;
     }
