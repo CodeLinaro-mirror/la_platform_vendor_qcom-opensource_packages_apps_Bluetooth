@@ -179,6 +179,9 @@ class AvrcpControllerStateMachine extends StateMachine {
     private int mRemoteFeatures;
     private int mRemoteVersion;
 
+    // If true set active when remote device play music
+    private boolean mShouldSetActive = true;
+
     /**
      * Custom action to search.
      *
@@ -466,6 +469,7 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
 
         setInitialState(mDisconnected);
+        mShouldSetActive = shouldSetActive();
     }
 
     public void doQuit() {
@@ -622,8 +626,8 @@ class AvrcpControllerStateMachine extends StateMachine {
         mBrowseTree.mNowPlayingNode.setCached(false);
         mBrowseTree.mRootNode.setCached(false);
         if (isActive()) {
-            BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mNowPlayingNode);
-            BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mRootNode);
+            notifyChanged(mBrowseTree.mNowPlayingNode);
+            notifyChanged(mBrowseTree.mRootNode);
         }
         removeUnusedArtwork(previousTrackUuid);
         removeUnusedArtworkFromBrowseTree();
@@ -690,12 +694,8 @@ class AvrcpControllerStateMachine extends StateMachine {
     }
 
     private void notifyChanged(BrowseTree.BrowseNode node) {
-        // We should only notify now playing content updates if we're the active device. VFS
-        // updates are fine at any time
-        int scope = node.getScope();
-        if (scope != AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING
-                || (scope == AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING
-                && isActive())) {
+        // We should only notify media item content updates if we're the active device.
+        if (isActive()) {
             BluetoothMediaBrowserService.notifyChanged(node);
         }
     }
@@ -732,7 +732,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                 currBrPlayer.removeChild(mBrowseTree.mSearchNode);
             }
 
-            BluetoothMediaBrowserService.notifyChanged(currBrPlayer);
+            notifyChanged(currBrPlayer);
         } else {
             Log.d(TAG, "currBrPlayer is NULL");
         }
@@ -824,10 +824,11 @@ class AvrcpControllerStateMachine extends StateMachine {
                                 mAddressedPlayer.getCurrentTrack());
                         BluetoothMediaBrowserService.notifyChanged(
                                 mAddressedPlayer.getPlaybackState());
-                        BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mNowPlayingNode);
+                        notifyChanged(mBrowseTree.mNowPlayingNode);
                     } else {
-                        // Always clear cache when device becomes inactive
-                        refreshSearchNode(false);
+                        // NOT refresh search node because it brings up switching
+                        // active device frequently so as to make browsing media
+                        // file system fail
                         sendMessage(MSG_AVRCP_PASSTHRU,
                                 AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
                     }
@@ -950,25 +951,29 @@ class AvrcpControllerStateMachine extends StateMachine {
                 }
 
                 case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                    logD(STATE_TAG + " playStatus " + msg.what);
+                    logD(STATE_TAG + " playStatus " + msg.arg1);
                     mAddressedPlayer.setPlayStatus(msg.arg1);
 
                     // Pause music when SCO is connected
                     if (msg.arg1 == PlaybackStateCompat.STATE_PLAYING
-                        && HeadsetClientService.isScoConnected()) {
+                        && HeadsetClientService.isScoConnected()
+                        && !A2dpSinkService.allowConcurrentA2dpHfAudio()) {
                         sendMessage(MSG_AVRCP_PASSTHRU,
                                 AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
                         return true;
                     }
 
-                    if (!isActive()) {
+                    if (!isActive() && !mShouldSetActive) {
                         sendMessage(MSG_AVRCP_PASSTHRU,
                                 AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
                         return true;
                     }
 
                     PlaybackStateCompat playbackState = mAddressedPlayer.getPlaybackState();
-                    BluetoothMediaBrowserService.notifyChanged(playbackState);
+                    if (isActive()) {
+                        logD(STATE_TAG + " Notify playbackState " + playbackState);
+                        BluetoothMediaBrowserService.notifyChanged(playbackState);
+                    }
 
                     int focusState = AudioManager.ERROR;
                     A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
@@ -982,13 +987,18 @@ class AvrcpControllerStateMachine extends StateMachine {
                         return true;
                     }
 
-                    if (playbackState.getState() == PlaybackStateCompat.STATE_PLAYING
-                            && focusState == AudioManager.AUDIOFOCUS_NONE) {
-                        if (shouldRequestFocus()) {
-                            mSessionCallbacks.onPrepare();
+                    if (playbackState.getState() == PlaybackStateCompat.STATE_PLAYING) {
+                        if (focusState == AudioManager.AUDIOFOCUS_NONE) {
+                            if (shouldRequestFocus() || A2dpSinkService.allowConcurrentA2dpHfAudio()) {
+                                logD(STATE_TAG + " Get audio focus");
+                                mSessionCallbacks.onPrepare();
+                                mService.setActiveDevice(mDevice);
+                            } else {
+                                sendMessage(MSG_AVRCP_PASSTHRU,
+                                        AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
+                            }
                         } else {
-                            sendMessage(MSG_AVRCP_PASSTHRU,
-                                    AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
+                            mService.setActiveDevice(mDevice);
                         }
                     }
                     return true;
@@ -1011,7 +1021,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                     // invalid
                     mBrowseTree.mNowPlayingNode.setCached(false);
                     if (isActive()) {
-                        BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mNowPlayingNode);
+                        notifyChanged(mBrowseTree.mNowPlayingNode);
                     }
                     removeUnusedArtworkFromBrowseTree();
 
@@ -1267,7 +1277,7 @@ class AvrcpControllerStateMachine extends StateMachine {
             logD("processAvailablePlayerChanged");
             mBrowseTree.mRootNode.setCached(false);
             mBrowseTree.mRootNode.setExpectedChildren(255);
-            BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mRootNode);
+            notifyChanged(mBrowseTree.mRootNode);
             removeUnusedArtworkFromBrowseTree();
             requestContents(mBrowseTree.mRootNode);
         }
@@ -2291,6 +2301,10 @@ class AvrcpControllerStateMachine extends StateMachine {
     }
 
     private boolean isPassThruAllowed(int cmd) {
+        if (A2dpSinkService.allowConcurrentA2dpHfAudio()) {
+            logD("Allow concurrent A2DP/HFP audio");
+            return true;
+        }
         if (!(HeadsetClientService.isScoConnected())) {
             return true;
         } else {
@@ -2303,4 +2317,11 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         return false;
     }
+
+    // If true set active when remote device play music
+    private boolean shouldSetActive() {
+        return mService.getResources()
+                .getBoolean(R.bool.set_active_when_remote_device_play);
+    }
+
 }

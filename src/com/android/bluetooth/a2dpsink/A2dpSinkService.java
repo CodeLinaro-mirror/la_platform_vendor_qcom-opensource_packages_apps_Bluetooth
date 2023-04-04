@@ -28,6 +28,7 @@ import android.util.Log;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.AdapterUtil;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.internal.annotations.VisibleForTesting;
@@ -51,7 +52,7 @@ public class A2dpSinkService extends ProfileService {
     private AdapterService mAdapterService;
     private DatabaseManager mDatabaseManager;
     protected Map<BluetoothDevice, A2dpSinkStateMachine> mDeviceStateMap =
-            new ConcurrentHashMap<>(1);
+            new ConcurrentHashMap<>();
 
     private final Object mStreamHandlerLock = new Object();
 
@@ -85,8 +86,10 @@ public class A2dpSinkService extends ProfileService {
     protected boolean stop() {
         setA2dpSinkService(null);
         cleanupNative();
-        for (A2dpSinkStateMachine stateMachine : mDeviceStateMap.values()) {
-            stateMachine.quitNow();
+        synchronized (mDeviceStateMap) {
+            for (A2dpSinkStateMachine stateMachine : mDeviceStateMap.values()) {
+                stateMachine.quitNow();
+            }
         }
         mDeviceStateMap.clear();
         synchronized (mStreamHandlerLock) {
@@ -118,6 +121,9 @@ public class A2dpSinkService extends ProfileService {
      * Set the device that should be allowed to actively stream
      */
     public boolean setActiveDevice(BluetoothDevice device) {
+        if (DBG) {
+            Log.d(TAG, " Set " + device + " to be active");
+        }
         // Translate to byte address for JNI. Use an all 0 MAC for no active device
         byte[] address = null;
         if (device != null) {
@@ -348,19 +354,21 @@ public class A2dpSinkService extends ProfileService {
                     + ", InstanceMap start state: " + sb.toString());
         }
 
-        A2dpSinkStateMachine stateMachine = mDeviceStateMap.get(device);
-        // a state machine instance doesn't exist. maybe it is already gone?
-        if (stateMachine == null) {
-            return false;
+        synchronized (mDeviceStateMap) {
+            A2dpSinkStateMachine stateMachine = mDeviceStateMap.get(device);
+            // a state machine instance doesn't exist. maybe it is already gone?
+            if (stateMachine == null) {
+                return false;
+            }
+            int connectionState = stateMachine.getState();
+            if (connectionState == BluetoothProfile.STATE_DISCONNECTED
+                    || connectionState == BluetoothProfile.STATE_DISCONNECTING) {
+                return false;
+            }
+            // upon completion of disconnect, the state machine will remove itself from the available
+            // devices map
+            stateMachine.disconnect();
         }
-        int connectionState = stateMachine.getState();
-        if (connectionState == BluetoothProfile.STATE_DISCONNECTED
-                || connectionState == BluetoothProfile.STATE_DISCONNECTING) {
-            return false;
-        }
-        // upon completion of disconnect, the state machine will remove itself from the available
-        // devices map
-        stateMachine.disconnect();
         return true;
     }
 
@@ -374,15 +382,17 @@ public class A2dpSinkService extends ProfileService {
 
     protected A2dpSinkStateMachine getOrCreateStateMachine(BluetoothDevice device) {
         A2dpSinkStateMachine newStateMachine = new A2dpSinkStateMachine(device, this);
-        A2dpSinkStateMachine existingStateMachine =
-                mDeviceStateMap.putIfAbsent(device, newStateMachine);
-        // Given null is not a valid value in our map, ConcurrentHashMap will return null if the
-        // key was absent and our new value was added. We should then start and return it.
-        if (existingStateMachine == null) {
-            newStateMachine.start();
-            return newStateMachine;
+        synchronized (mDeviceStateMap) {
+            A2dpSinkStateMachine existingStateMachine =
+                    mDeviceStateMap.putIfAbsent(device, newStateMachine);
+            // Given null is not a valid value in our map, ConcurrentHashMap will return null if the
+            // key was absent and our new value was added. We should then start and return it.
+            if (existingStateMachine == null) {
+                newStateMachine.start();
+                return newStateMachine;
+            }
+            return existingStateMachine;
         }
-        return existingStateMachine;
     }
 
     List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
@@ -414,9 +424,11 @@ public class A2dpSinkService extends ProfileService {
      * {@link BluetoothProfile#STATE_DISCONNECTING} if this profile is being disconnected
      */
     public int getConnectionState(BluetoothDevice device) {
-        A2dpSinkStateMachine stateMachine = mDeviceStateMap.get(device);
-        return (stateMachine == null) ? BluetoothProfile.STATE_DISCONNECTED
-                : stateMachine.getState();
+        synchronized (mDeviceStateMap) {
+            A2dpSinkStateMachine stateMachine = mDeviceStateMap.get(device);
+            return (stateMachine == null) ? BluetoothProfile.STATE_DISCONNECTED
+                    : stateMachine.getState();
+        }
     }
 
     /**
@@ -483,12 +495,14 @@ public class A2dpSinkService extends ProfileService {
     }
 
     BluetoothAudioConfig getAudioConfig(BluetoothDevice device) {
-        A2dpSinkStateMachine stateMachine = mDeviceStateMap.get(device);
-        // a state machine instance doesn't exist. maybe it is already gone?
-        if (stateMachine == null) {
-            return null;
+        synchronized (mDeviceStateMap) {
+            A2dpSinkStateMachine stateMachine = mDeviceStateMap.get(device);
+            // a state machine instance doesn't exist. maybe it is already gone?
+            if (stateMachine == null) {
+                return null;
+            }
+            return stateMachine.getAudioConfig();
         }
-        return stateMachine.getAudioConfig();
     }
 
     /* JNI interfaces*/
@@ -557,5 +571,9 @@ public class A2dpSinkService extends ProfileService {
                 channelCount);
         A2dpSinkStateMachine stateMachine = getOrCreateStateMachine(event.mDevice);
         stateMachine.sendMessage(A2dpSinkStateMachine.STACK_EVENT, event);
+    }
+
+    public static boolean allowConcurrentA2dpHfAudio() {
+        return AdapterUtil.allowConcurrentA2dpHfAudio();
     }
 }

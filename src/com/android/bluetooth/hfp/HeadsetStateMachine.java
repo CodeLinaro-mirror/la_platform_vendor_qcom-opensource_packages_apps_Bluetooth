@@ -27,9 +27,16 @@ import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothProtoEnums;
 import android.bluetooth.hfp.BluetoothHfpProtoEnums;
+import android.car.Car;
+import android.car.CarNotConnectedException;
+import android.car.media.CarAudioManager;
 import android.content.Attributable;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
+import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
@@ -116,6 +123,9 @@ public class HeadsetStateMachine extends StateMachine {
     // NOTE: the value is not "final" - it is modified in the unit tests
     @VisibleForTesting static int sConnectTimeoutMs = 30000;
 
+    private static final int MAX_HFP_SCO_VOICE_CALL_VOLUME = 15; // HFP 1.5 spec.
+    private static final int MIN_HFP_SCO_VOICE_CALL_VOLUME = 0; // HFP 1.5 spec.
+
     private static final HeadsetAgIndicatorEnableState DEFAULT_AG_INDICATOR_ENABLE_STATE =
             new HeadsetAgIndicatorEnableState(true, true, true, true);
 
@@ -152,6 +162,14 @@ public class HeadsetStateMachine extends StateMachine {
     // HSP specific
     private boolean mNeedDialingOutReply;
 
+    private Car mCar;
+    private CarAudioManager mCarAudioManager;
+    private static int mVolumeGroupId;
+
+    private static int sMaxAmVcVol;
+    private static int sMinAmVcVol;
+    private int mCommandedSpeakerVolume = -1;
+
     // Keys are AT commands, and values are the company IDs.
     private static final Map<String, Integer> VENDOR_SPECIFIC_AT_COMMAND_COMPANY_ID;
 
@@ -171,6 +189,27 @@ public class HeadsetStateMachine extends StateMachine {
                 BluetoothAssignedNumbers.APPLE);
     }
 
+    private final CarAudioManager.CarVolumeCallback mVolumeChangeCallback =
+        new CarAudioManager.CarVolumeCallback() {
+            @Override
+            public void onGroupVolumeChanged(int zoneId, int groupId, int flags) {
+                log("zoneId:" + zoneId + ", groupId:" + groupId);
+
+                if (zoneId == CarAudioManager.PRIMARY_AUDIO_ZONE
+                    && groupId == mVolumeGroupId) {
+                    int streamValue = 0;
+                    try {
+                        streamValue = mCarAudioManager.getGroupVolume(zoneId, groupId);
+                    } catch (CarNotConnectedException e) {
+                        Log.e(TAG, "Car is not connected", e);
+                    } catch (NullPointerException e) {
+                        Log.e(TAG, "mCarAudioManager is NULL!", e);
+                    }
+                    sendMessage(INTENT_SCO_VOLUME_CHANGED, streamValue);
+                }
+            }
+        };
+
     private HeadsetStateMachine(BluetoothDevice device, Looper looper,
             HeadsetService headsetService, AdapterService adapterService,
             HeadsetNativeInterface nativeInterface, HeadsetSystemInterface systemInterface) {
@@ -184,6 +223,12 @@ public class HeadsetStateMachine extends StateMachine {
         mSystemInterface =
                 Objects.requireNonNull(systemInterface, "systemInterface cannot be null");
         mAdapterService = Objects.requireNonNull(adapterService, "AdapterService cannot be null");
+
+        if (mHeadsetService.isAutomotive()) {
+            mCar = Car.createCar(headsetService, mConnection);
+            mCar.connect();
+        }
+
         mDeviceSilenced = false;
         // Create phonebook helper
         mPhonebook = new AtPhonebook(mHeadsetService, mNativeInterface);
@@ -432,6 +477,30 @@ public class HeadsetStateMachine extends StateMachine {
          */
         abstract int getAudioStateInt();
 
+    }
+
+
+    static int hfToAmVol(int hfVol) {
+        int amRange = sMaxAmVcVol - sMinAmVcVol;
+        int hfRange = MAX_HFP_SCO_VOICE_CALL_VOLUME - MIN_HFP_SCO_VOICE_CALL_VOLUME;
+        int amOffset = (amRange * (hfVol - MIN_HFP_SCO_VOICE_CALL_VOLUME)) / hfRange;
+        int amVol = sMinAmVcVol + amOffset;
+        Log.d(TAG, "HF -> AM:" + hfVol + "->" + amVol);
+        return amVol;
+    }
+
+    static int amToHfVol(int amVol) {
+        int amRange = (sMaxAmVcVol > sMinAmVcVol) ? (sMaxAmVcVol - sMinAmVcVol) : 1;
+        int hfRange = MAX_HFP_SCO_VOICE_CALL_VOLUME - MIN_HFP_SCO_VOICE_CALL_VOLUME;
+        int hfOffset = 0;
+        if (amRange > 0) {
+            hfOffset = (hfRange * (amVol - sMinAmVcVol)) / amRange;
+        } else {
+            Log.w(TAG, "Invalid amRange " + amRange);
+        }
+        int hfVol = MIN_HFP_SCO_VOICE_CALL_VOLUME + hfOffset;
+        Log.d(TAG, "AM -> HF:" + amVol + "->" + hfVol);
+        return hfVol;
     }
 
     class Disconnected extends HeadsetStateBase {
@@ -1336,7 +1405,18 @@ public class HeadsetStateMachine extends StateMachine {
                     break;
                 }
                 case INTENT_SCO_VOLUME_CHANGED:
-                    processIntentScoVolume((Intent) message.obj, mDevice);
+                    if (mHeadsetService.isAutomotive()) {
+                        int amVol = message.arg1;
+                        int hfVol = amToHfVol(amVol);
+                        if (amVol != mCommandedSpeakerVolume) {
+                            Log.d(TAG, "Volume" + amVol + ":" + mCommandedSpeakerVolume);
+                            // Volume was changed by a 3rd party
+                            mCommandedSpeakerVolume = -1;
+                            mNativeInterface.setVolume(mDevice, HeadsetHalConstants.VOLUME_TYPE_SPK, hfVol);
+                        }
+                    } else {
+                        processIntentScoVolume((Intent) message.obj, mDevice);
+                    }
                     break;
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
@@ -1458,6 +1538,32 @@ public class HeadsetStateMachine extends StateMachine {
             super.exit();
         }
     }
+
+    private final ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            try {
+                mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
+                mVolumeGroupId = mCarAudioManager.getVolumeGroupIdForUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION);
+
+                log("mVolumeGroupId:" + mVolumeGroupId);
+
+                sMaxAmVcVol = mCarAudioManager.getGroupMaxVolume(mVolumeGroupId);
+                sMinAmVcVol = mCarAudioManager.getGroupMinVolume(mVolumeGroupId);
+
+                mCarAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
+            } catch (CarNotConnectedException e) {
+                Log.e(TAG, "Car is not connected!", e);
+            } catch (NullPointerException e) {
+                Log.e(TAG, "mCarAudioManager is NULL!", e);
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.e(TAG, "Car service is disconnected");
+        }
+    };
 
     /**
      * Get the underlying device tracked by this state machine
@@ -1663,9 +1769,16 @@ public class HeadsetStateMachine extends StateMachine {
         }
         if (volumeType == HeadsetHalConstants.VOLUME_TYPE_SPK) {
             mSpeakerVolume = volume;
-            int flag = (mCurrentState == mAudioOn) ? AudioManager.FLAG_SHOW_UI : 0;
-            mSystemInterface.getAudioManager()
-                    .setStreamVolume(AudioManager.STREAM_BLUETOOTH_SCO, volume, flag);
+            mCommandedSpeakerVolume = hfToAmVol(volume);
+            log("AM volume set to " + mCommandedSpeakerVolume);
+            if (mHeadsetService.isAutomotive()) {
+                mCarAudioManager.setGroupVolume(mVolumeGroupId,
+                        +mCommandedSpeakerVolume, AudioManager.FLAG_SHOW_UI);
+            } else {
+                int flag = (mCurrentState == mAudioOn) ? AudioManager.FLAG_SHOW_UI : 0;
+                mSystemInterface.getAudioManager()
+                        .setStreamVolume(AudioManager.STREAM_BLUETOOTH_SCO, volume, flag);
+            }
         } else if (volumeType == HeadsetHalConstants.VOLUME_TYPE_MIC) {
             // Not used currently
             mMicVolume = volume;

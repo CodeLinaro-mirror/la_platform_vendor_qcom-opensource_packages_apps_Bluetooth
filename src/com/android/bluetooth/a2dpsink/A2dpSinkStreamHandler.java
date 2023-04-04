@@ -261,7 +261,9 @@ public class A2dpSinkStreamHandler extends Handler {
         // This is because AudioService cleans up focus owner upon requestAudioFocus failure
         // Thus A2dpSinkStreamHandler can't receive Audio focus change event to resume music
         // playing after call is terminated.
-        if (HeadsetClientService.isScoConnected()) {
+        if (HeadsetClientService.isScoConnected() &&
+            !A2dpSinkService.allowConcurrentA2dpHfAudio()) {
+            if (DBG) Log.d(TAG, "Disallow to request audio focus when SCO is connected");
             return;
         }
 
@@ -286,7 +288,8 @@ public class A2dpSinkStreamHandler extends Handler {
                         .build();
         int focusRequestStatus = mAudioManager.requestAudioFocus(focusRequest);
         // If the request is granted begin streaming immediately and schedule an upgrade.
-        if (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+        if (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED ||
+                A2dpSinkService.allowConcurrentA2dpHfAudio()) {
             startFluorideStreaming();
             mAudioFocus = AudioManager.AUDIOFOCUS_GAIN;
         }

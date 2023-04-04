@@ -78,6 +78,9 @@
     <!-- If true, device requests audio focus and start avrcp updates on source start or play -->
     <bool name="a2dp_sink_automatically_request_audio_focus">false</bool>
 
+    <!--For A2DP source set media player feature. -->
+    <bool name="a2dp_source_broadcast_set_media_player">true</bool>
+
     <!-- For enabling the AVRCP Controller Cover Artwork feature -->
     <bool name="avrcp_controller_enable_cover_art">true</bool>
 
@@ -145,4 +148,13 @@
 
     <!-- [Dual Bluetooth] Flag whether or not to allow phonebook access permission -->
     <bool name="allow_pbap_access_permission">false</bool>
+
+    <!-- [Dual A2DP Sink] Flag whether or not to set active device when remote device play music -->
+    <bool name="set_active_when_remote_device_play">true</bool>
+
+    <!-- Flag whether or not to allow to play A2DP music during HFP call -->
+    <bool name="concurrent_a2dp_hf_audio">false</bool>
+
+    <!-- [Dual Bluetooth] Flag whether or not to enable opp client in new bluetooth adapter -->
+    <bool name="opp_client_in_new_adapter">true</bool>
 </resources>

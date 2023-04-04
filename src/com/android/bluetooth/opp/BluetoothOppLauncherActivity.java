@@ -46,6 +46,7 @@ import android.util.Log;
 import android.util.Patterns;
 import android.widget.Toast;
 
+import com.android.bluetooth.btservice.AdapterUtil;
 import com.android.bluetooth.R;
 
 import java.io.File;
@@ -231,6 +232,8 @@ public class BluetoothOppLauncherActivity extends Activity {
                     BluetoothDevicePicker.FILTER_TYPE_TRANSFER);
             in1.putExtra(BluetoothDevicePicker.EXTRA_LAUNCH_PACKAGE, Constants.THIS_PACKAGE_NAME);
             in1.putExtra(BluetoothDevicePicker.EXTRA_LAUNCH_CLASS,
+                    AdapterUtil.isOppClientInNewAdapter()?
+                    BluetoothOppExtReceiver.class.getName():
                     BluetoothOppReceiver.class.getName());
             if (V) {
                 Log.d(TAG, "Launching " + BluetoothDevicePicker.ACTION_LAUNCH);

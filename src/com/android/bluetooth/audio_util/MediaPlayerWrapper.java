@@ -63,6 +63,7 @@ public class MediaPlayerWrapper {
     public interface Callback {
         void mediaUpdatedCallback(MediaData data);
         void sessionUpdatedCallback(String packageName);
+        void mediaUpdatedCallbackExt(String packagename, MediaData data);
     }
 
     boolean isPlaybackStateReady() {
@@ -249,6 +250,7 @@ public class MediaPlayerWrapper {
      * called on the same Looper that was passed in to create this object.
      */
     void registerCallback(Callback callback) {
+        d("registerCallback");
         if (callback == null) {
             e("Cannot register null callbacks for " + mPackageName);
             return;
@@ -272,6 +274,7 @@ public class MediaPlayerWrapper {
      * Unregisters from updates. Note, this doesn't require the looper to be shut down.
      */
     void unregisterCallback() {
+        d("unregisterCallback");
         // Prevent a race condition where a callback could be called while shutting down
         synchronized (mCallbackLock) {
             mRegisteredCallback = null;
@@ -283,6 +286,7 @@ public class MediaPlayerWrapper {
     }
 
     void updateMediaController(MediaController newController) {
+        d("updateMediaController to " + newController.getPackageName());
         if (newController == mMediaController) return;
 
         mMediaController = newController;
@@ -312,6 +316,7 @@ public class MediaPlayerWrapper {
                 getPlaybackState(),
                 Util.toMetadataList(mContext, getQueue()));
 
+        d("sendMediaUpdate newData PlaybackState " + newData.state);
         if (newData.equals(mCurrentData)) {
             // This may happen if the controller is fully synced by the time the
             // first update is completed
@@ -327,7 +332,7 @@ public class MediaPlayerWrapper {
             }
 
             Log.v(TAG, "trySendMediaUpdate(): Metadata has been updated for " + mPackageName);
-            mRegisteredCallback.mediaUpdatedCallback(newData);
+            mRegisteredCallback.mediaUpdatedCallbackExt(getPackageName(), newData);
         }
 
         mCurrentData = newData;
@@ -390,6 +395,7 @@ public class MediaPlayerWrapper {
         }
 
         void trySendMediaUpdate() {
+            Log.v(TAG, "trySendMediaUpdate(): " + mPackageName);
             synchronized (mTimeoutHandlerLock) {
                 if (mTimeoutHandler == null) return;
                 mTimeoutHandler.removeMessages(TimeoutHandler.MSG_TIMEOUT);
@@ -454,6 +460,7 @@ public class MediaPlayerWrapper {
                 e("The callback playback state doesn't match the current state");
             }
 
+            Log.v(TAG, "onPlaybackStateChanged(): " + mPackageName);
             if (playstateEquals(state, mCurrentData.state)) {
                 Log.w(TAG, "onPlaybackStateChanged(): " + mPackageName
                         + " tried to update with no new data");
@@ -502,7 +509,8 @@ public class MediaPlayerWrapper {
         @Override
         public void onSessionDestroyed() {
             Log.w(TAG, "The session was destroyed " + mPackageName);
-            mRegisteredCallback.sessionUpdatedCallback(mPackageName);
+            if (mRegisteredCallback != null)
+                mRegisteredCallback.sessionUpdatedCallback(mPackageName);
         }
 
         @VisibleForTesting

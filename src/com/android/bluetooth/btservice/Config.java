@@ -110,7 +110,7 @@ public class Config {
                     BluetoothProfile.MAP_CLIENT),
             new ProfileConfig(HidDeviceService.class, R.bool.profile_supported_hid_device,
                     BluetoothProfile.HID_DEVICE),
-            new ProfileConfig(BluetoothOppService.class, R.bool.profile_supported_opp,
+            new ProfileConfig(AdapterUtil.getOppServiceClass(), R.bool.profile_supported_opp,
                     BluetoothProfile.OPP),
             new ProfileConfig(BluetoothPbapService.class, R.bool.profile_supported_pbap,
                     BluetoothProfile.PBAP),

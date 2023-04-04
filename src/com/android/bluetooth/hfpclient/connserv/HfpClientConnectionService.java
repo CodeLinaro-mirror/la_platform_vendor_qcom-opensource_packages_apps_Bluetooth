@@ -110,6 +110,15 @@ public class HfpClientConnectionService extends ConnectionService {
                 // the calls should
                 // be added (see ACTION_CONNECTION_STATE_CHANGED intent above).
                 block.handleCall(call);
+            } else if (BluetoothHeadsetClient.ACTION_QUERY_CALLS_DONE.equals(action)) {
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                HfpClientDeviceBlock block = findBlockForDevice(device);
+                if (block == null) {
+                    Log.w(TAG, "Call changed but no block for device " + device);
+                    return;
+                }
+
+                block.updateConferenceableConnections();
             } else if (BluetoothHeadsetClient.ACTION_AUDIO_STATE_CHANGED.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 int oldState = intent.getIntExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE,
@@ -186,6 +195,7 @@ public class HfpClientConnectionService extends ConnectionService {
             filter.addAction(BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED);
             filter.addAction(BluetoothHeadsetClient.ACTION_AUDIO_STATE_CHANGED);
             filter.addAction(BluetoothHeadsetClient.ACTION_CALL_CHANGED);
+            filter.addAction(BluetoothHeadsetClient.ACTION_QUERY_CALLS_DONE);
             registerReceiver(mBroadcastReceiver, filter);
             return START_STICKY;
         }

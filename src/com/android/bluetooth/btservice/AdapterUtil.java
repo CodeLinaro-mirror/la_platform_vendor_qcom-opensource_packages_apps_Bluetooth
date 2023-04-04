@@ -21,6 +21,8 @@ import android.provider.Settings;
 
 import com.android.bluetooth.gatt.GattService;
 import com.android.bluetooth.gatt.GattExtService;
+import com.android.bluetooth.opp.BluetoothOppService;
+import com.android.bluetooth.opp.BluetoothOppExtService;
 import com.android.bluetooth.R;
 
 import java.util.Arrays;
@@ -135,6 +137,10 @@ public final class AdapterUtil {
         return isAdapter1() ? GattExtService.class : GattService.class;
     }
 
+    public static Class getOppServiceClass() {
+        return isAdapter1() ? BluetoothOppExtService.class : BluetoothOppService.class;
+    }
+
     public static boolean isDualAdapterMode() {
         return sDualBluetooth && sDualAdapterMode;
     }
@@ -172,5 +178,14 @@ public final class AdapterUtil {
 
     private static BluetoothAdapter getAdapter(int adapterIndex) {
         return BluetoothAdapterUtil.getAdapter(adapterIndex);
+    }
+
+    public static boolean allowConcurrentA2dpHfAudio() {
+        return sContext.getResources().getBoolean(R.bool.concurrent_a2dp_hf_audio);
+    }
+
+    public static boolean isOppClientInNewAdapter() {
+        return sDualBluetooth &&
+                sContext.getResources().getBoolean(R.bool.opp_client_in_new_adapter);
     }
 }

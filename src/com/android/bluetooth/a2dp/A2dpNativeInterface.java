@@ -132,7 +132,18 @@ public class A2dpNativeInterface {
      * @return true on success, otherwise false.
      */
     public boolean setActiveDevice(BluetoothDevice device) {
-        return setActiveDeviceNative(getByteAddress(device));
+        return setActiveDeviceNative(getByteAddress(device), true);
+    }
+
+    /**
+     * Sets a connected A2DP remote device as active.
+     *
+     * @param device the remote device
+     * @param active set the active peer when true; Deactivate the peer when false
+     * @return true on success, otherwise false.
+     */
+    public boolean setActiveDevice(BluetoothDevice device, boolean active) {
+        return setActiveDeviceNative(getByteAddress(device), active);
     }
 
     /**
@@ -235,7 +246,7 @@ public class A2dpNativeInterface {
     private native boolean connectA2dpNative(byte[] address);
     private native boolean disconnectA2dpNative(byte[] address);
     private native boolean setSilenceDeviceNative(byte[] address, boolean silence);
-    private native boolean setActiveDeviceNative(byte[] address);
+    private native boolean setActiveDeviceNative(byte[] address, boolean active);
     private native boolean setCodecConfigPreferenceNative(byte[] address,
                 BluetoothCodecConfig[] codecConfigArray);
 }

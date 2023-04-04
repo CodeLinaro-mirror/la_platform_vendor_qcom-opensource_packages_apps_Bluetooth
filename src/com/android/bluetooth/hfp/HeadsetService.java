@@ -34,6 +34,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.BatteryManager;
@@ -1059,7 +1060,7 @@ public class HeadsetService extends ProfileService {
         return getNonIdleAudioDevices().size() > 0;
     }
 
-    boolean isAudioConnected(BluetoothDevice device) {
+    public boolean isAudioConnected(BluetoothDevice device) {
         synchronized (mStateMachines) {
             final HeadsetStateMachine stateMachine = mStateMachines.get(device);
             if (stateMachine == null) {
@@ -1954,5 +1955,9 @@ public class HeadsetService extends ProfileService {
             mStateMachinesThreadHandler = new Handler(mStateMachinesThread.getLooper());
         }
         return mStateMachinesThreadHandler;
+    }
+
+    boolean isAutomotive() {
+        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 }
