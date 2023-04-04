@@ -200,6 +200,10 @@ public class AdapterService extends Service {
     private static final int MIN_ADVT_INSTANCES_FOR_MA = 5;
     private static final int MIN_OFFLOADED_FILTERS = 10;
     private static final int MIN_OFFLOADED_SCAN_STORAGE_BYTES = 1024;
+    private static final int BT_TRANSPORT_BR_EDR = 1;
+    private static final int BT_TRANSPORT_LE = 2;
+    private static final int HCI_BTLE_AFH_CHANNEL_MAP_LEN = 5;
+    private static final int HCI_AFH_CHANNEL_MAP_LEN = 10;
 
     private final Object mEnergyInfoLock = new Object();
     private int mStackReportedState;
@@ -1900,6 +1904,36 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public boolean setAfhChannelMap(int transport, int len, byte [] afhMap,
+                AttributionSource source) {
+            AdapterService service = getService();
+            if (service == null
+                    || !Utils.checkConnectPermissionForDataDelivery(service, source,
+                        "setAfhChannelMap")) {
+                return false;
+            }
+            if ((transport == BT_TRANSPORT_BR_EDR && len == HCI_AFH_CHANNEL_MAP_LEN)
+                ||(transport == BT_TRANSPORT_LE && len == HCI_BTLE_AFH_CHANNEL_MAP_LEN)) {
+                return service.setAfhChannelMap(transport, len, afhMap);
+            } else {
+                Log.d(TAG, "Invalid Transport or length");
+                return false;
+            }
+        }
+
+        @Override
+        public boolean getAfhChannelMap(BluetoothDevice device, int transport,
+                AttributionSource source) {
+            AdapterService service = getService();
+            if (service == null
+                    || !Utils.checkConnectPermissionForDataDelivery(service, source,
+                        "getAfhChannelMap")) {
+                return false;
+            }
+            return service.getAfhChannelMap(device, transport);
+        }
+
+        @Override
         public int getScanMode(AttributionSource attributionSource) {
             AdapterService service = getService();
             if (service == null || !callerIsSystemOrActiveOrManagedUser(service, TAG, "getScanMode")
@@ -3242,6 +3276,15 @@ public class AdapterService extends Service {
         return mVendor.isLeHighPriorityModeSet(device.toString());
     }
 
+    public boolean setAfhChannelMap(int transport, int len, byte [] afhMap) {
+        Log.d(TAG,"setAfhChannelMap for transport : "+transport);
+        return mVendor.setAfhChannelMap(transport, len, afhMap);
+    }
+
+    public boolean getAfhChannelMap(BluetoothDevice device, int transport) {
+        Log.d(TAG,"getAfhChannelMap for transport : "+transport);
+        return mVendor.getAfhChannelMap(device.toString(), transport);
+    }
 
     public BluetoothDevice getTwsPlusPeerDevice(BluetoothDevice device) {
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
