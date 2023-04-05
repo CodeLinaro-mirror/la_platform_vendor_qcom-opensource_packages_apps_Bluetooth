@@ -1344,7 +1344,7 @@ static void gattClientSetPreferredPhyNative(JNIEnv* env, jobject object,
                                      phy_options);
 }
 
-static void readClientPhyCb(uint8_t clientIf, RawAddress bda, uint8_t tx_phy,
+static void readClientPhyCb(int clientIf, RawAddress bda, uint8_t tx_phy,
                             uint8_t rx_phy, uint8_t status) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
@@ -1916,7 +1916,7 @@ static void gattServerSetPreferredPhyNative(JNIEnv* env, jobject object,
   sGattIf->server->set_preferred_phy(bda, tx_phy, rx_phy, phy_options);
 }
 
-static void readServerPhyCb(uint8_t serverIf, RawAddress bda, uint8_t tx_phy,
+static void readServerPhyCb(int serverIf, RawAddress bda, uint8_t tx_phy,
                             uint8_t rx_phy, uint8_t status) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
