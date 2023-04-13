@@ -1282,7 +1282,16 @@ class AdapterProperties {
                         debugLog("Scan Mode:" + mScanMode);
                         break;
                     case AbstractionLayer.BT_PROPERTY_UUIDS:
-                        mUuids = Utils.byteArrayToUuid(val);
+                        int numUuids = val.length / AbstractionLayer.BT_UUID_SIZE;
+                        String uuids_str = new String(val);
+                        String[] uuids = uuids_str.split(" ");
+                        final ParcelUuid[] newUuids = new ParcelUuid[uuids.length];
+                        debugLog("BT_PROPERTY_UUIDS size "+uuids.length+" and those are " + uuids_str);
+                        for (int j =0; j < uuids.length; j++) {
+                            newUuids[j] = ParcelUuid.fromString(uuids[j]);
+                            debugLog("BT_PROPERTY_UUID "+(j + 1)+" :: " + newUuids[j].toString());
+                        }
+                        mUuids = newUuids;
                         break;
                     case AbstractionLayer.BT_PROPERTY_ADAPTER_BONDED_DEVICES:
                         int number = val.length / BD_ADDR_LEN;
