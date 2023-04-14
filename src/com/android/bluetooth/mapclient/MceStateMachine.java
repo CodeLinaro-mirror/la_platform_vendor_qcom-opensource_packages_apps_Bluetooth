@@ -615,7 +615,6 @@ private String getFileExtension(String path){
                 Log.d(TAG, "Enter Connected: " + getCurrentMessage().what);
             }
             onConnectionStateChanged(mPreviousState, BluetoothProfile.STATE_CONNECTED);
-            if (Utils.isPtsTestMode()) return;
 
             mMasClient.makeRequest(new RequestSetPath(FOLDER_TELECOM));
             mMasClient.makeRequest(new RequestSetPath(FOLDER_MSG));
@@ -623,6 +622,7 @@ private String getFileExtension(String path){
             mMasClient.makeRequest(new RequestGetFolderListing(0, 0));
             mMasClient.makeRequest(new RequestSetPath(false));
             mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
+            if (Utils.isPtsTestMode()) return;
             sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_SENT);
             sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_INBOX);
         }
@@ -759,6 +759,7 @@ private String getFileExtension(String path){
                                         calendar.getTime().getTime(), false);
                                 mMessages.put(ev.getHandle(), metadata);
                             }
+                            if (Utils.isPtsTestMode()) return;
                             mMasClient.makeRequest(new RequestGetMessage(ev.getHandle(),
                                     MasClient.CharsetType.UTF_8, false));
                             break;
