@@ -1255,6 +1255,7 @@ static jboolean set_data(JNIEnv* env, bt_oob_data_t& oob_data, jobject oobData,
         ALOGI("%s: wrong length of oobDataLength, should be empty or %d bytes.",
               __func__, OOB_DATA_LEN_SIZE);
         jniThrowIOException(env, EINVAL);
+        env->ReleaseByteArrayElements(oobDataLength, oobDataLengthBytes, 0);
         return JNI_FALSE;
       }
       memcpy(oob_data.oob_data_length, oobDataLengthBytes, len);
