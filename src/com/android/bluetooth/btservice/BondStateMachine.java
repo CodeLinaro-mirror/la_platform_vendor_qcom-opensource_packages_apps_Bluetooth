@@ -87,12 +87,15 @@ final class BondStateMachine extends StateMachine {
     static final int SSP_REQUEST = 5;
     static final int PIN_REQUEST = 6;
     static final int UUID_UPDATE = 10;
+    static final int BONDED_INTENT_DELAY = 12;
     static final int BOND_STATE_NONE = 0;
     static final int BOND_STATE_BONDING = 1;
     static final int BOND_STATE_BONDED = 2;
     static final int ADD_DEVICE_BOND_QUEUE = 11;
     private static final int GROUP_ID_START = 0;
     private static final int GROUP_ID_END = 15;
+
+    static int sPendingUuidUpdateTimeoutMillis = 3000; // 3s
 
     private AdapterService mAdapterService;
     private AdapterProperties mAdapterProperties;
@@ -190,14 +193,19 @@ final class BondStateMachine extends StateMachine {
                         if (!mDevices.contains(dev)) {
                             mDevices.add(dev);
                         }
-                        sendIntent(dev, newState, 0);
+                        sendIntent(dev, newState, 0, false);
                         transitionTo(mPendingCommandState);
                     } else if (newState == BluetoothDevice.BOND_NONE) {
                         /* if the link key was deleted by the stack */
-                        sendIntent(dev, newState, 0);
+                        sendIntent(dev, newState, 0, false);
                     } else {
                         Log.e(TAG, "In stable state, received invalid newState: "
                                 + state2str(newState));
+                    }
+                    break;
+                case BONDED_INTENT_DELAY:
+                    if (mPendingBondedDevices.contains(dev)) {
+                        sendIntent(dev, BluetoothDevice.BOND_BONDED, 0, true);
                     }
                     break;
                  case ADD_DEVICE_BOND_QUEUE:
@@ -224,7 +232,7 @@ final class BondStateMachine extends StateMachine {
                     break;
                 case UUID_UPDATE:
                     if (mPendingBondedDevices.contains(dev)) {
-                        sendIntent(dev, BluetoothDevice.BOND_BONDED, 0);
+                        sendIntent(dev, BluetoothDevice.BOND_BONDED, 0, false);
                     }
                     break;
                 case CANCEL_BOND:
@@ -279,7 +287,7 @@ final class BondStateMachine extends StateMachine {
                             && reason == BluetoothDevice.BOND_SUCCESS) {
                         reason = BluetoothDevice.UNBOND_REASON_REMOVED;
                     }
-                    sendIntent(dev, newState, reason);
+                    sendIntent(dev, newState, reason, false);
                     if (newState != BluetoothDevice.BOND_BONDING) {
                         // check if bond none is received from device which
                         // was in pairing state otherwise don't transition to
@@ -463,7 +471,8 @@ final class BondStateMachine extends StateMachine {
                         BluetoothDevice.BOND_NONE, BluetoothProtoEnums.BOND_SUB_STATE_UNKNOWN,
                         BluetoothDevice.UNBOND_REASON_REPEATED_ATTEMPTS);
                 // Using UNBOND_REASON_REMOVED for legacy reason
-                sendIntent(dev, BluetoothDevice.BOND_NONE, BluetoothDevice.UNBOND_REASON_REMOVED);
+                sendIntent(dev, BluetoothDevice.BOND_NONE, BluetoothDevice.UNBOND_REASON_REMOVED,
+                        false);
                 return false;
             } else if (transition) {
                 transitionTo(mPendingCommandState);
@@ -527,8 +536,17 @@ final class BondStateMachine extends StateMachine {
         return false;
     }
 
+    private boolean isDeviceBlacklistedforSendBondedIntent(
+            BluetoothDevice device) {
+       boolean matched = InteropUtil.interopMatchAddrOrName(
+           InteropUtil.InteropFeature.INTEROP_SEND_BONDED_INTENT_AFTER_SDP_TIMEOUT,
+           device.getAddress());
+       return matched;
+    }
+
     @VisibleForTesting
-    void sendIntent(BluetoothDevice device, int newState, int reason) {
+    void sendIntent(BluetoothDevice device, int newState, int reason,
+            boolean isTriggerFromDelayMessage) {
         DeviceProperties devProp = mRemoteDevices.getDeviceProperties(device);
         int oldState = BluetoothDevice.BOND_NONE;
         if (newState != BluetoothDevice.BOND_NONE
@@ -539,6 +557,14 @@ final class BondStateMachine extends StateMachine {
         }
         if (devProp != null) {
             oldState = devProp.getBondState();
+        }
+        if (isTriggerFromDelayMessage && (oldState != BluetoothDevice.BOND_BONDED
+                || newState != BluetoothDevice.BOND_BONDED
+                || !mPendingBondedDevices.contains(device))) {
+            infoLog("Invalid state when doing delay send bonded intent, oldState: " + oldState
+                    + ", newState: " + newState + ", in PendingBondedDevices list? "
+                    + mPendingBondedDevices.contains(device));
+            return;
         }
         if (mPendingBondedDevices.contains(device)) {
             mPendingBondedDevices.remove(device);
@@ -566,13 +592,19 @@ final class BondStateMachine extends StateMachine {
 
         mAdapterProperties.onBondStateChanged(device, newState);
 
-        if (devProp != null && (((devProp.getDeviceType() == BluetoothDevice.DEVICE_TYPE_CLASSIC
+        if (!isTriggerFromDelayMessage && devProp != null &&
+                (((devProp.getDeviceType() == BluetoothDevice.DEVICE_TYPE_CLASSIC
                 || devProp.getDeviceType() == BluetoothDevice.DEVICE_TYPE_DUAL) ||
                 (isAdvAudioDevice(device)))
                 && newState == BluetoothDevice.BOND_BONDED && devProp.getUuids() == null)) {
             infoLog(device + " is bonded, wait for SDP complete to broadcast bonded intent");
             if (!mPendingBondedDevices.contains(device)) {
                 mPendingBondedDevices.add(device);
+                if (isDeviceBlacklistedforSendBondedIntent(device)) {
+                    Message msg = obtainMessage(BONDED_INTENT_DELAY);
+                    msg.obj = device;
+                    sendMessageDelayed(msg, sPendingUuidUpdateTimeoutMillis);
+                }
             }
             if (oldState == BluetoothDevice.BOND_NONE) {
                 // Broadcast NONE->BONDING for NONE->BONDED case.
@@ -768,6 +800,22 @@ final class BondStateMachine extends StateMachine {
         msg.arg2 = min16Digits ? 1 : 0; // Use arg2 to pass the min16Digit boolean
 
         sendMessage(msg);
+    }
+
+    /*
+     * Check whether has the specific message in message queue
+     */
+    @VisibleForTesting
+    public boolean hasMessage(int what) {
+        return hasMessages(what);
+    }
+
+    /*
+     * Remove the specific message from message queue
+     */
+    @VisibleForTesting
+    public void removeMessage(int what) {
+        removeMessages(what);
     }
 
     @RequiresPermission(allOf = {
