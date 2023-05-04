@@ -693,11 +693,10 @@ private String getFileExtension(String path){
             mMasClient.makeRequest(new RequestSetPath(FOLDER_INBOX));
             mMasClient.makeRequest(new RequestGetFolderListing(0, 0));
             mMasClient.makeRequest(new RequestSetPath(false));
-            if (!isTestUpload()) {
-                // SetNotificationRegistration and UpdateInbox
-                mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
-                mMasClient.makeRequest(new RequestUpdateInbox());
-            }
+            mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
+            if (Utils.isPtsTestMode()) return;
+            sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_SENT);
+            sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_INBOX);
         }
 
         @Override
@@ -857,6 +856,7 @@ private String getFileExtension(String path){
                                         calendar.getTime().getTime(), false);
                                 mMessages.put(ev.getHandle(), metadata);
                             }
+                            if (Utils.isPtsTestMode()) return;
                             mMasClient.makeRequest(new RequestGetMessage(ev.getHandle(),
                                     MasClient.CharsetType.UTF_8, false));
                             }
