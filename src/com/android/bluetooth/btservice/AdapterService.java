@@ -401,7 +401,6 @@ public class AdapterService extends Service {
     private UserManager mUserManager;
     private static BluetoothAdapter mAdapter;
     private CompanionDeviceManager mCompanionDeviceManager;
-    private ProfileObserver mProfileObserver;
     private PhonePolicy mPhonePolicy;
     private ActiveDeviceManager mActiveDeviceManager;
     private DatabaseManager mDatabaseManager;
@@ -759,8 +758,6 @@ public class AdapterService extends Service {
         wifiFilter.addAction(WifiManager.WIFI_AP_STATE_CHANGED_ACTION);
         wifiFilter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
         registerReceiver(mWifiStateBroadcastReceiver, wifiFilter);
-        mProfileObserver = new ProfileObserver(getApplicationContext(), this, new Handler());
-        mProfileObserver.start();
 
         mDatabaseManager = new DatabaseManager(this);
         mDatabaseManager.start(MetadataDatabase.createDatabase(this));
@@ -853,7 +850,6 @@ public class AdapterService extends Service {
     @Override
     public void onDestroy() {
         debugLog("onDestroy()");
-        mProfileObserver.stop();
         if (!isMock()) {
             // TODO(b/27859763)
             Log.i(TAG, "Force exit to cleanup internal state in Bluetooth stack");
