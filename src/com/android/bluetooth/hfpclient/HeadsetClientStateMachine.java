@@ -105,6 +105,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int EXPLICIT_CALL_TRANSFER = 18;
     public static final int DISABLE_NREC = 20;
     public static final int SEND_VENDOR_AT_COMMAND = 21;
+    public static final int AUDIO_SERVER_UP = 27;
 
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
@@ -1674,6 +1675,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                     holdCall();
                     break;
 
+                case AUDIO_SERVER_UP:
+                    processAudioServerUp();
+                    break;
+
                 case StackEvent.STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
                     if (DBG) {
@@ -1865,6 +1870,32 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
         mService.sendBroadcast(intent, BLUETOOTH_CONNECT,
                 Utils.getTempAllowlistBroadcastOptions());
+    }
+
+    private void processAudioServerUp() {
+        Log.i(TAG, "onAudioSeverUp: restore audio parameters");
+        final int amVol = mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
+        final int hfVol = amToHfVol(amVol);
+
+        if (DBG) {
+            Log.d(TAG, "hfp_enable=true mAudioWbs is " + mAudioWbs);
+        }
+        if (mAudioWbs) {
+            if (DBG) {
+                Log.d(TAG, "Setting sampling rate as 16000");
+            }
+            mAudioManager.setParameters("hfp_set_sampling_rate=16000");
+        } else {
+            if (DBG) {
+                Log.d(TAG, "Setting sampling rate as 8000");
+            }
+            mAudioManager.setParameters("hfp_set_sampling_rate=8000");
+        }
+        if (DBG) {
+            Log.d(TAG, "hf_volume " + hfVol);
+        }
+        mAudioManager.setParameters("hfp_enable=true");
+        mAudioManager.setParameters("hfp_volume=" + hfVol);
     }
 
     boolean isConnected() {
