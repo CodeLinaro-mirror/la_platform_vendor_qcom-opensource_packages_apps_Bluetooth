@@ -322,6 +322,11 @@ public class AvrcpNativeInterface {
         sendVolumeChangedNative(bdaddr, volume);
     }
 
+    void adjustVolume(String bdaddr, int cmd) {
+        d("adjustVolume: bdaddr " + bdaddr + " cmd " + cmd);
+        adjustVolumeNative(bdaddr, cmd);
+    }
+
     void setVolume(int volume) {
         d("setVolume: volume=" + volume);
         if (mAvrcpService == null) {
@@ -362,6 +367,7 @@ public class AvrcpNativeInterface {
     private native boolean disconnectDeviceNative(String bdaddr);
     private native void sendVolumeChangedNative(String bdaddr, int volume);
     private native void setBipClientStatusNative(String bdaddr, boolean connected);
+    private native void adjustVolumeNative(String bdaddr, int cmd);
     private static void d(String msg) {
         if (DEBUG) {
             Log.d(TAG, msg);

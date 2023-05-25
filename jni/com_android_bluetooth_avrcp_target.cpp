@@ -64,6 +64,9 @@ static void volumeDeviceConnected(const RawAddress& address);
 static void volumeDeviceConnected(
     const RawAddress& address,
     ::bluetooth::avrcp::VolumeInterface::VolumeChangedCb cb);
+static void volumeDeviceConnectedExt(
+    const RawAddress& address,
+    ::bluetooth::avrcp::VolumeInterface::AdjustVolumeCb cb);
 static void volumeDeviceDisconnected(const RawAddress& address);
 static void setVolume(int8_t volume);
 static void setVolumeExt(const RawAddress& address, int8_t volume);
@@ -76,6 +79,9 @@ using map_entry = std::pair<std::string, GetFolderItemsCb>;
 std::map<std::string, GetFolderItemsCb> get_folder_items_cb_map;
 std::map<RawAddress, ::bluetooth::avrcp::VolumeInterface::VolumeChangedCb>
     volumeCallbackMap;
+
+std::map<RawAddress, ::bluetooth::avrcp::VolumeInterface::AdjustVolumeCb>
+    AdjustVolumeCallbackMap;
 
 // TODO (apanicke): In the future, this interface should guarantee that
 // all calls happen on the JNI Thread. Right now this is very difficult
@@ -168,6 +174,11 @@ class VolumeInterfaceImpl : public VolumeInterface {
 
   void DeviceConnected(const RawAddress& bdaddr, VolumeChangedCb cb) override {
     volumeDeviceConnected(bdaddr, cb);
+  }
+
+  void DeviceConnectedExt(const RawAddress& bdaddr, AdjustVolumeCb cb) override {
+    ALOGD("%s %s", __func__, bdaddr.ToString().c_str());
+    volumeDeviceConnectedExt(bdaddr, cb);
   }
 
   void DeviceDisconnected(const RawAddress& bdaddr) override {
@@ -1025,6 +1036,17 @@ static void volumeDeviceConnected(
                                j_bdaddr, JNI_TRUE);
 }
 
+static void volumeDeviceConnectedExt(
+    const RawAddress& address,
+    ::bluetooth::avrcp::VolumeInterface::AdjustVolumeCb cb) {
+  ALOGD("%s address %s", __func__, address.ToString().c_str());
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid() || !mJavaInterface) return;
+
+  AdjustVolumeCallbackMap.emplace(address, cb);
+}
+
 static void volumeDeviceDisconnected(const RawAddress& address) {
   ALOGD("%s", __func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
@@ -1032,6 +1054,7 @@ static void volumeDeviceDisconnected(const RawAddress& address) {
   if (!sCallbackEnv.valid() || !mJavaInterface) return;
 
   volumeCallbackMap.erase(address);
+  AdjustVolumeCallbackMap.erase(address);
 
   jstring j_bdaddr = sCallbackEnv->NewStringUTF(address.ToString().c_str());
   sCallbackEnv->CallVoidMethod(mJavaInterface, method_volumeDeviceDisconnected,
@@ -1050,6 +1073,22 @@ static void sendVolumeChangedNative(JNIEnv* env, jobject object,
   ALOGD("%s", __func__);
   if (volumeCallbackMap.find(bdaddr) != volumeCallbackMap.end()) {
     volumeCallbackMap.find(bdaddr)->second.Run(volume & 0x7F);
+  }
+}
+
+static void adjustVolumeNative(JNIEnv* env, jobject object, jstring address, jint cmd) {
+  ALOGD("%s", __func__);
+
+  const char* tmp_addr = env->GetStringUTFChars(address, 0);
+  RawAddress bdaddr;
+  bool success = RawAddress::FromString(tmp_addr, bdaddr);
+  env->ReleaseStringUTFChars(address, tmp_addr);
+
+  if (!success) return;
+
+  ALOGD("%s bdaddr %s", __func__, bdaddr.ToString().c_str());
+  if (AdjustVolumeCallbackMap.find(bdaddr) != AdjustVolumeCallbackMap.end()) {
+    AdjustVolumeCallbackMap.find(bdaddr)->second.Run(cmd);
   }
 }
 
@@ -1113,6 +1152,7 @@ static JNINativeMethod sMethods[] = {
      (void*)sendVolumeChangedNative},
     {"setBipClientStatusNative", "(Ljava/lang/String;Z)V",
      (void*)setBipClientStatusNative},
+    {"adjustVolumeNative", "(Ljava/lang/String;I)V", (void*)adjustVolumeNative},
 };
 
 int register_com_android_bluetooth_avrcp_target(JNIEnv* env) {

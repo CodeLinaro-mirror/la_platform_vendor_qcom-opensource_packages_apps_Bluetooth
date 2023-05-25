@@ -43,6 +43,7 @@ import android.util.Log;
 import android.view.KeyEvent;
 
 import com.android.bluetooth.a2dp.A2dpService;
+import android.bluetooth.BluetoothAvrcp;
 import com.android.bluetooth.Utils;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -101,6 +102,8 @@ public class MediaPlayerList {
     private final AudioManager mAudioManager;
     private Car mCar;
     private CarAudioManager mCarAudioManager;
+    //Save the volume for pts volume up/down
+    private int mVolume = 0;
 
     private final BTAudioEventLogger mActivePlayerLogger = new BTAudioEventLogger(
         ACTIVE_PLAYER_LOGGER_SIZE, ACTIVE_PLAYER_LOGGER_TITLE);
@@ -129,6 +132,7 @@ public class MediaPlayerList {
         void run(boolean availablePlayers, boolean addressedPlayers, boolean uids);
         void run(BluetoothDevice device, MediaData data);
         void sendVolumeChanged(BluetoothDevice device, int volume, int maxVolume);
+        void adjustVolume(BluetoothDevice device, int cmd);
     }
 
     public interface GetPlayerRootCallback {
@@ -1276,6 +1280,23 @@ public class MediaPlayerList {
                         if ((flags & AudioManager.FLAG_BLUETOOTH_ABS_VOLUME) == 0) {
                             Log.d(TAG, "onGroupVolumeChanged: sendVolumeChanged: " + streamValue);
                             mCallback.sendVolumeChanged(device, streamValue, maxVolume);
+                        }
+
+                        if (Utils.isPtsTestMode() && mVolume != streamValue) {
+                            Log.d(TAG, "onGroupVolumeChanged: streamValue " + streamValue + " mVolume " + mVolume);
+                            int cmd = BluetoothAvrcp.PASSTHROUGH_ID_MUTE;
+                            if (streamValue == 0) {
+                                Log.d(TAG, "onGroupVolumeChanged: mute");
+                                cmd = BluetoothAvrcp.PASSTHROUGH_ID_MUTE;
+                            } else if (streamValue > mVolume) {
+                                Log.d(TAG, "onGroupVolumeChanged: vol up");
+                                cmd = BluetoothAvrcp.PASSTHROUGH_ID_VOL_UP;
+                            } else if (streamValue < mVolume) {
+                                Log.d(TAG, "onGroupVolumeChanged: vol down");
+                                cmd = BluetoothAvrcp.PASSTHROUGH_ID_VOL_DOWN;
+                            }
+                            mCallback.adjustVolume(device, cmd);
+                            mVolume = streamValue;
                         }
                     }
                 }
