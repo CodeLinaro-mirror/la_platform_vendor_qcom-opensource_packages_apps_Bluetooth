@@ -154,6 +154,15 @@ public class AvrcpTargetService extends ProfileService {
         public void sendVolumeChanged(BluetoothDevice device, int volume, int maxVolume) {
             sendVolumeChangedExt(device, volume, maxVolume);
         }
+
+        /* send command volume up / down / mute
+         *
+         * device. Bluetooth device
+         * cmd. AVRCP command
+         */
+        public void adjustVolume(BluetoothDevice device, int cmd) {
+            mNativeInterface.adjustVolume(device.getAddress(), cmd);
+        }
     }
 
     private class AvrcpBroadcastReceiver extends BroadcastReceiver {
