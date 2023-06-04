@@ -216,8 +216,6 @@ public class HfpClientDeviceBlock {
             }
             mConnections.remove(call.getUUID());
         }
-
-        updateConferenceableConnections();
     }
 
     // Find the connection specified by the key, also update the key with ID if present.
@@ -290,7 +288,7 @@ public class HfpClientDeviceBlock {
     }
 
     // Updates any conferencable connections.
-    private void updateConferenceableConnections() {
+    public void updateConferenceableConnections() {
         boolean addConf = false;
         if (DBG) {
             Log.d(mTAG, "Existing connections: " + mConnections + " existing conference "

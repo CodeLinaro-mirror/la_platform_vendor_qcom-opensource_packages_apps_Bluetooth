@@ -389,11 +389,24 @@ public class HeadsetClientStateMachine extends StateMachine {
         return i;
     }
 
+    private void processCallChanged(BluetoothHeadsetClientCall c, Set<BluetoothDevice> devices) {
+        sendCallChangedIntent(c);
+        devices.add(c.getDevice());
+    }
+
     private void sendCallChangedIntent(BluetoothHeadsetClientCall c) {
         logD("sendCallChangedIntent " + c);
         Intent intent = new Intent(BluetoothHeadsetClient.ACTION_CALL_CHANGED);
         intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         intent.putExtra(BluetoothHeadsetClient.EXTRA_CALL, c);
+        mService.sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
+    }
+
+    private void sendQueryCallsDoneIntent(BluetoothDevice device) {
+        logD("sendQueryCallsDoneIntent device " + device);
+        Intent intent = new Intent(BluetoothHeadsetClient.ACTION_QUERY_CALLS_DONE);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         mService.sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
     }
 
@@ -453,6 +466,8 @@ public class HeadsetClientStateMachine extends StateMachine {
         callRetainedIds.addAll(currCallIdSet);
         callRetainedIds.retainAll(newCallIdSet);
 
+        Set<BluetoothDevice> devices = new HashSet<BluetoothDevice>();
+
         logD("currCallIdSet " + mCalls.keySet() + " newCallIdSet " + newCallIdSet
                 + " callAddedIds " + callAddedIds + " callRemovedIds " + callRemovedIds
                 + " callRetainedIds " + callRetainedIds);
@@ -481,8 +496,13 @@ public class HeadsetClientStateMachine extends StateMachine {
                 for (Integer idx : mCalls.keySet()) {
                     BluetoothHeadsetClientCall c1 = mCalls.get(idx);
                     c1.setState(BluetoothHeadsetClientCall.CALL_STATE_TERMINATED);
-                    sendCallChangedIntent(c1);
+                    processCallChanged(c1, devices);
                 }
+
+                for (BluetoothDevice device: devices) {
+                    sendQueryCallsDoneIntent(device);
+                }
+
                 mCalls.clear();
 
                 // We return here, if there's any update to the phone we should get a
@@ -499,14 +519,14 @@ public class HeadsetClientStateMachine extends StateMachine {
         for (Integer idx : callRemovedIds) {
             BluetoothHeadsetClientCall c = mCalls.remove(idx);
             c.setState(BluetoothHeadsetClientCall.CALL_STATE_TERMINATED);
-            sendCallChangedIntent(c);
+            processCallChanged(c, devices);
         }
 
         // Add the new calls.
         for (Integer idx : callAddedIds) {
             BluetoothHeadsetClientCall c = mCallsUpdate.get(idx);
             mCalls.put(idx, c);
-            sendCallChangedIntent(c);
+            processCallChanged(c, devices);
         }
 
         // Update the existing calls.
@@ -520,7 +540,11 @@ public class HeadsetClientStateMachine extends StateMachine {
             cOrig.setMultiParty(cUpdate.isMultiParty());
 
             // Send update with original object (UUID, idx).
-            sendCallChangedIntent(cOrig);
+            processCallChanged(cOrig, devices);
+        }
+
+        for (BluetoothDevice device: devices) {
+            sendQueryCallsDoneIntent(device);
         }
 
         if (mCalls.size() > 0) {
