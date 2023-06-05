@@ -433,6 +433,7 @@ final class BondStateMachine extends StateMachine {
                 if (transition) {
                     transitionTo(mPendingCommandState);
                 }
+                devProp.setAlias(dev,null);
                 return true;
             }
 

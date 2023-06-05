@@ -1073,8 +1073,23 @@ public class ActiveDeviceManager {
             Log.d(TAG, "wiredAudioDeviceConnected");
         }
         boolean isLeAudioActive = (mLeAudioActiveDevice != null) ? true : false;
-        setA2dpActiveDevice(null);
-        setHfpActiveDevice(null);
+
+        int mMediaActiveProfile =
+            getCurrentActiveProfile(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+        int mCallActiveProfile =
+            getCurrentActiveProfile(ApmConstIntf.AudioFeatures.CALL_AUDIO);
+        Log.d(TAG, "wiredAudioDeviceConnected: " +
+                   " mMediaActiveProfile: " + mMediaActiveProfile +
+                   ", mCallActiveProfile: " + mCallActiveProfile);
+
+        if (mMediaActiveProfile == ApmConstIntf.AudioProfiles.A2DP) {
+            setA2dpActiveDevice(null);
+        }
+
+        if (mCallActiveProfile == ApmConstIntf.AudioProfiles.HFP) {
+            setHfpActiveDevice(null);
+        }
+
         setHearingAidActiveDevice(null);
         if(!ApmConstIntf.getQtiLeAudioEnabled()) {
           setLeAudioActiveDevice(null);
