@@ -865,7 +865,8 @@ class AvrcpControllerStateMachine extends StateMachine {
          * at DUT (sink: rendering device) will be sent in changed response. */
         Log.d(TAG, "Streaming device: " + A2dpSinkService.getCurrentStreamingDevice()
                 + " Device: " + mDevice + " absVol: " + absVol + " label: " + label);
-        if (!mDevice.equals(A2dpSinkService.getCurrentStreamingDevice())) {
+        if ((A2dpSinkService.getCurrentStreamingDevice() != null)
+                && !mDevice.equals(A2dpSinkService.getCurrentStreamingDevice())) {
             Log.w(TAG, "Volume change request came from non-streaming device," +
                     "respond with accepted absVol: " + absVol + "at Sink");
             AvrcpControllerService.sendAbsVolRspNative(mRemoteDevice.getBluetoothAddress(), absVol,
