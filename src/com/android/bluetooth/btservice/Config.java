@@ -62,6 +62,8 @@ public class Config {
 
     private static final int ADAPTER_DEFAULT = BluetoothAdapterCommon.ADAPTER_DEFAULT;
     private static final int ADAPTER_1 = BluetoothAdapterCommon.ADAPTER_1;
+    private static Class sGattClass = AdapterUtil.getGattServiceClass();
+    private static boolean sBleSupported = AdapterUtil.isBleSupported();
 
     private static class ProfileConfig {
         Class mClass;
@@ -91,7 +93,7 @@ public class Config {
                     BluetoothProfile.HID_HOST),
             new ProfileConfig(PanService.class, R.bool.profile_supported_pan,
                     BluetoothProfile.PAN),
-            new ProfileConfig(AdapterUtil.getGattServiceClass(), R.bool.profile_supported_gatt,
+            new ProfileConfig(sGattClass, R.bool.profile_supported_gatt,
                     BluetoothProfile.GATT),
             new ProfileConfig(BluetoothMapService.class, R.bool.profile_supported_map,
                     BluetoothProfile.MAP),
@@ -137,6 +139,11 @@ public class Config {
         ArrayList<Class> profiles = new ArrayList<>(PROFILE_SERVICES_AND_FLAGS.length);
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = resources.getBoolean(config.mSupported);
+
+
+            if (!sBleSupported && config.mClass == sGattClass) {
+                continue;
+            }
 
             if (!supported && (config.mClass == HearingAidService.class) && isHearingAidSettingsEnabled(ctx)) {
                 Log.v(TAG, "Feature Flag enables support for HearingAidService");

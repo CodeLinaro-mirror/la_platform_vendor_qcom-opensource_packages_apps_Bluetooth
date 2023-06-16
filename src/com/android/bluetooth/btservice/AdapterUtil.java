@@ -48,6 +48,7 @@ public final class AdapterUtil {
     private static String sCounterpartAddress = null;
     private static HashMap<Integer, ArrayList<Integer>> sProfiles;
     private static boolean sDualLoopbackTest = false;
+    private static boolean sBleSupported = true;
 
     public static void init(@NonNull Context context) {
         sContext = context;
@@ -65,6 +66,10 @@ public final class AdapterUtil {
 
         // Loopback test in dual Bluetooth
         sDualLoopbackTest = SystemProperties.getBoolean("persist.vendor.service.bt.dual_loopback_test", false);
+
+        sBleSupported = isAdapter1() ?
+                          SystemProperties.getBoolean("vendor.bt.is_ble_supported1", true) :
+                          SystemProperties.getBoolean("vendor.bt.is_ble_supported", true);
 
         // Init profile supported in Bluetooth adapter
         sProfiles = new HashMap<Integer, ArrayList<Integer>>(ADAPTER_NUMBER);
@@ -147,6 +152,10 @@ public final class AdapterUtil {
 
     public static boolean isDualLoopbackTestEnabled() {
         return isDualAdapterMode() && sDualLoopbackTest;
+    }
+
+    public static boolean isBleSupported() {
+        return sBleSupported;
     }
 
     public static boolean filterDevice(BluetoothDevice device) {

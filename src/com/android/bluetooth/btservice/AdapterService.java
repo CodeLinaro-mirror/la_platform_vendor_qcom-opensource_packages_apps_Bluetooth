@@ -19,6 +19,43 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
+/************************************************************************************
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *      * Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
+ *
+ *      * Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials provided
+ *        with the distribution.
+ *
+ *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *        contributors may be used to endorse or promote products derived
+ *        from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+ *
+ **********************************************************************************/
+
 package com.android.bluetooth.btservice;
 
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
@@ -146,6 +183,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -314,6 +352,8 @@ public class AdapterService extends Service {
     private boolean mEnableNewAdapter = false;
     private boolean mDisableNewAdapter = false;
 
+    private boolean mIsBleSupported = AdapterUtil.isBleSupported();
+
     private void initAdapter() {
         mAdapterIndex = AdapterUtil.getAdapterIndex();
         mAdapter = AdapterUtil.getAdapter();
@@ -429,7 +469,9 @@ public class AdapterService extends Service {
                         setBluetoothClassFromConfig();
                         initProfileServices();
                         getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS);
-                        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE);
+                        if (mIsBleSupported) {
+                            getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE);
+                        }
                         getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_DYNAMIC_AUDIO_BUFFER);
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
                     }
@@ -687,16 +729,18 @@ public class AdapterService extends Service {
 
         mJniCallbacks.init(mBondStateMachine, mRemoteDevices);
 
-        try {
-            mBatteryStats.noteResetBleScan();
-        } catch (RemoteException e) {
-            Log.w(TAG, "RemoteException trying to send a reset to BatteryStats");
-        }
-        BluetoothStatsLog.write_non_chained(BluetoothStatsLog.BLE_SCAN_STATE_CHANGED, -1, null,
-                BluetoothStatsLog.BLE_SCAN_STATE_CHANGED__STATE__RESET, false, false, false);
+        if (mIsBleSupported) {
+            try {
+                mBatteryStats.noteResetBleScan();
+            } catch (RemoteException e) {
+                Log.w(TAG, "RemoteException trying to send a reset to BatteryStats");
+            }
+            BluetoothStatsLog.write_non_chained(BluetoothStatsLog.BLE_SCAN_STATE_CHANGED, -1, null,
+                    BluetoothStatsLog.BLE_SCAN_STATE_CHANGED__STATE__RESET, false, false, false);
 
-        //Start Gatt service
-        setProfileServiceState(AdapterUtil.getGattServiceClass(), BluetoothAdapter.STATE_ON);
+            //Start Gatt service
+            setProfileServiceState(AdapterUtil.getGattServiceClass(), BluetoothAdapter.STATE_ON);
+        }
     }
 
     void bringDownBle() {
@@ -706,9 +750,19 @@ public class AdapterService extends Service {
     void stateChangeCallback(int status) {
         if (status == AbstractionLayer.BT_STATE_OFF) {
             debugLog("stateChangeCallback: disableNative() completed");
-            mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
+            if (mIsBleSupported) {
+                debugLog("stateChangeCallback: disableNative() completed");
+                mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
+            } else {
+                debugLog("send BREDR_STOPPED due to BLE disabled");
+                mAdapterStateMachine.sendMessage(AdapterState.BREDR_STOPPED);
+            }
         } else if (status == AbstractionLayer.BT_STATE_ON) {
-            mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
+            if (mIsBleSupported) {
+                mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
+            } else {
+                mAdapterStateMachine.sendMessage(AdapterState.START_PROFILE_SERVICE);
+            }
         } else {
             Log.e(TAG, "Incorrect status " + status + " in stateChangeCallback");
         }
@@ -2635,7 +2689,13 @@ public class AdapterService extends Service {
 
         debugLog("enable() - Enable called with quiet mode status =  " + quietMode);
         mQuietmode = quietMode;
-        mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_ON);
+        if (mIsBleSupported)
+            mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_ON);
+        else {
+            debugLog("enable() - send USER_TURN_ON due to BLE disabled");
+            mAdapterStateMachine.sendMessage(AdapterState.USER_TURN_ON);
+        }
+
         return true;
     }
 
@@ -3849,7 +3909,7 @@ public class AdapterService extends Service {
         if (DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_BLUETOOTH, BTAA_HCI_LOG_FLAG, false)) {
             initFlags.add(String.format("%s=%s", BTAA_HCI_LOG_FLAG, "true"));
         }
-        initFlags.add(String.format("%s=%d", BT_HCI_ADAPTER_FLAG, mAdapterIndex));
+        initFlags.add(String.format(Locale.US, "%s=%d", BT_HCI_ADAPTER_FLAG, mAdapterIndex));
         return initFlags.toArray(new String[0]);
     }
 
