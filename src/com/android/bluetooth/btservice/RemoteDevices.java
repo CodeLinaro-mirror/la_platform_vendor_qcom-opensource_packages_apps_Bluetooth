@@ -1080,6 +1080,7 @@ final class RemoteDevices {
         if (newState == AbstractionLayer.BT_ACL_STATE_CONNECTED) {
             if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_TURNING_ON) {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_CONNECTED);
+                intent.putExtra(BluetoothDevice.EXTRA_TRANSPORT, transportLinkType);
             } else if (state == BluetoothAdapter.STATE_BLE_ON
                     || state == BluetoothAdapter.STATE_BLE_TURNING_ON) {
                 intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_CONNECTED);
@@ -1090,6 +1091,7 @@ final class RemoteDevices {
         } else {
             if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_TURNING_OFF) {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+                intent.putExtra(BluetoothDevice.EXTRA_TRANSPORT, transportLinkType);
             } else if (state == BluetoothAdapter.STATE_BLE_ON
                     || state == BluetoothAdapter.STATE_BLE_TURNING_OFF) {
                 intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_DISCONNECTED);
