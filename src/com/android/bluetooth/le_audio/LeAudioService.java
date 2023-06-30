@@ -1307,8 +1307,11 @@ public class LeAudioService extends ProfileService {
             ActiveAudioMediaProfile == ApmConst.AudioProfiles.BAP_GCP ||
             ActiveAudioMediaProfile == ApmConst.AudioProfiles.BAP_GCP_VBC ||
             ActiveAudioCallProfile == ApmConst.AudioProfiles.TMAP_CALL ||
-            ActiveAudioCallProfile == ApmConst.AudioProfiles.BAP_CALL)
-            activeDevices.add(0, mActiveAudioOutDevice);
+            ActiveAudioCallProfile == ApmConst.AudioProfiles.BAP_CALL) {
+            if (ActiveAudioCallProfile != ApmConst.AudioProfiles.HFP) {
+                activeDevices.add(0, mActiveAudioOutDevice);
+            }
+        }
 
         if (ActiveAudioMediaProfile == ApmConst.AudioProfiles.BAP_RECORDING ||
             ActiveAudioMediaProfile == ApmConst.AudioProfiles.BAP_GCP_VBC ||

@@ -196,6 +196,16 @@ final class BondStateMachine extends StateMachine {
                         sendIntent(dev, newState, 0, false);
                         transitionTo(mPendingCommandState);
                     } else if (newState == BluetoothDevice.BOND_NONE) {
+                         DeviceProperties devProp =
+                           mRemoteDevices.getDeviceProperties(dev);
+                         if (devProp != null) {
+                             if ((mAdapterService != null) &&
+                                 mAdapterService.isAdvAudioDevice(dev)) {
+                                 infoLog(" Resetting the ADV Audio Device Bluetooth class");
+                                 devProp.setBluetoothClass(BluetoothClass.Device.Major.UNCATEGORIZED);
+                             }
+                             devProp.setDefaultAdvAudioProp();
+                         }
                         /* if the link key was deleted by the stack */
                         sendIntent(dev, newState, 0, false);
                     } else {
@@ -286,6 +296,16 @@ final class BondStateMachine extends StateMachine {
                     if (newState == BluetoothDevice.BOND_NONE
                             && reason == BluetoothDevice.BOND_SUCCESS) {
                         reason = BluetoothDevice.UNBOND_REASON_REMOVED;
+                    }
+                    if (newState == BluetoothDevice.BOND_NONE) {
+                       if (devProp != null) {
+                           if ((mAdapterService != null) &&
+                               mAdapterService.isAdvAudioDevice(dev)) {
+                               infoLog("In PendingCommandState Resetting the ADV Audio Device Bluetooth class");
+                               devProp.setBluetoothClass(BluetoothClass.Device.Major.UNCATEGORIZED);
+                           }
+                           devProp.setDefaultAdvAudioProp();
+                       }
                     }
                     sendIntent(dev, newState, reason, false);
                     if (newState != BluetoothDevice.BOND_BONDING) {
