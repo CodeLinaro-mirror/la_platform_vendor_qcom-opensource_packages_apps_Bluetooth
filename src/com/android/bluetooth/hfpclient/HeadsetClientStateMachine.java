@@ -1419,7 +1419,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                         case StackEvent.EVENT_TYPE_CLIP:
                         case StackEvent.EVENT_TYPE_CALL_WAITING:
                             sendMessage(QUERY_CURRENT_CALLS);
-                            mA2dpService.NotifyHFcallsChanged();
+                            if (mA2dpService != null)
+                                mA2dpService.NotifyHFcallsChanged();
                             break;
                         case StackEvent.EVENT_TYPE_CURRENT_CALLS:
                             queryCallsUpdate(event.valueInt, event.valueInt3, event.valueString,
@@ -1427,7 +1428,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                                             == HeadsetClientHalConstants.CALL_MPTY_TYPE_MULTI,
                                     event.valueInt2
                                             == HeadsetClientHalConstants.CALL_DIRECTION_OUTGOING);
-                            mA2dpService.NotifyHFcallsChanged();
+                            if (mA2dpService != null)
+                                mA2dpService.NotifyHFcallsChanged();
                             break;
                         case StackEvent.EVENT_TYPE_VOLUME_CHANGED:
                             if (event.valueInt == HeadsetClientHalConstants.VOLUME_TYPE_SPK) {
