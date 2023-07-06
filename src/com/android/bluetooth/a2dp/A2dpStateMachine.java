@@ -53,6 +53,7 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothStatsLog;
@@ -76,6 +77,8 @@ final class A2dpStateMachine extends StateMachine {
     @VisibleForTesting
     static final int STACK_EVENT = 101;
     private static final int CONNECT_TIMEOUT = 201;
+    private static final String BLUETOOTH_PERFORMANCE_MODE_PROP =
+            "vendor.bluetooth.performance_mode";
 
     // NOTE: the value is not "final" - it is modified in the unit tests
     @VisibleForTesting
@@ -568,6 +571,8 @@ final class A2dpStateMachine extends StateMachine {
                                                 BluetoothA2dp.STATE_NOT_PLAYING);
                         }
                     }
+                    SystemProperties.set(BLUETOOTH_PERFORMANCE_MODE_PROP,
+                                         isLDACQualityHigh() ? "true" : "false");
                     break;
                 case A2dpStackEvent.AUDIO_STATE_REMOTE_SUSPEND:
                 case A2dpStackEvent.AUDIO_STATE_STOPPED:
@@ -579,6 +584,7 @@ final class A2dpStateMachine extends StateMachine {
                                                 BluetoothA2dp.STATE_PLAYING);
                         }
                     }
+                    SystemProperties.set(BLUETOOTH_PERFORMANCE_MODE_PROP, "false");
                     break;
                 default:
                     Log.e(TAG, "Audio State Device: " + mDevice + " bad state: " + state);
@@ -763,6 +769,16 @@ final class A2dpStateMachine extends StateMachine {
                 break;
         }
         return Integer.toString(state);
+    }
+
+    private boolean isLDACQualityHigh() {
+        if (mCodecStatus != null &&
+            mCodecStatus.getCodecConfig().getCodecType() == BluetoothCodecConfig.SOURCE_CODEC_TYPE_LDAC &&
+            mCodecStatus.getCodecConfig().getCodecSpecific1() % 10 == 0) {
+            return true;
+        }
+
+        return false;
     }
 
     public void dump(StringBuilder sb) {
