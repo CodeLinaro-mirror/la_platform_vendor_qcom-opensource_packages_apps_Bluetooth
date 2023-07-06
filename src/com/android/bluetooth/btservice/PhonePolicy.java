@@ -23,6 +23,7 @@ import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
+import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHearingAid;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
@@ -48,6 +49,7 @@ import com.android.bluetooth.btservice.InteropUtil;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
+import com.android.bluetooth.hfpclient.HeadsetClientService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.ba.BATService;
@@ -355,6 +357,7 @@ class PhonePolicy {
         A2dpService a2dpService = mFactory.getA2dpService();
         A2dpSinkService a2dpSinkService = mFactory.getA2dpSinkService();
         HeadsetService headsetService = mFactory.getHeadsetService();
+        HeadsetClientService HfpClientService = mFactory.getHeadsetClientService();
         PanService panService = mFactory.getPanService();
         HearingAidService hearingAidService = mFactory.getHearingAidService();
 
@@ -485,6 +488,9 @@ class PhonePolicy {
                     case BluetoothProfile.A2DP_SINK:
                         mDatabaseManager.setConnectionForA2dpSrc(device);
                         break;
+                    case BluetoothProfile.HEADSET_CLIENT:
+                        mDatabaseManager.setConnectionForHfpClient(device);
+                        break;
                     case BluetoothProfile.BC_PROFILE:
                         mDatabaseManager.setConnectionStateForBc(device, nextState);
                         break;
@@ -509,6 +515,12 @@ class PhonePolicy {
                                     + " for device "+ device);
                         mDatabaseManager.setDisconnectionForA2dpSrc(device);
                     }
+                    if (profileId == BluetoothProfile.HEADSET_CLIENT) {
+                        Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionForHfpClient "
+                                    + " for device "+ device);
+                        mDatabaseManager.setDisconnectionForHfpClient(device);
+                    }
+
                     if (profileId == BluetoothProfile.BC_PROFILE) {
                         mDatabaseManager.setConnectionStateForBc(device, nextState);
                     }
@@ -650,12 +662,18 @@ class PhonePolicy {
                     mDatabaseManager.getMostRecentlyConnectedHfpDevice();
             final BluetoothDevice mostRecentlyConnectedA2dpSrcDevice =
                     mDatabaseManager.getMostRecentlyConnectedA2dpSrcDevice();
+            final BluetoothDevice mostRecentlyConnectedHfpClientDevice =
+                     mDatabaseManager.getMostRecentlyConnectedHfpClientDevice();
+
             debugLog("autoConnect: mostRecentlyActiveA2dpDevice: " +
                                                 mostRecentlyActiveA2dpDevice);
             debugLog("autoConnect: mostRecentlyActiveHfpDevice: " +
                                                 mostRecentlyActiveHfpDevice);
             debugLog("autoConnect: mostRecentlyConnectedA2dpSrcDevice: " +
                                                 mostRecentlyConnectedA2dpSrcDevice);
+
+            debugLog("autoConnect: mostRecentlyConnectedHfpClientDevice: " +
+                                        mostRecentlyConnectedHfpClientDevice);
             autoConnectBC(true, null);
             //Initiate auto-connection for latest connected a2dp source device.
             if (mostRecentlyConnectedA2dpSrcDevice != null) {
@@ -663,6 +681,10 @@ class PhonePolicy {
                         " connected A2DP Source device:" + mostRecentlyConnectedA2dpSrcDevice);
                autoConnectA2dpSink(mostRecentlyConnectedA2dpSrcDevice);
             }
+            if ( mostRecentlyConnectedHfpClientDevice != null) {
+                autoConnectHeadsetClient(mostRecentlyConnectedHfpClientDevice);
+            }
+
             if (mostRecentlyActiveA2dpDevice == null &&
                 mostRecentlyActiveHfpDevice == null) {
                 errorLog("autoConnect: most recently active a2dp and hfp devices are null");
@@ -748,6 +770,21 @@ class PhonePolicy {
         }
     }
 
+    private void autoConnectHeadsetClient(BluetoothDevice device) {
+        final HeadsetClientService hsClientService = mFactory.getHeadsetClientService();
+        if (hsClientService == null) {
+            warnLog("autoConnectHeadsetClient: service is null, failed to connect to " + device);
+            return;
+        }
+        int headsetClientConnectionPolicy = hsClientService.getConnectionPolicy(device);
+        if (headsetClientConnectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+            debugLog("autoConnectHeadsetClient: Connecting HFP Client with " + device);
+                hsClientService.connect(device);
+        } else {
+            debugLog("autoConnectHeadsetClient: skipped auto-connect HFP client with device " + device
+                    + " headsetClientConnectionPolicy " + headsetClientConnectionPolicy);
+        }
+    }
     private void autoConnectA2dpSink(BluetoothDevice device) {
         A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
         if (a2dpSinkService == null) {
@@ -815,7 +852,7 @@ class PhonePolicy {
             connPolicy = (int) mBCGetConnPolicy.invoke(mBCService, device);
         } catch(IllegalAccessException | InvocationTargetException e) {
             Log.e(TAG, "BC:connPolicy IllegalAccessException");
-        } 
+        }
         debugLog("ConnectBC, attempt connection with device " + device
                  + " connPolicy " + connPolicy);
         if (connPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
