@@ -88,8 +88,8 @@ class HasClientCallbacksImpl : public HasClientCallbacks {
 
     sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                      (jbyte*)&bd_addr);
-    /*sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConnectionStateChanged,
-                                 (jint)state, addr.get());*/
+    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConnectionStateChanged,
+                                 (jint)state, addr.get());
   }
 
   void OnDeviceAvailable(const RawAddress& bd_addr, uint8_t features) override {

@@ -1003,6 +1003,28 @@ public class HearingAidServiceTest {
                 mService.getHiSyncIdMap().containsKey(mLeftDevice));
     }
 
+    @Test
+    public void serviceBinder_callGetDeviceMode() throws Exception {
+        final SynchronousResultReceiver<Integer> recv = SynchronousResultReceiver.get();
+        mServiceBinder.getDeviceMode(mSingleDevice, null, recv);
+        int mode = recv.awaitResultNoInterrupt(Duration.ofMillis(TIMEOUT_MS))
+                .getValue(BluetoothHearingAid.MODE_UNKNOWN);
+
+        // return unknown value if no device connected
+        Assert.assertEquals(BluetoothHearingAid.MODE_UNKNOWN, mode);
+    }
+
+    @Test
+    public void serviceBinder_callGetDeviceSide() throws Exception {
+        final SynchronousResultReceiver<Integer> recv = SynchronousResultReceiver.get();
+        mServiceBinder.getDeviceSide(mSingleDevice, null, recv);
+        int side = recv.awaitResultNoInterrupt(Duration.ofMillis(TIMEOUT_MS))
+                .getValue(BluetoothHearingAid.SIDE_UNKNOWN);
+
+        // return unknown value if no device connected
+        Assert.assertEquals(BluetoothHearingAid.SIDE_UNKNOWN, side);
+    }
+
     private void connectDevice(BluetoothDevice device) {
         HearingAidStackEvent connCompletedEvent;
 

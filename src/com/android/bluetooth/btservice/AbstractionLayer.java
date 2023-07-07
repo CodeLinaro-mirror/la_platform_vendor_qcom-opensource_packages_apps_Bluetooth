@@ -101,7 +101,7 @@ public final class AbstractionLayer {
     public static final int BT_DEVICE_TYPE_DUAL = 0x03;
 
     static final int BT_PROPERTY_LOCAL_IO_CAPS = 0x0e;
-    static final int BT_PROPERTY_LOCAL_IO_CAPS_BLE = 0x0f;
+    static final int BT_PROPERTY_RESERVED_0F = 0x0f;
 
     static final int BT_PROPERTY_ADV_AUDIO_UUIDS = 0xA0;
     static final int BT_PROPERTY_ADV_AUDIO_ACTION_UUID = 0xA1;

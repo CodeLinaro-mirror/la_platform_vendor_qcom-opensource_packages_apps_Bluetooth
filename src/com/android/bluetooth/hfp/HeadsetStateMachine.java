@@ -1535,7 +1535,7 @@ public class HeadsetStateMachine extends StateMachine {
                                   + " or A2Dp is playing, not allowing SCO, device=" + mDevice);
                         break;
                     }
-
+                    mHeadsetService.getHfpA2DPSyncInterface().suspendLeAudio(HeadsetA2dpSync.A2DP_SUSPENDED_BY_CS_CALL);
                     Log.w(TAG, "mIsSwbSupportedByRemote is " + mIsSwbSupportedByRemote);
 
                     if (mIsSwbSupportedByRemote && mHeadsetService.isSwbEnabled() &&

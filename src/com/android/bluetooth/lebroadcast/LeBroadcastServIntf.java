@@ -36,6 +36,7 @@ package com.android.bluetooth.lebroadcast;
 
 import android.bluetooth.BluetoothLeAudioContentMetadata;
 import android.bluetooth.BluetoothLeBroadcastMetadata;
+import android.bluetooth.BluetoothLeBroadcastSettings;
 import android.bluetooth.IBluetoothLeBroadcastCallback;
 import android.content.AttributionSource;
 import android.util.Log;
@@ -49,7 +50,6 @@ import java.util.List;
 /* LE Broadcast Service Reflect Interface */
 public class LeBroadcastServIntf {
     public static final String TAG = "BroadcastService: LeBroadcastServIntf";
-
     private static LeBroadcastServIntf mInterface = null;
     static Class LeBroadcastService = null;
     static Object mLeBroadcastService = null;
@@ -67,7 +67,6 @@ public class LeBroadcastServIntf {
     public static void init (Object obj) {
         Log.i(TAG, "init");
         mLeBroadcastService = obj;
-
         try {
             LeBroadcastService = Class.forName(
                     "com.android.bluetooth.broadcast.BroadcastService");
@@ -78,145 +77,161 @@ public class LeBroadcastServIntf {
         }
     }
 
-    public void registerLeBroadcastCallback(IBluetoothLeBroadcastCallback callback,
-            AttributionSource source, SynchronousResultReceiver receiver) {
+    public void registerLeBroadcastCallback(IBluetoothLeBroadcastCallback callback) {
         Log.i(TAG, "registerLeBroadcastCallback");
-        if (LeBroadcastService == null)
+        if (LeBroadcastService == null) {
             return;
-        Class[] args = new Class[3];
+        }
+        Class[] args = new Class[1];
         args[0] = IBluetoothLeBroadcastCallback.class;
-        args[1] = AttributionSource.class;
-        args[2] = SynchronousResultReceiver.class;
         try {
             Method registerLeBroadcastCallback =
                     LeBroadcastService.getDeclaredMethod("registerLeBroadcastCallback", args);
-            registerLeBroadcastCallback.invoke(mLeBroadcastService, callback, source, receiver);
+            registerLeBroadcastCallback.invoke(mLeBroadcastService, callback);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
     }
 
-    public void unregisterLeBroadcastCallback(IBluetoothLeBroadcastCallback callback,
-            AttributionSource source, SynchronousResultReceiver receiver) {
+    public void unregisterLeBroadcastCallback(IBluetoothLeBroadcastCallback callback) {
         Log.i(TAG, "unregisterLeBroadcastCallback");
-        if (LeBroadcastService == null)
+        if (LeBroadcastService == null) {
             return;
-        Class[] args = new Class[3];
+        }
+        Class[] args = new Class[1];
         args[0] = IBluetoothLeBroadcastCallback.class;
-        args[1] = AttributionSource.class;
-        args[2] = SynchronousResultReceiver.class;
         try {
             Method unregisterLeBroadcastCallback =
                     LeBroadcastService.getDeclaredMethod("unregisterLeBroadcastCallback", args);
-            unregisterLeBroadcastCallback.invoke(mLeBroadcastService, callback, source, receiver);
+            unregisterLeBroadcastCallback.invoke(mLeBroadcastService, callback);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
     }
 
-    public void startBroadcast(BluetoothLeAudioContentMetadata contentMetadata,
-            byte[] broadcastCode, AttributionSource source) {
+    public void startBroadcast(BluetoothLeBroadcastSettings broadcastSettings) {
         Log.i(TAG, "startBroadcast");
-        if (LeBroadcastService == null)
+        if (LeBroadcastService == null) {
             return;
-        Class[] args = new Class[3];
-        args[0] = BluetoothLeAudioContentMetadata.class;
-        args[1] = byte[].class;
-        args[2] = AttributionSource.class;
+        }
+        Class[] args = new Class[1];
+        args[0] = BluetoothLeBroadcastSettings.class;
         try {
             Method startBroadcast =
                     LeBroadcastService.getDeclaredMethod("startBroadcast", args);
-            startBroadcast.invoke(mLeBroadcastService, contentMetadata, broadcastCode, source);
+            startBroadcast.invoke(mLeBroadcastService, broadcastSettings);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
     }
 
-    public void stopBroadcast(int broadcastId, AttributionSource source) {
+    public void stopBroadcast(int broadcastId) {
         Log.i(TAG, "stopBroadcast");
-        if (LeBroadcastService == null)
+        if (LeBroadcastService == null) {
             return;
-        Class[] args = new Class[2];
+        }
+        Class[] args = new Class[1];
         args[0] = int.class;
-        args[1] = AttributionSource.class;
         try {
             Method stopBroadcast =
                     LeBroadcastService.getDeclaredMethod("stopBroadcast", args);
-            stopBroadcast.invoke(mLeBroadcastService, broadcastId, source);
+            stopBroadcast.invoke(mLeBroadcastService, broadcastId);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
     }
 
     public void updateBroadcast(int broadcastId,
-            BluetoothLeAudioContentMetadata contentMetadata, AttributionSource source) {
+            BluetoothLeBroadcastSettings broadcastSettings) {
         Log.i(TAG, "updateBroadcast");
-        if (LeBroadcastService == null)
+        if (LeBroadcastService == null) {
             return;
-        Class[] args = new Class[3];
+        }
+        Class[] args = new Class[2];
         args[0] = int.class;
-        args[1] = BluetoothLeAudioContentMetadata.class;
-        args[2] = AttributionSource.class;
+        args[1] = BluetoothLeBroadcastSettings.class;
         try {
             Method updateBroadcast =
                     LeBroadcastService.getDeclaredMethod("updateBroadcast", args);
-            updateBroadcast.invoke(mLeBroadcastService, broadcastId, contentMetadata, source);
+            updateBroadcast.invoke(mLeBroadcastService, broadcastId, broadcastSettings);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
     }
 
-    public boolean isPlaying(int broadcastId, AttributionSource source,
-            SynchronousResultReceiver receiver) {
+    public boolean isPlaying(int broadcastId) {
         Log.i(TAG, "isPlaying");
-        if (LeBroadcastService == null)
+        if (LeBroadcastService == null) {
             return false;
-        Class[] args = new Class[3];
+        }
+        Class[] args = new Class[1];
         args[0] = int.class;
-        args[1] = AttributionSource.class;
-        args[2] = SynchronousResultReceiver.class;
         try {
             Method isPlaying =
                     LeBroadcastService.getDeclaredMethod("isPlaying", args);
-            return (boolean) isPlaying.invoke(mLeBroadcastService, broadcastId, source, receiver);
+            return (boolean) isPlaying.invoke(mLeBroadcastService, broadcastId);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
         return false;
     }
 
-    public List<BluetoothLeBroadcastMetadata> getAllBroadcastMetadata(AttributionSource source,
-            SynchronousResultReceiver receiver) {
+    public List<BluetoothLeBroadcastMetadata> getAllBroadcastMetadata() {
         Log.i(TAG, "getAllBroadcastMetadata");
         ArrayList<BluetoothLeBroadcastMetadata> metaData = new ArrayList<>();
-        if (LeBroadcastService == null)
+        if (LeBroadcastService == null) {
             return metaData;
-        Class[] args = new Class[2];
-        args[0] = AttributionSource.class;
-        args[1] = SynchronousResultReceiver.class;
+        }
         try {
             Method getAllBroadcastMetadata =
-                    LeBroadcastService.getDeclaredMethod("getAllBroadcastMetadata", args);
+                    LeBroadcastService.getDeclaredMethod("getAllBroadcastMetadata");
             return (List<BluetoothLeBroadcastMetadata>)
-                    getAllBroadcastMetadata.invoke(mLeBroadcastService, source, receiver);
+                    getAllBroadcastMetadata.invoke(mLeBroadcastService);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
         return metaData;
     }
 
-    public int getMaximumNumberOfBroadcasts(AttributionSource source,
-            SynchronousResultReceiver receiver) {
+    public int getMaximumNumberOfBroadcasts() {
         Log.i(TAG, "getMaximumNumberOfBroadcasts");
-        if (LeBroadcastService == null)
+        if (LeBroadcastService == null) {
             return 0;
-        Class[] args = new Class[2];
-        args[0] = AttributionSource.class;
-        args[1] = SynchronousResultReceiver.class;
+        }
         try {
             Method getMaximumNumberOfBroadcasts =
-                    LeBroadcastService.getDeclaredMethod("getMaximumNumberOfBroadcasts", args);
-            return (int) getMaximumNumberOfBroadcasts.invoke(mLeBroadcastService, source, receiver);
+                    LeBroadcastService.getDeclaredMethod("getMaximumNumberOfBroadcasts");
+            return (int) getMaximumNumberOfBroadcasts.invoke(mLeBroadcastService);
+        } catch (ReflectiveOperationException e) {
+            Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
+        }
+        return 0;
+    }
+
+    public int getMaximumStreamsPerBroadcast() {
+        Log.i(TAG, "getMaximumStreamsPerBroadcast");
+        if (LeBroadcastService == null) {
+            return 0;
+        }
+        try {
+            Method getMaximumStreamsPerBroadcast =
+                    LeBroadcastService.getDeclaredMethod("getMaximumStreamsPerBroadcast");
+            return (int) getMaximumStreamsPerBroadcast.invoke(mLeBroadcastService);
+        } catch (ReflectiveOperationException e) {
+            Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
+        }
+        return 0;
+    }
+
+    public int getMaximumSubgroupsPerBroadcast() {
+        Log.i(TAG, "getMaximumSubgroupsPerBroadcast");
+        if (LeBroadcastService == null) {
+            return 0;
+        }
+        try {
+            Method getMaximumSubgroupsPerBroadcast =
+                    LeBroadcastService.getDeclaredMethod("getMaximumSubgroupsPerBroadcast");
+            return (int) getMaximumSubgroupsPerBroadcast.invoke(mLeBroadcastService);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }

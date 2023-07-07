@@ -67,6 +67,7 @@ android_app {
         "services.net",
     ],
     static_libs: [
+        "android.hardware.radio.sap-V1-java",
         "com.android.vcard",
         "com.android.obex",
         "bluetooth.mapsapi",

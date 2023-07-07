@@ -28,7 +28,6 @@ import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAvrcpController;
-import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothHeadsetClient;
@@ -91,7 +90,7 @@ class AdapterProperties {
 
     private volatile String mName;
     private volatile byte[] mAddress;
-    private volatile BluetoothClass mBluetoothClass;
+
     private volatile int mScanMode;
     private volatile int mDiscoverableTimeout;
     private volatile ParcelUuid[] mUuids;
@@ -368,41 +367,6 @@ class AdapterProperties {
         }
     }
 
-    /**
-     * Set the Bluetooth Class of Device (CoD) of the adapter.
-     *
-     * <p>Bluetooth stack stores some adapter properties in native BT stack storage and some in the
-     * Java Android stack. Bluetooth CoD is stored in the Android layer through
-     * {@link android.provider.Settings.Global#BLUETOOTH_CLASS_OF_DEVICE}.
-     *
-     * <p>Due to this, the getAdapterPropertyNative and adapterPropertyChangedCallback methods don't
-     * actually update mBluetoothClass. Hence, we update the field mBluetoothClass every time we
-     * successfully update BluetoothClass.
-     *
-     * @param bluetoothClass BluetoothClass of the device
-     */
-    boolean setBluetoothClass(BluetoothClass bluetoothClass) {
-        synchronized (mObject) {
-            boolean result =
-                    mService.setAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_CLASS_OF_DEVICE,
-                            bluetoothClass.getClassOfDeviceBytes());
-
-            if (result) {
-                mBluetoothClass = bluetoothClass;
-            }
-
-            return result;
-        }
-    }
-
-    /**
-     * @return the BluetoothClass of the Bluetooth adapter.
-     */
-    BluetoothClass getBluetoothClass() {
-        synchronized (mObject) {
-            return mBluetoothClass;
-        }
-    }
 
     boolean setIoCapability(int capability) {
         synchronized (mObject) {
@@ -426,7 +390,7 @@ class AdapterProperties {
     boolean setLeIoCapability(int capability) {
         synchronized (mObject) {
             boolean result = mService.setAdapterPropertyNative(
-                    AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE,
+                    AbstractionLayer.BT_PROPERTY_RESERVED_0F,
                     Utils.intToByteArray(capability));
 
             if (result) {
@@ -1306,10 +1270,6 @@ class AdapterProperties {
                         }
                         int bluetoothClass =
                                 ((int) val[0] << 16) + ((int) val[1] << 8) + (int) val[2];
-                        if (bluetoothClass != 0) {
-                            mBluetoothClass = new BluetoothClass(bluetoothClass);
-                        }
-                        debugLog("BT Class:" + mBluetoothClass);
                         break;
                     case AbstractionLayer.BT_PROPERTY_ADAPTER_SCAN_MODE:
                         int mode = Utils.byteArrayToInt(val, 0);
@@ -1352,7 +1312,7 @@ class AdapterProperties {
                         debugLog("mLocalIOCapability set to " + mLocalIOCapability);
                         break;
 
-                    case AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE:
+                    case AbstractionLayer.BT_PROPERTY_RESERVED_0F:
                         mLocalIOCapabilityBLE = Utils.byteArrayToInt(val);
                         debugLog("mLocalIOCapabilityBLE set to " + mLocalIOCapabilityBLE);
                         break;
@@ -1606,7 +1566,6 @@ class AdapterProperties {
         writer.println(TAG);
         writer.println("  " + "Name: " + getName());
         writer.println("  " + "Address: " + Utils.getAddressStringFromByte(mAddress));
-        writer.println("  " + "BluetoothClass: " + getBluetoothClass());
         writer.println("  " + "ScanMode: " + dumpScanMode(getScanMode()));
         writer.println("  " + "ConnectionState: " + dumpConnectionState(getConnectionState()));
         writer.println("  " + "State: " + BluetoothAdapter.nameForState(getState()));

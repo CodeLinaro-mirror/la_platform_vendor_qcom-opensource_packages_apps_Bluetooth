@@ -128,6 +128,8 @@ public class A2dpService extends ProfileService {
     private boolean mIsTwsPlusEnabled = false;
     private boolean mIsTwsPlusMonoSupported = false;
     private boolean mShoActive = false;
+    private boolean mGamingEnabled = false;
+    private boolean mAlsDisabled;
     private String  mTwsPlusChannelMode = "dual-mono";
     private BluetoothDevice mDummyDevice = null;
     private static final int max_tws_connection = 2;
@@ -141,6 +143,8 @@ public class A2dpService extends ProfileService {
 
     private static final int SET_EBMONO_CFG = 1;
     private static final int SET_EBDUALMONO_CFG = 2;
+    private static final int ENABLE_GAMING_MODE = 3;
+    private static final int DISABLE_GAMING_MODE = 4;
     private static final int MonoCfg_Timeout = 3000;
     private static final int DualMonoCfg_Timeout = 3000;
 
@@ -165,6 +169,14 @@ public class A2dpService extends ProfileService {
                            mAudioManager.setParameters("TwsChannelConfig=dual-mono");
                    }
                    mTwsPlusChannelMode = "dual-mono";
+                   break;
+               case ENABLE_GAMING_MODE:
+                   Log.d(TAG, "Enable Gaming Mode in A2DP!!");
+                   enableGamingModeinA2DP();
+                   break;
+               case DISABLE_GAMING_MODE:
+                   Log.d(TAG, "Disable Gaming Mode in A2DP!!");
+                   disableGamingModeinA2DP();
                    break;
               default:
                    break;
@@ -243,6 +255,8 @@ public class A2dpService extends ProfileService {
                 if (!TwsPlusChannelMode.isEmpty() && "mono".equals(TwsPlusChannelMode)) {
                     mTwsPlusChannelMode = "mono";
                 }
+                mAlsDisabled = SystemProperties.getBoolean
+                                                ("persist.vendor.service.bt.als_disabled", false);
                 Log.d(TAG, "Default TwsPlus ChannelMode: " + mTwsPlusChannelMode);
             }
 
@@ -1183,6 +1197,93 @@ public class A2dpService extends ProfileService {
         return true;
     }
 
+    public void setGamingMode(BluetoothDevice device, boolean status) {
+        if (status) {
+            Log.v(TAG,"setGamingMode");
+            Message msg = mHandler.obtainMessage(ENABLE_GAMING_MODE);
+            mHandler.sendMessage(msg);
+        }
+        else {
+            Log.v(TAG,"setGamingMode");
+            Message msg = mHandler.obtainMessage(DISABLE_GAMING_MODE);
+            mHandler.sendMessage(msg);
+        }
+    }
+
+    private void enableGamingModeinA2DP() {
+        if (mGamingEnabled) {
+            Log.v(TAG,"enableGamingModeinA2DP: Already enabled Gaming Mode");
+            return;
+        }
+        Log.v(TAG,"enableGamingModeinA2DP");
+        BluetoothDevice device = getActiveDevice();
+        BluetoothCodecStatus codecStatus = getCodecStatus(device);
+        if (codecStatus == null) {
+            Log.v(TAG,"enableGamingModeinA2DP: CodecStatus is empty");
+            return;
+        }
+        BluetoothCodecConfig codecConfig = codecStatus.getCodecConfig();
+        if (codecConfig == null) {
+            Log.v(TAG,"enableGamingModeinA2DP: CodecConfig is empty");
+            return;
+        }
+        if (codecConfig.getCodecType() == BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_ADAPTIVE) {
+            Log.v(TAG,"APTX ADAPTIVE Codec Type");
+            BluetoothCodecConfig a2dpGamingConfig =
+                   new BluetoothCodecConfig.Builder()
+                      .setCodecType(codecConfig.getCodecType())
+                      .setCodecPriority(codecConfig.getCodecPriority())
+                      .setSampleRate(codecConfig.getSampleRate())
+                      .setBitsPerSample(codecConfig.getBitsPerSample())
+                      .setChannelMode(codecConfig.getChannelMode())
+                      .setCodecSpecific1(codecConfig.getCodecSpecific1())
+                      .setCodecSpecific2(codecConfig.getCodecSpecific2())
+                      .setCodecSpecific3(codecConfig.getCodecSpecific3())
+                      .setCodecSpecific4(APTX_LL)
+                      .build();
+            mGamingEnabled = true;
+            mA2dpCodecConfig.setCodecConfigPreference(device, codecStatus, a2dpGamingConfig);
+        } else {
+            Log.d(TAG,"CodecType is not AptX AD");
+            return;
+        }
+    }
+
+    private void disableGamingModeinA2DP() {
+        if (!mGamingEnabled) {
+            Log.v(TAG,"disableGamingModeinA2DP: Already disabled Gaming Mode");
+            return;
+        }
+        Log.v(TAG,"disableGamingModeinA2DP");
+        BluetoothDevice device = getActiveDevice();
+        BluetoothCodecStatus codecStatus = getCodecStatus(device);
+        if (codecStatus == null) {
+            Log.v(TAG,"disableGamingModeinA2DP: CodecStatus is empty, resetting gaming mode");
+            mGamingEnabled = false;
+            return;
+        }
+        BluetoothCodecConfig codecConfig = codecStatus.getCodecConfig();
+        if (codecConfig == null) {
+            Log.v(TAG,"disableGamingModeinA2DP: CodecConfig is empty, resetting gaming mode");
+            mGamingEnabled = false;
+            return;
+        }
+        BluetoothCodecConfig a2dpGamingConfig =
+               new BluetoothCodecConfig.Builder()
+                  .setCodecType(codecConfig.getCodecType())
+                  .setCodecPriority(codecConfig.getCodecPriority())
+                  .setSampleRate(codecConfig.getSampleRate())
+                  .setBitsPerSample(codecConfig.getBitsPerSample())
+                  .setChannelMode(codecConfig.getChannelMode())
+                  .setCodecSpecific1(codecConfig.getCodecSpecific1())
+                  .setCodecSpecific2(codecConfig.getCodecSpecific2())
+                  .setCodecSpecific3(codecConfig.getCodecSpecific3())
+                  .setCodecSpecific4(APTX_HQ)
+                  .build();
+        mGamingEnabled = false;
+        mA2dpCodecConfig.setCodecConfigPreference(device, codecStatus, a2dpGamingConfig);
+    }
+
     private boolean setActiveDeviceA2dp(BluetoothDevice device) {
         BluetoothCodecStatus codecStatus = null;
         BluetoothDevice previousActiveDevice = mActiveDevice;
@@ -1576,6 +1677,14 @@ public class A2dpService extends ProfileService {
         long cs4 = codecConfig.getCodecSpecific4();
         GattService mGattService = GattService.getGattService();
 
+        if (mAlsDisabled) {
+            if (cs4 > 0 && codecConfig.getCodecType() ==
+                                BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_ADAPTIVE) {
+                Log.e(TAG, "setCodecConfigPreference: ALS trigger is ignored");
+                return;
+            }
+        }
+
         if(cs4 > 0 && mGattService != null) {
             switch((int)(cs4 & APTX_MODE_MASK)) {
                 case APTX_HQ:
@@ -1619,6 +1728,15 @@ public class A2dpService extends ProfileService {
                     + Objects.toString(codecConfig));
         }
         long cs4 = codecConfig.getCodecSpecific4();
+
+        if (mAlsDisabled) {
+            if (cs4 > 0 && codecConfig.getCodecType() ==
+                                BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_ADAPTIVE) {
+                Log.e(TAG, "setCodecConfigPreferenceA2dp: ALS trigger is ignored");
+                return;
+            }
+        }
+
         GattService mGattService = GattService.getGattService();
         if(cs4 > 0 && mGattService != null) {
             switch((int)(cs4 & APTX_MODE_MASK)) {
@@ -2788,6 +2906,9 @@ public class A2dpService extends ProfileService {
     public void updateStreamState(BluetoothDevice device, int streamStatus) {
         MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
         mMediaAudio.onStreamStateChange(device, streamStatus);
+        if (streamStatus == BluetoothA2dp.STATE_NOT_PLAYING) {
+            disableGamingModeinA2DP();
+        }
     }
 
     @Override

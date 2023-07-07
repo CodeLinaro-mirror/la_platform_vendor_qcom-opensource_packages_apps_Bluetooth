@@ -191,7 +191,8 @@ public class Config {
                         R.bool.profile_supported_music_player_service,
                         (1L << BluetoothProfile.MCP_SERVER)),
                     new ProfileConfig(mCcServiceClass, R.bool.profile_supported_cc_server,
-                        (1L << BluetoothProfile.CC_SERVER)),
+                        (1L << BluetoothProfile.CC_SERVER |
+                         1L << BluetoothProfile.LE_CALL_CONTROL)),
                     new ProfileConfig(mCsClientServiceClass, R.bool.profile_supported_csc,
                         (1L << BluetoothProfile.CS_PROFILE))
             ));

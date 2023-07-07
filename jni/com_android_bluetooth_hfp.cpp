@@ -239,6 +239,10 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
                                  addr.get());
   }
 
+  void SwbCallback(bluetooth::headset::bthf_swb_config_t swb_config,
+                   RawAddress* bd_addr) override {
+  }
+
   void AtChldCallback(bluetooth::headset::bthf_chld_type_t chld,
                       RawAddress* bd_addr) override {
     std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);

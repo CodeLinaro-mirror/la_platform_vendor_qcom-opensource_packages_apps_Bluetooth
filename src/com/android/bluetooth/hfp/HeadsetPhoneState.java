@@ -90,6 +90,7 @@ public class HeadsetPhoneState {
     private int SIM_PRESENT = 1;
     // Array to keep the SIM status
     private int[] mSimStatus;
+    private int mNumberOfSims = 2;
 
     private final HashMap<BluetoothDevice, Integer> mDeviceEventMap = new HashMap<>();
     private PhoneStateListener mPhoneStateListener;
@@ -113,7 +114,7 @@ public class HeadsetPhoneState {
         mSubscriptionManager.addOnSubscriptionsChangedListener(mOnSubscriptionsChangedListener);
         IntentFilter simStateChangedFilter =
                         new IntentFilter(TelephonyIntents.ACTION_SIM_STATE_CHANGED);
-        mSimStatus = new int [mTelephonyManager.getPhoneCount()];
+        mSimStatus = new int [mNumberOfSims];
         //Record the SIM states upon BT reset
         try {
             for (int i = 0; i < mSimStatus.length; i++) {

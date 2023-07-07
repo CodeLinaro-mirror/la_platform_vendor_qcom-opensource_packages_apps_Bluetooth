@@ -233,6 +233,47 @@ public class AvrcpNativeInterface {
         mAvrcpService.setVolume(volume);
     }
 
+    /** Request from remote to list supported values for player setting. */
+    void listPlayerSettingValuesRequest(byte settingRequest) {
+        byte[] valuesArray;
+        // TODO remove stub changes with implementation
+        final int STATE_DEFAULT_OFF = 1;
+        valuesArray = new byte[1];
+        valuesArray[0] = STATE_DEFAULT_OFF;
+        listPlayerSettingValuesResponseNative(
+                settingRequest, valuesArray);
+    }
+
+    /** Request from remote current values for player settings. */
+    void getCurrentPlayerSettingValuesRequest(byte[] settingsRequest) {
+        // TODO remove stub changes with implementation
+        final int STATE_DEFAULT_OFF = 1;
+        byte[] valuesArray = new byte[settingsRequest.length];
+        for (int i = 0; i < settingsRequest.length; i++) {
+            valuesArray[i] = (byte) STATE_DEFAULT_OFF;
+        }
+        getPlayerSettingsResponseNative(settingsRequest, valuesArray);
+    }
+
+    /** Request from remote to set current values for player settings. */
+    void setPlayerSettingsRequest(byte[] settingsRequest, byte[] valuesRequest) {
+        // TODO remove stub changes with implementation
+        boolean success = false;
+        setPlayerSettingsResponseNative(success);
+    }
+
+    void sendPlayerSettings(int repeatMode, int shuffleMode) {
+        final int SETTING_REPEAT = 2;
+        final int SETTING_SHUFFLE = 3;
+        byte[] settingsArray = new byte[2];
+        byte[] valuesArray = new byte[2];
+        settingsArray[0] = (byte) SETTING_REPEAT;
+        settingsArray[1] = (byte) SETTING_SHUFFLE;
+        valuesArray[0] = (byte) repeatMode;
+        valuesArray[1] = (byte) shuffleMode;
+        sendPlayerSettingsNative(settingsArray, valuesArray);
+    }
+
     private static native void classInitNative();
     private native void initNative();
     private native void sendMediaUpdateNative(
@@ -246,6 +287,12 @@ public class AvrcpNativeInterface {
     private native boolean connectDeviceNative(String bdaddr);
     private native boolean disconnectDeviceNative(String bdaddr);
     private native void sendVolumeChangedNative(int volume);
+    private native void setBipClientStatusNative(String bdaddr, boolean connected);
+    private native void listPlayerSettingsResponseNative(byte[] attributes);
+    private native void listPlayerSettingValuesResponseNative(byte attribute, byte[] values);
+    private native void getPlayerSettingsResponseNative(byte[] attributes, byte[] values);
+    private native void setPlayerSettingsResponseNative(boolean success);
+    private native void sendPlayerSettingsNative(byte[] attributes, byte[] values);
 
     private static void d(String msg) {
         if (DEBUG) {

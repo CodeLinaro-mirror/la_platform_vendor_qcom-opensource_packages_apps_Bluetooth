@@ -16,8 +16,11 @@
 
 package com.android.bluetooth.gatt;
 
+import android.bluetooth.BluetoothAssignedNumbers.OrganizationId;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.TransportBlockFilter;
+
 import android.os.ParcelUuid;
 import android.util.Log;
 
@@ -152,13 +155,15 @@ import java.util.UUID;
         mEntries.add(entry);
     }
 
-    void addTransportDiscoveryData(int orgId, int TDSFlags, int TDSFlagsMask, byte[] wifiNANHash) {
+    void addTransportDiscoveryData(int orgId, int tdsFlags, int tdsFlagsMask,
+            byte[] transportData, byte[] transportDataMask) {
         Entry entry = new Entry();
         entry.type = TYPE_TRANSPORT_DISCOVERY_DATA;
         entry.org_id = orgId;
-        entry.tds_flags = TDSFlags;
-        entry.tds_flags_mask = TDSFlagsMask;
-        entry.data = wifiNANHash;
+        entry.tds_flags = tdsFlags;
+        entry.tds_flags_mask = tdsFlagsMask;
+        entry.data = transportData;
+        entry.data_mask = transportDataMask;
         mEntries.add(entry);
     }
 
@@ -260,10 +265,23 @@ import java.util.UUID;
                 addServiceData(serviceData, finalServiceDataMask);
             }
         }
-        if (filter.getOrgId() >= 0) {
-            addTransportDiscoveryData(filter.getOrgId(), filter.getTDSFlags(),
-                filter.getTDSFlagsMask(), filter.getWifiNANHash());
+
+        final TransportBlockFilter transportBlockFilter = filter.getTransportBlockFilter();
+        if (transportBlockFilter != null) {
+            if (transportBlockFilter.getOrgId()
+                    == OrganizationId.WIFI_ALLIANCE_NEIGHBOR_AWARENESS_NETWORKING) {
+                addTransportDiscoveryData(transportBlockFilter.getOrgId(),
+                        transportBlockFilter.getTdsFlags(), transportBlockFilter.getTdsFlagsMask(),
+                        transportBlockFilter.getWifiNanHash(), null);
+            } else {
+                addTransportDiscoveryData(transportBlockFilter.getOrgId(),
+                        transportBlockFilter.getTdsFlags(), transportBlockFilter.getTdsFlagsMask(),
+                        transportBlockFilter.getTransportData(),
+                        transportBlockFilter.getTransportDataMask());
+            }
+
         }
+
         if (filter.getGroupFilteringValue()) {
             addGroupFilterEntry(filter.getGroupFilteringValue());
         }
