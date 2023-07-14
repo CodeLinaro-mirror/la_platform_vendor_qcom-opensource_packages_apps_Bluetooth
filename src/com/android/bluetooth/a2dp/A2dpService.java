@@ -974,7 +974,13 @@ public class A2dpService extends ProfileService {
                 audioZoneIndex = getAudioZoneIndex(device);
             } else {
                 // Clear old media player
-                A2dpAudioZone.clearMediaPlayer(device);
+                if (DBG) {
+                    Log.d(TAG, "Clear old media player " + oldMediaPlayer + " with " + device);
+                }
+                synchronized (mStateMachines) {
+                    A2dpStateMachine sm = mStateMachines.get(device);
+                    sm.processClearMediaPlayer();
+                }
                 audioZoneIndex = A2dpAudioZone.getAudioZoneAvailable(mediaPlayer);
             }
         }
