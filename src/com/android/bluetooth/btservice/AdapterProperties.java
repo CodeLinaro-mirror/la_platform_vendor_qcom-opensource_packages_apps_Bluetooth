@@ -15,7 +15,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
@@ -627,6 +627,9 @@ class AdapterProperties {
             prop.setBondState(state);
 
             if (state == BluetoothDevice.BOND_BONDED) {
+                // Always save remote CoD into bt_config.conf if bonding is done
+                // in 2nd Bluetooth adapter where there is no device searching
+                updateRemoteBluetoothClass(device);
                 // add if not already in list
                 if (!mBondedDevices.contains(device)) {
                     debugLog("Adding bonded device:" + device);
@@ -1088,6 +1091,20 @@ class AdapterProperties {
 
     private Intent newIntent(String action, String newAction) {
         return AdapterUtil.newIntent(action, newAction);
+    }
+
+    private void updateRemoteBluetoothClass(BluetoothDevice device) {
+        if(AdapterUtil.isAdapterDefault(device)) {
+            return;
+        }
+
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        if (AdapterUtil.getDefaultBluetoothClass() == deviceProp.getBluetoothClass()) {
+            // Get CoD of remote Bluetooth device from default adapter where device
+            // searching is executed
+            BluetoothDevice counterpartDevice = AdapterUtil.getCounterpartDevice(device);
+            deviceProp.setBluetoothClass(counterpartDevice.getBluetoothClass());
+        }
     }
 
     protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {

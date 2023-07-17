@@ -38,6 +38,8 @@ public final class AdapterUtil {
     private static final int ADAPTER_DEFAULT = BluetoothAdapterCommon.ADAPTER_DEFAULT;
     private static final int ADAPTER_1 = BluetoothAdapterCommon.ADAPTER_1;
     private static final int ADAPTER_NUMBER = BluetoothAdapterCommon.ADAPTER_NUMBER;
+    // @link BluetoothClass.Device.Major.BITMASK
+    private static final int DEFAULT_BLUETOOTH_CLASS = 0x1F00;
 
     private static Context sContext = null;
     private static boolean sDualBluetooth = false;
@@ -108,6 +110,10 @@ public final class AdapterUtil {
 
     public static boolean isAdapterDefault() {
         return isAdapterDefault(getAdapterIndex());
+    }
+
+    public static boolean isAdapterDefault(BluetoothDevice device) {
+        return isAdapterDefault(device.getAdapterIndex());
     }
 
     private static boolean isAdapterDefault(int adapterIndex) {
@@ -205,5 +211,9 @@ public final class AdapterUtil {
     public static BluetoothDevice getCounterpartDevice(BluetoothDevice device) {
         BluetoothAdapter counterpartAdapter = BluetoothAdapterUtil.getAdapter(getCounterpartIndex());
         return counterpartAdapter.getRemoteDevice(device.getAddress());
+    }
+
+    public static int getDefaultBluetoothClass() {
+        return DEFAULT_BLUETOOTH_CLASS;
     }
 }

@@ -15,7 +15,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
@@ -273,6 +273,13 @@ final class RemoteDevices {
             synchronized (mObject) {
                 return mBluetoothClass;
             }
+        }
+
+        void setBluetoothClass(BluetoothClass btClass) {
+            int classInt = btClass.getClassOfDevice();
+            this.mBluetoothClass = classInt;
+            sAdapterService.setDevicePropertyNative(mAddress,
+                    AbstractionLayer.BT_PROPERTY_CLASS_OF_DEVICE, Utils.intToByteArray(classInt));
         }
 
         /**
