@@ -1082,11 +1082,16 @@ public class ActiveDeviceManager {
                    " mMediaActiveProfile: " + mMediaActiveProfile +
                    ", mCallActiveProfile: " + mCallActiveProfile);
 
-        if (mMediaActiveProfile == ApmConstIntf.AudioProfiles.A2DP) {
+        if(ApmConstIntf.getQtiLeAudioEnabled() ||
+            ApmConstIntf.getAospLeaEnabled()) {
+            if (mMediaActiveProfile == ApmConstIntf.AudioProfiles.A2DP) {
+                setA2dpActiveDevice(null);
+            }
+            if (mCallActiveProfile == ApmConstIntf.AudioProfiles.HFP) {
+                setHfpActiveDevice(null);
+            }
+        } else {
             setA2dpActiveDevice(null);
-        }
-
-        if (mCallActiveProfile == ApmConstIntf.AudioProfiles.HFP) {
             setHfpActiveDevice(null);
         }
 
