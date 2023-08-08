@@ -46,6 +46,11 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 
 package com.android.bluetooth.hfp;
@@ -499,7 +504,8 @@ public class HeadsetStateMachine extends StateMachine {
                 mHeadsetService.updateConnState(device, toState);
             }
             mHeadsetService.onConnectionStateChangedFromStateMachine(device, fromState, toState);
-            if(!ApmConstIntf.getQtiLeAudioEnabled()) {
+            if(!ApmConstIntf.getQtiLeAudioEnabled() &&
+                    !(ApmConstIntf.getAospLeaEnabled() && mHeadsetService.isVoipLeaWarEnabled())) {
                 Intent intent = new Intent(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
                 intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, fromState);
                 intent.putExtra(BluetoothProfile.EXTRA_STATE, toState);
@@ -2046,7 +2052,7 @@ public class HeadsetStateMachine extends StateMachine {
     private void processAudioServerUp() {
         Log.i(TAG, "onAudioSeverUp: restore audio parameters");
         mSystemInterface.getAudioManager().setBluetoothScoOn(false);
-        mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+        mSystemInterface.getAudioManager().setA2dpSuspended(true);
         setAudioParameters();
         mSystemInterface.getAudioManager().setBluetoothScoOn(true);
     }
@@ -3154,6 +3160,14 @@ public class HeadsetStateMachine extends StateMachine {
     boolean isSCONeededImmediatelyAfterSLC() {
         boolean matched = InteropUtil.interopMatchAddrOrName(
             InteropUtil.InteropFeature.INTEROP_SETUP_SCO_WITH_NO_DELAY_AFTER_SLC_DURING_CALL,
+            mDevice.getAddress());
+
+        return matched;
+    }
+
+    boolean isDeviceBlacklistedForDelayingCLCCRespAfterVOIPCall() {
+        boolean matched = InteropUtil.interopMatchAddrOrName(
+            InteropUtil.InteropFeature.INTEROP_HFP_SEND_OK_FOR_CLCC_AFTER_VOIP_CALL_END,
             mDevice.getAddress());
 
         return matched;

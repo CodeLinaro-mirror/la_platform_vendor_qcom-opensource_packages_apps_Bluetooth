@@ -1411,7 +1411,12 @@ public class BluetoothMapContentObserver {
             try {
                 if (c != null && c.moveToFirst()) {
                     do {
-                        long id = c.getLong(c.getColumnIndex(Sms._ID));
+                        int idIndex = c.getColumnIndexOrThrow(Sms._ID);
+                        if (c.isNull(idIndex)) {
+                            Log.w(TAG, "handleMsgListChangesSms, ID is null");
+                            continue;
+                        }
+                        long id = c.getLong(idIndex);
                         int type = c.getInt(c.getColumnIndex(Sms.TYPE));
                         int threadId = c.getInt(c.getColumnIndex(Sms.THREAD_ID));
                         int read = c.getInt(c.getColumnIndex(Sms.READ));
@@ -1527,8 +1532,6 @@ public class BluetoothMapContentObserver {
                         }
                     } while (c.moveToNext());
                 }
-            } catch (IllegalStateException e) {
-                Log.w(TAG, e);
             } finally {
                 if (c != null) {
                     c.close();
@@ -1569,7 +1572,12 @@ public class BluetoothMapContentObserver {
             try {
                 if (c != null && c.moveToFirst()) {
                     do {
-                        long id = c.getLong(c.getColumnIndex(Mms._ID));
+                        int idIndex = c.getColumnIndexOrThrow(Mms._ID);
+                        if (c.isNull(idIndex)) {
+                            Log.w(TAG, "handleMsgListChangesMms, ID is null");
+                            continue;
+                        }
+                        long id = c.getLong(idIndex);
                         int type = c.getInt(c.getColumnIndex(Mms.MESSAGE_BOX));
                         int mtype = c.getInt(c.getColumnIndex(Mms.MESSAGE_TYPE));
                         int threadId = c.getInt(c.getColumnIndex(Mms.THREAD_ID));
@@ -1698,8 +1706,6 @@ public class BluetoothMapContentObserver {
                     } while (c.moveToNext());
 
                 }
-            } catch (IllegalStateException e) {
-                Log.w(TAG, e);
             } finally {
                 if (c != null) {
                     c.close();

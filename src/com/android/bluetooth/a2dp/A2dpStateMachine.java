@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /**
@@ -73,6 +77,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
 import java.util.Scanner;
+import java.lang.reflect.Method;
 import android.os.SystemProperties;
 import com.android.bluetooth.btservice.AdapterService;
 
@@ -679,6 +684,7 @@ final class A2dpStateMachine extends StateMachine {
         // Split A2dp will be enabled by default
         boolean isSplitA2dpEnabled = true;
         AdapterService adapterService = AdapterService.getAdapterService();
+        Object objStreamAudioService = null;
 
         if (adapterService != null){
             isSplitA2dpEnabled = adapterService.isSplitA2dpEnabled();
@@ -753,6 +759,34 @@ final class A2dpStateMachine extends StateMachine {
             } else if (!mCodecConfigUpdated) {
                 Log.d(TAG, " mCodecConfigUpdated is false, codecConfigUpdated is required");
                 update = true;
+            }
+
+            if ((newCodecConfig.getCodecType()
+                    == BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_ADAPTIVE)) {
+                Log.d(TAG, "processCodecConfigEvent, APTX ADAPTIVE: reset Low Latency mode ");
+                try {
+                    Class streamAudioService = Class.forName("com.android.bluetooth.apm.StreamAudioService");
+                    Method method = streamAudioService.getDeclaredMethod("getStreamAudioService");
+                    objStreamAudioService = method.invoke(null);
+                    if (objStreamAudioService != null) {
+                        Log.d(TAG, " processCodecConfigEvent, objStreamAudioService not null:");
+                    } else {
+                        Log.d(TAG, " processCodecConfigEvent, objStreamAudioService is null:");
+                    }
+                } catch (Exception ex) {
+                    Log.w(TAG, ex);
+                }
+                try {
+                    Class streamAudioService =
+                            Class.forName("com.android.bluetooth.apm.StreamAudioService");
+                    Method method = streamAudioService.getDeclaredMethod("resetLowLatencyMode");
+                    if (objStreamAudioService != null) {
+                        Log.d(TAG, " processCodecConfigEvent, invoke resetLowLatencyMode ");
+                        method.invoke(objStreamAudioService);
+                    }
+                } catch (Exception ex) {
+                    Log.w(TAG, ex);
+                }
             }
             Log.d(TAG, " update: " + update);
             if (update) {

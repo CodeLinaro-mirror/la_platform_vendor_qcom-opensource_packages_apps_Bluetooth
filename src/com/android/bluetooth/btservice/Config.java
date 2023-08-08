@@ -515,6 +515,16 @@ public class Config {
                     }
                     Log.d(TAG, "LeAudioService profile mask: " + mask);
                     return mask;
+                } else if (profile == HapClientService.class) {
+                  long mask = config.mMask;
+                  HapClientService hapClientService = HapClientService.getHapClientService();
+                  if (hapClientService != null) {
+                     if (hapClientService.isEnabled() == false) {
+                        mask &= ~(1L << BluetoothProfile.HAP_CLIENT);
+                     }
+                  }
+                  Log.d(TAG, "HapClientService profile mask: " + mask);
+                  return mask;
                 }
                 return config.mMask;
             }

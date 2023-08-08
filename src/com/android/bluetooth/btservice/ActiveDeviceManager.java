@@ -341,9 +341,11 @@ public class ActiveDeviceManager {
                                     Log.w(TAG, "Set leAudio active device to null");
                                     setLeAudioActiveDevice(null);
                                 } else if(isMediaActive || isBroadcastActive) {
+                                    mLeAudioActiveDevice = null;
                                     activeDeviceManager.setActiveDevice(null,
                                                            ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
                                 } else if(isCallActive) {
+                                    mLeAudioActiveDevice = null;
                                     activeDeviceManager.setActiveDevice(null,
                                                            ApmConstIntf.AudioFeatures.CALL_AUDIO);
                                 }
@@ -739,6 +741,26 @@ public class ActiveDeviceManager {
                              Utils.getTempAllowlistBroadcastOptions());
         }
 
+        private void broadcastHearingAidActiveDeviceChange(BluetoothDevice device) {
+            if (DBG) {
+                Log.d(TAG, "broadcastHearingAidActiveDeviceChange(" + device + ")");
+            }
+
+            Intent intent = new Intent(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
+            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+            intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
+                           | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
+
+            HearingAidService mHearingAidService = HearingAidService.getHearingAidService();
+            if (mHearingAidService == null) {
+                Log.e(TAG, "Hearing aid Service not ready");
+                return;
+            }
+            mHearingAidService.sendBroadcastAsUser(intent, UserHandle.ALL,
+                                              BLUETOOTH_CONNECT,
+                           Utils.getTempAllowlistBroadcastOptions());
+        }
+
         @Override
         public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
             if (DBG) {
@@ -760,6 +782,15 @@ public class ActiveDeviceManager {
                 if (deviceInfo.getType() == AudioDeviceInfo.TYPE_BLE_HEADSET) {
                    hasAddedBleDevice = true;
                    bleDeviceInfo = deviceInfo;
+                }
+                if (deviceInfo.getType() == AudioDeviceInfo.TYPE_HEARING_AID) {
+                   HearingAidService hearingAidService = mFactory.getHearingAidService();
+                   BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                   BluetoothDevice device = adapter.getRemoteDevice(deviceInfo.getAddress());
+                   if (device.equals(hearingAidService.getActiveDevice())) {
+                      Log.d(TAG, " hearing aid device:" + device);
+                      broadcastHearingAidActiveDeviceChange(device);
+                   }
                 }
             }
 
@@ -853,7 +884,9 @@ public class ActiveDeviceManager {
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
+        if (!ApmConstIntf.getAospLeaEnabled()) {
+            filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
+        }
         if(!ApmConstIntf.getQtiLeAudioEnabled()) {
             /*APM will send callback with Active Device update*/;
             Log.d(TAG, "start(): Registering for the active device changed intents");
@@ -995,7 +1028,7 @@ public class ActiveDeviceManager {
         if (leAudioService == null) {
             return false;
         }
-        if (!leAudioService.setActiveDevice(device)) {
+        if (!leAudioService.setActiveDeviceBlocking(device)) {
             return false;
         }
         mLeAudioActiveDevice = device;
@@ -1093,11 +1126,16 @@ public class ActiveDeviceManager {
                    " mMediaActiveProfile: " + mMediaActiveProfile +
                    ", mCallActiveProfile: " + mCallActiveProfile);
 
-        if (mMediaActiveProfile == ApmConstIntf.AudioProfiles.A2DP) {
+        if(ApmConstIntf.getQtiLeAudioEnabled() ||
+            ApmConstIntf.getAospLeaEnabled()) {
+            if (mMediaActiveProfile == ApmConstIntf.AudioProfiles.A2DP) {
+                setA2dpActiveDevice(null);
+            }
+            if (mCallActiveProfile == ApmConstIntf.AudioProfiles.HFP) {
+                setHfpActiveDevice(null);
+            }
+        } else {
             setA2dpActiveDevice(null);
-        }
-
-        if (mCallActiveProfile == ApmConstIntf.AudioProfiles.HFP) {
             setHfpActiveDevice(null);
         }
 
@@ -1161,5 +1199,17 @@ public class ActiveDeviceManager {
             mHandler.obtainMessage(MESSAGE_A2DP_ACTION_CONNECTION_STATE_CHANGED,
                         intent).sendToTarget();
         }
+    }
+
+    public void onLeDeviceConnStateChange(BluetoothDevice device, int state,
+                                        int prevState) {
+        Log.d(TAG, "onLeDeviceConnStateChange: device: " + device +
+                    " state: " + state + " prevState: " + prevState);
+        Intent intent = new Intent(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
+        intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
+        intent.putExtra(BluetoothProfile.EXTRA_STATE, state);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+        mHandler.obtainMessage(MESSAGE_LE_AUDIO_ACTION_CONNECTION_STATE_CHANGED,
+                               intent).sendToTarget();
     }
 }

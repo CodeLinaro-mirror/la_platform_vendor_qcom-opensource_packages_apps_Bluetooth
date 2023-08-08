@@ -170,6 +170,7 @@ class PhonePolicy {
     private final HashSet<BluetoothDevice> mConnectOtherProfilesDeviceSet = new HashSet<>();
 
     private Boolean mPreferLeAudioOnlyMode = false;
+    private static final int DELAY_A2DP_SLEEP_MILLIS = 100;
     ///*_REF
     Object mBCService = null;
     Method mBCGetService = null;
@@ -381,7 +382,7 @@ class PhonePolicy {
         filter.addAction(BluetoothCsipSetCoordinator.ACTION_CSIS_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_ACTIVE_DEVICE_CHANGED);
         filter.addAction(BluetoothVolumeControl.ACTION_CONNECTION_STATE_CHANGED);
-        mAdapterService.registerReceiver(mReceiver, filter);
+        mAdapterService.registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
     }
 
     protected void cleanup() {
@@ -863,6 +864,16 @@ class PhonePolicy {
             mHandler.sendMessageDelayed(m,AUTO_CONNECT_PROFILES_TIMEOUT);
         }
     }
+    public void delayA2dpConnect() {
+        /*delaying the A2DP connection so that HFP connection can be established first*/
+        Log.w(TAG, "delaying the A2dp Connection by " + DELAY_A2DP_SLEEP_MILLIS + "msec");
+        try {
+            Thread.sleep(DELAY_A2DP_SLEEP_MILLIS);
+        } catch(InterruptedException ex) {
+            Log.e(TAG, "delayA2dpConnect() was interrupted");
+            Thread.currentThread().interrupt();
+        }
+    }
 
     private void autoConnectProfilesDelayed() {
         if (mAdapterService.getState() != BluetoothAdapter.STATE_ON) {
@@ -925,6 +936,9 @@ class PhonePolicy {
                 debugLog("autoConnect: recently connected A2DP active Device " +
                     mostRecentlyActiveA2dpDevice + " attempting auto connection for A2DP, HFP");
                 autoConnectHeadset(mostRecentlyActiveA2dpDevice);
+                //Add a delay to ensure that the HFP connection is
+                //established first during auto reconnection.
+                delayA2dpConnect();
                 autoConnectA2dp(mostRecentlyActiveA2dpDevice);
                 debugLog("autoConnect: attempting auto connection for recently"+
                         " connected HID device:" + mostRecentlyConnectedA2dpSrcDevice);
@@ -932,6 +946,9 @@ class PhonePolicy {
                 if (peerTwsDevice != null) {
                     debugLog("autoConnect: 2nd pair TWS+ EB");
                     autoConnectHeadset(peerTwsDevice);
+                    //Add a delay to ensure that the HFP connection is
+                    //established first during auto reconnection.
+                    delayA2dpConnect();
                     autoConnectA2dp(peerTwsDevice);
                 }
             } else if (mostRecentlyActiveHfpDevice != null) {

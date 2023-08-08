@@ -151,13 +151,13 @@ public class HeadsetA2dpSync {
           if(mActiveDeviceManager.isRecordingActive(null)) {
             mActiveDeviceManager.suspendRecording(true);
           } else {
-            mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+            mSystemInterface.getAudioManager().setA2dpSuspended(true);
           }
       } else {
           if ((profile & BluetoothProfile.A2DP) == BluetoothProfile.A2DP)
-              mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+              mSystemInterface.getAudioManager().setA2dpSuspended(true);
           if ((profile & BluetoothProfile.LE_AUDIO) == BluetoothProfile.LE_AUDIO)
-              mSystemInterface.getAudioManager().setParameters("LEASuspended=true");
+              mSystemInterface.getAudioManager().setLeAudioSuspended(true);
       }
     }
 
@@ -332,7 +332,7 @@ public class HeadsetA2dpSync {
     public boolean releaseLeAudio() {
         Log.d(TAG, "releaseLeAudio: mLeaSuspendTriggered = " + mLeaSuspendTriggered);
         if (mLeaSuspendTriggered > 0) {
-            mSystemInterface.getAudioManager().setParameters("LEASuspended=false");
+            mSystemInterface.getAudioManager().setLeAudioSuspended(false);
             mLeaSuspendTriggered = A2DP_SUSPENDED_NOT_TRIGGERED;
             return true;
         }
@@ -351,8 +351,8 @@ public class HeadsetA2dpSync {
 
         if (!mHeadsetService.isAvailable()) {
             Log.d(TAG, "HeadsetService is stopping");
-            mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
-            mSystemInterface.getAudioManager().setParameters("LEASuspended=false");
+            mSystemInterface.getAudioManager().setA2dpSuspended(false);
+            mSystemInterface.getAudioManager().setLeAudioSuspended(false);
             return true;
         }
 
@@ -372,10 +372,10 @@ public class HeadsetA2dpSync {
             if(mActiveDeviceManager.isRecordingActive(null)) {
               mActiveDeviceManager.suspendRecording(false);
             } else {
-              mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
+              mSystemInterface.getAudioManager().setA2dpSuspended(false);
             }
         } else {
-            mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
+            mSystemInterface.getAudioManager().setA2dpSuspended(false);
             releaseLeAudio();
             //hfpCallBapMediaSync(false);
         }

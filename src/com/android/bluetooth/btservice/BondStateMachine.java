@@ -60,6 +60,7 @@ import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -77,7 +78,6 @@ import java.util.Iterator;
  */
 
 final class BondStateMachine extends StateMachine {
-    private static final boolean DBG = false;
     private static final String TAG = "BluetoothBondStateMachine";
 
     static final int CREATE_BOND = 1;
@@ -429,6 +429,7 @@ final class BondStateMachine extends StateMachine {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     private boolean cancelBond(BluetoothDevice dev) {
         if (mAdapterService == null) return false;
         if (dev.getBondState() == BluetoothDevice.BOND_BONDING) {
@@ -461,6 +462,10 @@ final class BondStateMachine extends StateMachine {
         return false;
     }
 
+    @RequiresPermission(allOf = {
+                android.Manifest.permission.BLUETOOTH_CONNECT,
+                android.Manifest.permission.INTERACT_ACROSS_USERS,
+    })
     private boolean createBond(BluetoothDevice dev, int transport, OobData remoteP192Data,
             OobData remoteP256Data, boolean transition) {
         if (mAdapterService == null) return false;
@@ -566,6 +571,10 @@ final class BondStateMachine extends StateMachine {
     }
 
     @VisibleForTesting
+    @RequiresPermission(allOf = {
+                android.Manifest.permission.BLUETOOTH_CONNECT,
+                android.Manifest.permission.INTERACT_ACROSS_USERS,
+    })
     void sendIntent(BluetoothDevice device, int newState, int reason,
             boolean isTriggerFromDelayMessage) {
         DeviceProperties devProp = mRemoteDevices.getDeviceProperties(device);
@@ -650,7 +659,10 @@ final class BondStateMachine extends StateMachine {
             intent.putExtra(BluetoothDevice.EXTRA_REASON, reason);
         }
         if (newState == BluetoothDevice.BOND_BONDED) {
-            int validAddr = devProp.getValidBDAddr();
+            int validAddr = 0;
+            if (devProp != null) {
+              validAddr = devProp.getValidBDAddr();
+            }
             if (validAddr == 0) {
                 intent.putExtra(BluetoothDevice.EXTRA_IS_PRIVATE_ADDRESS, true);
             }
@@ -683,6 +695,7 @@ final class BondStateMachine extends StateMachine {
                 }
             }
         }
+        mAdapterService.onBondStateChanged(device, newState);
         mAdapterService.sendBroadcastAsUser(intent, UserHandle.ALL, BLUETOOTH_CONNECT,
                 Utils.getTempAllowlistBroadcastOptions());
         infoLog("Bond State Change Intent:" + device + " " + state2str(oldState) + " => "
@@ -744,15 +757,18 @@ final class BondStateMachine extends StateMachine {
         sendMessage(msg);
     }
 
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     void sspRequestCallback(byte[] address, byte[] name, int cod, int pairingVariant, int passkey) {
         //TODO(BT): Get wakelock and update name and cod
         BluetoothDevice bdDevice = mRemoteDevices.getDevice(address);
         if (bdDevice == null) {
             mRemoteDevices.addDeviceProperties(address);
         }
-        infoLog("sspRequestCallback: " + address + " name: " + name + " cod: " + cod
-                + " pairingVariant " + pairingVariant + " passkey: "
-                + (Build.isDebuggable() ? passkey : "******"));
+        infoLog("sspRequestCallback: " + Arrays.toString(address)
+                + " name: " + Arrays.toString(name)
+                + " cod: " + cod
+                + " pairingVariant " + pairingVariant
+                + " passkey: " + (Build.isDebuggable() ? passkey : "******"));
         int variant;
         boolean displayPasskey = false;
         switch (pairingVariant) {
@@ -800,6 +816,7 @@ final class BondStateMachine extends StateMachine {
         sendMessage(msg);
     }
 
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     void pinRequestCallback(byte[] address, byte[] name, int cod, boolean min16Digits) {
         //TODO(BT): Get wakelock and update name and cod
 

@@ -79,6 +79,7 @@ public class HearingAidService extends ProfileService {
     private DatabaseManager mDatabaseManager;
     private HandlerThread mStateMachinesThread;
     private BluetoothDevice mPreviousAudioDevice;
+    private BluetoothDevice mActiveDevice;
 
     @VisibleForTesting
     HearingAidNativeInterface mHearingAidNativeInterface;
@@ -624,6 +625,7 @@ public class HearingAidService extends ProfileService {
         synchronized (mStateMachines) {
             if (device == null) {
                 if (mActiveDeviceHiSyncId != BluetoothHearingAid.HI_SYNC_ID_INVALID) {
+                    mActiveDevice = device;
                     reportActiveDevice(null);
                     mActiveDeviceHiSyncId = BluetoothHearingAid.HI_SYNC_ID_INVALID;
                 }
@@ -646,6 +648,7 @@ public class HearingAidService extends ProfileService {
                     a2dpService.earlyNotifyHearingAidActive();
                 }
                 mActiveDeviceHiSyncId = deviceHiSyncId;
+                mActiveDevice = device;
                 reportActiveDevice(device);
             }
         }
@@ -685,6 +688,11 @@ public class HearingAidService extends ProfileService {
             }
         }
         return activeDevices;
+    }
+
+    public BluetoothDevice getActiveDevice() {
+        Log.d(TAG,"getActiveDevice: " + mActiveDevice);
+        return mActiveDevice;
     }
 
     void messageFromNative(HearingAidStackEvent stackEvent) {
@@ -765,12 +773,6 @@ public class HearingAidService extends ProfileService {
             BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED,
                     BluetoothProfile.HEARING_AID, mAdapterService.obfuscateAddress(device), 0);
         }
-
-        Intent intent = new Intent(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
-        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
-        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
-                | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-        sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
 
         boolean stopAudio = device == null
                 && (getConnectionState(mPreviousAudioDevice) != BluetoothProfile.STATE_CONNECTED);

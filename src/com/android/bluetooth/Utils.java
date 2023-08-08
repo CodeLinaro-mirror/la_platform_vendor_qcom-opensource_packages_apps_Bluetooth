@@ -68,6 +68,8 @@ import android.util.Log;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 
+import androidx.annotation.RequiresApi;
+
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -81,6 +83,7 @@ import java.nio.charset.CharsetDecoder;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -93,11 +96,39 @@ public final class Utils {
     private static final String TAG = "BluetoothUtils";
     private static final int MICROS_PER_UNIT = 625;
     private static final String PTS_TEST_MODE_PROPERTY = "persist.bluetooth.pts";
+
+    private static final String ENABLE_DUAL_MODE_AUDIO =
+            "persist.bluetooth.enable_dual_mode_audio";
+    private static boolean sDualModeEnabled =
+            SystemProperties.getBoolean(ENABLE_DUAL_MODE_AUDIO, false);
+
     private static final String KEY_TEMP_ALLOW_LIST_DURATION_MS = "temp_allow_list_duration_ms";
     private static final long DEFAULT_TEMP_ALLOW_LIST_DURATION_MS = 20_000;
 
     static final int BD_ADDR_LEN = 6; // bytes
     static final int BD_UUID_LEN = 16; // bytes
+
+    /**
+     * Check if dual mode audio is enabled. This is set via the system property
+     * persist.bluetooth.enable_dual_mode_audio.
+     * <p>
+     * When set to {@code false}, we will not connect A2DP and HFP on a dual mode (BR/EDR + BLE)
+     * device. We will only attempt to use BLE Audio in this scenario.
+     * <p>
+     * When set to {@code true}, we will connect all the supported audio profiles
+     * (A2DP, HFP, and LE Audio) at the same time. In this state, we will respect calls to
+     * profile-specific APIs (e.g. if a SCO API is invoked, we will route audio over HFP). If no
+     * profile-specific API is invoked to route audio (e.g. Telecom routed phone calls, media,
+     * game audio, etc.), then audio will be routed in accordance with the preferred audio profiles
+     * for the remote device. You can get the preferred audio profiles for a remote device by
+     * calling {@link BluetoothAdapter#getPreferredAudioProfiles(BluetoothDevice)}.
+     *
+     * @return true if dual mode audio is enabled, false otherwise
+     */
+    public static boolean isDualModeAudioEnabled() {
+        Log.i(TAG, "Dual mode enable state is: " + sDualModeEnabled);
+        return sDualModeEnabled;
+    }
 
     public static @Nullable String getName(@Nullable BluetoothDevice device) {
         final AdapterService service = AdapterService.getAdapterService();
@@ -107,6 +138,7 @@ public final class Utils {
             return null;
         }
     }
+
     public static String getAddressStringFromByte(byte[] address) {
         if (address == null || address.length != BD_ADDR_LEN) {
             return null;
@@ -328,7 +360,7 @@ public final class Utils {
                     + " is inaccurate for calling uid " + callingUid);
         }
 
-        for (AssociationInfo association : cdm.getAllAssociations()) {
+        for (AssociationInfo association : getCdmAssociations(cdm)) {
             if (association.getPackageName().equals(callingPackage)
                     && !association.isSelfManaged() && device.getAddress() != null
                     && association.getDeviceMacAddress() != null
@@ -339,6 +371,22 @@ public final class Utils {
         }
         throw new SecurityException("The application with package name " + callingPackage
                 + " does not have a CDM association with the Bluetooth Device");
+    }
+
+    /**
+     * Obtains the complete list of registered CDM associations.
+     *
+     * @param cdm the CompanionDeviceManager object
+     * @return the list of AssociationInfo objects
+     */
+    @RequiresPermission("android.permission.MANAGE_COMPANION_DEVICES")
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    // TODO(b/193460475): Android Lint handles change from SystemApi to public incorrectly.
+    // CompanionDeviceManager#getAllAssociations() is public in U,
+    // but existed in T as an identical SystemApi.
+    @SuppressLint("NewApi")
+    public static List<AssociationInfo> getCdmAssociations(CompanionDeviceManager cdm) {
+        return cdm.getAllAssociations();
     }
 
     /**
@@ -594,6 +642,11 @@ public final class Utils {
         return false;
     }
 
+    private static boolean checkCallerIsSystem() {
+        int callingUid = Binder.getCallingUid();
+        return UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid);
+    }
+
     public static boolean checkCallerIsSystemOrActiveUser() {
         int callingUser = UserHandle.getCallingUserId();
         int callingUid = Binder.getCallingUid();
@@ -614,6 +667,24 @@ public final class Utils {
         return checkCallerIsSystemOrActiveUser(tag + "." + method + "()");
     }
 
+    /**
+     * Checks if the caller to the method is system server.
+     *
+     * @param tag the log tag to use in case the caller is not system server
+     * @param method the API method name
+     * @return {@code true} if the caller is system server, {@code false} otherwise
+     */
+    public static boolean callerIsSystem(String tag, String method) {
+        if (isInstrumentationTestMode()) {
+            return true;
+        }
+        final boolean res = checkCallerIsSystem();
+        if (!res) {
+            Log.w(TAG, tag + "." + method + "()" + " - Not allowed outside system server");
+        }
+        return res;
+    }
+
     public static boolean checkCallerIsSystemOrActiveOrManagedUser(Context context) {
         if (context == null) {
             return checkCallerIsSystemOrActiveUser();
@@ -622,14 +693,14 @@ public final class Utils {
         int callingUid = Binder.getCallingUid();
 
         // Use the Bluetooth process identity when making call to get parent user
-        long ident = Binder.clearCallingIdentity();
+        final long ident = Binder.clearCallingIdentity();
         try {
             UserManager um = (UserManager) context.getSystemService(Context.USER_SERVICE);
             UserInfo ui = um.getProfileParent(callingUser);
             int parentUser = (ui != null) ? ui.id : UserHandle.USER_NULL;
 
             // Always allow SystemUI/System access.
-            return (sForegroundUserId == callingUser) || (sForegroundUserId == parentUser)
+             return (sForegroundUserId == callingUser) || (sForegroundUserId == parentUser)
                     || (UserHandle.getAppId(sSystemUiUid) == UserHandle.getAppId(callingUid))
                     || (UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid));
         } catch (Exception ex) {
@@ -925,9 +996,9 @@ public final class Utils {
     }
 
     public static boolean checkCaller() {
-        int callingUser = UserHandle.getCallingUserId();
         int callingUid = Binder.getCallingUid();
-        return (sForegroundUserId == callingUser)
+        UserHandle callingUser = UserHandle.getUserHandleForUid(callingUid);
+        return (sForegroundUserId == callingUser.getIdentifier())
                 || (UserHandle.getAppId(sSystemUiUid) == UserHandle.getAppId(callingUid))
                 || (UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid));
     }
@@ -936,18 +1007,18 @@ public final class Utils {
         if (mContext == null) {
             return checkCaller();
         }
-        int callingUser = UserHandle.getCallingUserId();
         int callingUid = Binder.getCallingUid();
+        UserHandle callingUser = UserHandle.getUserHandleForUid(callingUid);
 
         // Use the Bluetooth process identity when making call to get parent user
         long ident = Binder.clearCallingIdentity();
         try {
             UserManager um = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
-            UserInfo ui = um.getProfileParent(callingUser);
-            int parentUser = (ui != null) ? ui.id : UserHandle.USER_NULL;
+            UserHandle uh = um.getProfileParent(callingUser);
+            int parentUser = (uh != null) ? uh.getIdentifier() : UserHandle.USER_NULL;
 
             // Always allow SystemUI/System access.
-            return (sForegroundUserId == callingUser) || (sForegroundUserId == parentUser)
+            return (sForegroundUserId == callingUser.getIdentifier())
                     || (UserHandle.getAppId(sSystemUiUid) == UserHandle.getAppId(callingUid))
                     || (UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid));
         } catch (Exception ex) {
@@ -980,5 +1051,17 @@ public final class Utils {
             if (Objects.equals(element, value)) return true;
         }
         return false;
+    }
+
+    /**
+    * Convert an UUID to an obfuscate one for logging purpose
+    * @param UUID to be log
+    * @return Loggable UUID
+    */
+    public static String getAnonymizedUuid(String uuid) {
+        if (uuid == null || uuid.length() != 36) {
+            return uuid;
+        }
+        return "XXXXXXXX" + uuid.substring(8);
     }
 }

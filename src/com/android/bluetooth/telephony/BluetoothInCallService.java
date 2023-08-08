@@ -484,6 +484,7 @@ public class BluetoothInCallService extends InCallService {
             Log.i(TAG, "BT - terminate call: " + index);
             int state = -1;
             BluetoothCall call = null;
+            BluetoothCall conferenceCall = null;
             for (Map.Entry<BluetoothCall, Integer> entry : mClccIndexMap.entrySet()) {
                 if (index == entry.getValue()) {
                     state = entry.getKey().getState();
@@ -491,16 +492,35 @@ public class BluetoothInCallService extends InCallService {
                 }
             }
             if (state == -1) {
-                Log.e(TAG, "no such call with Index");
-                return false;
-            }
-           if (call.getState() == Call.STATE_RINGING) {
-                call.reject(false, "");
+                call = mCallInfo.getForegroundCall();
+                if (mCallInfo.isNullCall(call)) {
+                    Log.e(TAG, "no call with Index");
+                    return false;
+                }
+                // release the parent if there is a conference call
+                conferenceCall = getBluetoothCallById(call.getParentId());
+                if (!mCallInfo.isNullCall(conferenceCall)
+                       && conferenceCall.getState() == Call.STATE_ACTIVE) {
+                    Log.i(TAG, "BT - hanging up conference call");
+                    conferenceCall.disconnect();
+                } else {
+                    Log.e(TAG, "no conference call active");
+                    return false;
+                }
             } else {
-                call.disconnect();
-            }
-            ret = true;
-            return ret;
+              conferenceCall = getBluetoothCallById(call.getParentId());
+              if (call.getState() == Call.STATE_RINGING) {
+                 call.reject(false, "");
+              } else {
+                 call.disconnect();
+              }
+              if (!mCallInfo.isNullCall(conferenceCall)
+                   && conferenceCall.getState() == Call.STATE_ACTIVE) {
+               conferenceCall.disconnect();
+              }
+           }
+           ret = true;
+           return ret;
         }
     }
 

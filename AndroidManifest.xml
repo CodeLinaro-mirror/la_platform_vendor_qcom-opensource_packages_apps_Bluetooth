@@ -74,6 +74,7 @@
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
     <uses-permission android:name="android.permission.LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH" />
+    <uses-permission android:name="android.permission.LOG_COMPAT_CHANGE" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.NFC_HANDOVER_STATUS" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
@@ -121,6 +122,7 @@
     <uses-permission android:name="android.permission.START_FOREGROUND_SERVICES_FROM_BACKGROUND"/>
     <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.READ_COMPAT_CHANGE_CONFIG" />
     <uses-sdk android:minSdkVersion="14"/>
     <!-- For PBAP Owner Vcard Info -->
     <uses-permission android:name="android.permission.READ_PROFILE"/>
@@ -303,7 +305,6 @@
             android:enabled="true" >
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothMap" />
-                <action android:name="android.btmap.intent.action.SHOW_MAPS_SETTINGS" />
                 <action android:name="com.android.bluetooth.map.USER_CONFIRM_TIMEOUT"/>
             </intent-filter>
         </service>

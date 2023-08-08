@@ -36,7 +36,7 @@
 
 #include <hardware/bluetooth.h>
 #include <nativehelper/JNIPlatformHelp.h>
-#include <mutex>
+#include <shared_mutex>
 
 #include <pthread.h>
 
@@ -93,6 +93,7 @@ static bool sHaveCallbackThread;
 
 static jobject sJniAdapterServiceObj = NULL;
 static jobject sJniCallbacksObj = NULL;
+static std::shared_timed_mutex jniObjMutex;
 static jfieldID sJniCallbacksField;
 
 const bt_interface_t* getBluetoothInterface() { return sBluetoothInterface; }
@@ -104,6 +105,12 @@ bool isCallbackThread() {
 }
 
 static void adapter_state_change_callback(bt_state_t status) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   ALOGV("%s: Status is: %d", __func__, status);
@@ -132,6 +139,12 @@ static int get_properties(int num_properties, bt_property_t* properties,
 
 static void adapter_properties_callback(bt_status_t status, int num_properties,
                                         bt_property_t* properties) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -186,6 +199,12 @@ static void remote_device_properties_callback(bt_status_t status,
                                               RawAddress* bd_addr,
                                               int num_properties,
                                               bt_property_t* properties) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -248,6 +267,12 @@ static void remote_device_properties_callback(bt_status_t status,
 
 static void device_found_callback(int num_properties,
                                   bt_property_t* properties) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -284,6 +309,12 @@ static void device_found_callback(int num_properties,
 static void bond_state_changed_callback(bt_status_t status, RawAddress* bd_addr,
                                         bt_bond_state_t state,
                                         int fail_reason) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -317,6 +348,12 @@ static void acl_state_changed_callback(bt_status_t status, RawAddress* bd_addr,
     return;
   }
 
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -336,6 +373,12 @@ static void acl_state_changed_callback(bt_status_t status, RawAddress* bd_addr,
 }
 
 static void discovery_state_changed_callback(bt_discovery_state_t state) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -349,6 +392,12 @@ static void pin_request_callback(RawAddress* bd_addr, bt_bdname_t* bdname,
                                  uint32_t cod, bool min_16_digits) {
   if (!bd_addr) {
     ALOGE("Address is null in %s", __func__);
+    return;
+  }
+
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
     return;
   }
 
@@ -386,6 +435,13 @@ static void ssp_request_callback(RawAddress* bd_addr, bt_bdname_t* bdname,
     ALOGE("Address is null in %s", __func__);
     return;
   }
+
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -532,6 +588,13 @@ static jobject createLeOobDataObject(JNIEnv* env, bt_oob_data_t oob_data) {
 static void generate_local_oob_data_callback(tBT_TRANSPORT transport,
                                              bt_oob_data_t oob_data) {
   ALOGV("%s", __func__);
+
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -586,6 +649,12 @@ static void le_test_mode_recv_callback(bt_status_t status,
 
 static void energy_info_recv_callback(bt_activity_energy_info* p_energy_info,
                                       bt_uid_traffic_t* uid_data) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniAdapterServiceObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -618,12 +687,30 @@ static void link_quality_report_callback(
     uint64_t timestamp, int report_id, int rssi, int snr,
     int retransmission_count, int packets_not_receive_count,
     int negative_acknowledgement_count) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
 }
 
 static void switch_buffer_size_callback(bool is_low_latency_buffer_size) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
 }
 
 static void switch_codec_callback(bool is_low_latency_buffer_size) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniCallbacksObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return;
+  }
+
 }
 
 static bt_callbacks_t sBluetoothCallbacks = {
@@ -692,6 +779,12 @@ class JNIThreadAttacher {
 #ifdef ENABLE_JAVA_WAKE_LOCKS
 static bool set_wake_alarm_callout(uint64_t delay_millis, bool should_wake,
                                    alarm_cb cb, void* data) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniAdapterServiceObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return false;
+  }
+
   JNIThreadAttacher attacher(vm);
   JNIEnv* env = attacher.getEnv();
   jboolean ret = JNI_FALSE;
@@ -722,6 +815,12 @@ static bool set_wake_alarm_callout(uint64_t delay_millis, bool should_wake,
 }
 
 static int acquire_wake_lock_callout(const char* lock_name) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniAdapterServiceObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return BT_STATUS_NOT_READY;
+  }
+
   JNIThreadAttacher attacher(vm);
   JNIEnv* env = attacher.getEnv();
 
@@ -751,6 +850,12 @@ static int acquire_wake_lock_callout(const char* lock_name) {
 }
 
 static int release_wake_lock_callout(const char* lock_name) {
+  std::shared_lock<std::shared_timed_mutex> lock(jniObjMutex);
+  if (!sJniAdapterServiceObj) {
+    ALOGE("%s, JNI obj is null. Failed to call JNI callback", __func__);
+    return BT_STATUS_NOT_READY;
+  }
+
   JNIThreadAttacher attacher(vm);
   JNIEnv* env = attacher.getEnv();
 
@@ -891,6 +996,8 @@ static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
                        int configCompareResult,
                        jboolean isAtvDevice,
                        jobjectArray initFlags) {
+  std::unique_lock<std::shared_timed_mutex> lock(jniObjMutex);
+
   ALOGV("%s", __func__);
 
   android_bluetooth_UidTraffic.clazz =
@@ -960,6 +1067,8 @@ static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
 }
 
 static bool cleanupNative(JNIEnv* env, jobject obj) {
+  std::unique_lock<std::shared_timed_mutex> lock(jniObjMutex);
+
   ALOGV("%s", __func__);
 
   if (!sBluetoothInterface) return JNI_FALSE;

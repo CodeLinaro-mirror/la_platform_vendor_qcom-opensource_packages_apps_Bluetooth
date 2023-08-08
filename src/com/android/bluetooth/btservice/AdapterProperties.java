@@ -74,7 +74,7 @@ class AdapterProperties {
 
     private static final String MAX_CONNECTED_AUDIO_DEVICES_PROPERTY =
             "persist.bluetooth.maxconnectedaudiodevices";
-    static final int MAX_CONNECTED_AUDIO_DEVICES_LOWER_BOND = 1;
+    static final int MAX_CONNECTED_AUDIO_DEVICES_LOWER_BOUND = 1;
     private static final int MAX_CONNECTED_AUDIO_DEVICES_UPPER_BOUND = 5;
     private static final int BLUETOOTH_NAME_MAX_LENGTH_BYTES = 248;
 
@@ -266,7 +266,7 @@ class AdapterProperties {
                         configDefaultMaxConnectedAudioDevices);
         // Make sure the final value of max connected audio devices is within allowed range
         mMaxConnectedAudioDevices = Math.min(Math.max(propertyOverlayedMaxConnectedAudioDevices,
-                MAX_CONNECTED_AUDIO_DEVICES_LOWER_BOND), MAX_CONNECTED_AUDIO_DEVICES_UPPER_BOUND);
+                MAX_CONNECTED_AUDIO_DEVICES_LOWER_BOUND), MAX_CONNECTED_AUDIO_DEVICES_UPPER_BOUND);
         // if QTI stack, overwrite max audio connections to 2
         if(mService.isVendorIntfEnabled() && mMaxConnectedAudioDevices > 5) {
             Log.i(TAG, "overwriting mMaxConnectedAudioDevices to 5 for vendor stack");

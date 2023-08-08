@@ -897,6 +897,16 @@ public class LeAudioService extends ProfileService {
          for (Map.Entry<BluetoothDevice, Integer> entry : mDeviceGroupIdMap.entrySet()) {
              Log.d(TAG, "Device " + entry.getKey() + " grp " + entry.getValue());
              if (entry.getValue() == groupId) {
+                 AcmServIntf mAcmService = AcmServIntf.get();
+                 BluetoothDevice device = entry.getKey();
+                 if (mAcmService != null) {
+                     int state = mAcmService.getConnectionState(device);
+                     if (state == BluetoothProfile.STATE_DISCONNECTED ||
+                         state == BluetoothProfile.STATE_DISCONNECTING) {
+                         Log.d(TAG,"Group lead device is disconnected: " + device);
+                         continue;
+                     }
+                 }
                  if (groupId == mLeActiveGroupID) {
                      first_group_device = entry.getKey();
                      break;
@@ -1166,7 +1176,7 @@ public class LeAudioService extends ProfileService {
 
         ActiveDeviceManagerServiceIntf activeDeviceManager =
                                             ActiveDeviceManagerServiceIntf.get();
-        if (((ApmConst.AudioProfiles.HAP_LE & VoiceProfID) ==
+        if (device == null || ((ApmConst.AudioProfiles.HAP_LE & VoiceProfID) ==
                                           ApmConst.AudioProfiles.HAP_LE) ||
             ((ApmConst.AudioProfiles.BAP_CALL & VoiceProfID) ==
                                           ApmConst.AudioProfiles.BAP_CALL)) {
@@ -1174,7 +1184,7 @@ public class LeAudioService extends ProfileService {
                                             ApmConstIntf.AudioFeatures.CALL_AUDIO);
         }
 
-        if (((ApmConst.AudioProfiles.HAP_LE & MediaProfID) ==
+        if (device == null || ((ApmConst.AudioProfiles.HAP_LE & MediaProfID) ==
                                          ApmConst.AudioProfiles.HAP_LE) ||
             ((ApmConst.AudioProfiles.BAP_MEDIA & MediaProfID) ==
                                          ApmConst.AudioProfiles.BAP_MEDIA)) {
@@ -1215,7 +1225,7 @@ public class LeAudioService extends ProfileService {
         ActiveDeviceManagerServiceIntf activeDeviceManager =
                                             ActiveDeviceManagerServiceIntf.get();
 
-        if (((ApmConst.AudioProfiles.HAP_LE & VoiceProfID) ==
+        if (device == null || ((ApmConst.AudioProfiles.HAP_LE & VoiceProfID) ==
                                           ApmConst.AudioProfiles.HAP_LE) ||
             ((ApmConst.AudioProfiles.BAP_CALL & VoiceProfID) ==
                                           ApmConst.AudioProfiles.BAP_CALL)) {
@@ -1223,7 +1233,7 @@ public class LeAudioService extends ProfileService {
                                             ApmConstIntf.AudioFeatures.CALL_AUDIO);
         }
 
-        if (((ApmConst.AudioProfiles.HAP_LE & MediaProfID) ==
+        if (device == null || ((ApmConst.AudioProfiles.HAP_LE & MediaProfID) ==
                                                  ApmConst.AudioProfiles.HAP_LE) ||
             ((ApmConst.AudioProfiles.BAP_MEDIA & MediaProfID) ==
                                                  ApmConst.AudioProfiles.BAP_MEDIA)) {
@@ -1268,17 +1278,27 @@ public class LeAudioService extends ProfileService {
 
         ActiveDeviceManagerServiceIntf activeDeviceManager =
                                             ActiveDeviceManagerServiceIntf.get();
-        mActiveAudioOutDevice =
+        BluetoothDevice outDevice = activeDeviceManager.getActiveAbsoluteDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+        BluetoothDevice inDevice = activeDeviceManager.getActiveAbsoluteDevice(ApmConstIntf.AudioFeatures.CALL_AUDIO);
+        mActiveAudioOutDevice = null;
+        mActiveAudioInDevice = null;
+        if (outDevice != null &&
+            getConnectionState(outDevice) ==  BluetoothProfile.STATE_CONNECTED)
+            mActiveAudioOutDevice = outDevice;
+        if (inDevice != null &&
+            getConnectionState(inDevice) == BluetoothProfile.STATE_CONNECTED)
+            mActiveAudioInDevice = inDevice;
+/*        mActiveAudioOutDevice =
             activeDeviceManager.getActiveAbsoluteDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
         mActiveAudioInDevice =
             activeDeviceManager.getActiveAbsoluteDevice(ApmConstIntf.AudioFeatures.CALL_AUDIO);
-
+*/
         int ActiveAudioMediaProfile =
             activeDeviceManager.getActiveProfile(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
         int ActiveAudioCallProfile =
             activeDeviceManager.getActiveProfile(ApmConstIntf.AudioFeatures.CALL_AUDIO);
 
-        if (ActiveAudioMediaProfile == ApmConst.AudioProfiles.TMAP_MEDIA ||
+        /*if (ActiveAudioMediaProfile == ApmConst.AudioProfiles.TMAP_MEDIA ||
             ActiveAudioMediaProfile == ApmConst.AudioProfiles.BAP_MEDIA ||
             ActiveAudioMediaProfile == ApmConst.AudioProfiles.BAP_GCP ||
             ActiveAudioMediaProfile == ApmConst.AudioProfiles.BAP_GCP_VBC ||
@@ -1301,10 +1321,20 @@ public class LeAudioService extends ProfileService {
             } else {
                 activeDevices.add(1, mActiveAudioInDevice);
             }
+        }*/
+        activeDevices.add(0, mActiveAudioOutDevice);
+        int activeGid = getGroupId(mActiveAudioOutDevice);
+        if (activeGid < INVALID_SET_ID) {
+            for (BluetoothDevice dev : getGroupDevices(activeGid)) {
+                if (!dev.equals(mActiveAudioOutDevice)) {
+                    activeDevices.add(1, dev);
+                }
+            }
+        } else {
+            activeDevices.add(1, mActiveAudioInDevice);
         }
-
-        Log.d(TAG, "getActiveDevices: LeAudio devices: Out[" + activeDevices.get(0) +
-                                              "] - In[" + activeDevices.get(1) + "]");
+        Log.d(TAG, "getActiveDevices: LeAudio devices: Dev_1[" + activeDevices.get(0) +
+                                              "] - Dev_2[" + activeDevices.get(1) + "]");
 
         return activeDevices;
     }

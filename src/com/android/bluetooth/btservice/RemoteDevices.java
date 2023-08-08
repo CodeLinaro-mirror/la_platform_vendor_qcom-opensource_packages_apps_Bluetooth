@@ -77,6 +77,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
+import android.os.SystemProperties;
 import android.util.Log;
 import android.os.SystemProperties;
 
@@ -1016,6 +1017,12 @@ final class RemoteDevices {
         DeviceProperties deviceProp = getDeviceProperties(device);
         if (deviceProp == null) {
             errorLog("Device Properties is null for Device:" + device);
+            return;
+        }
+        boolean restrict_device_found =
+                SystemProperties.getBoolean("bluetooth.restrict_discovered_device.enabled", false);
+        if (restrict_device_found && (deviceProp.mName == null || deviceProp.mName.isEmpty())) {
+            debugLog("Device name is null or empty: " + device);
             return;
         }
 

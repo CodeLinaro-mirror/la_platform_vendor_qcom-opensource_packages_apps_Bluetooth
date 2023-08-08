@@ -122,6 +122,7 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AbstractionLayer;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.BluetoothAdapterProxy;
+import com.android.bluetooth.btservice.CompanionManager;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.util.NumberUtils;
 import com.android.internal.annotations.VisibleForTesting;
@@ -188,6 +189,15 @@ public class GattService extends ProfileService {
 
     private static final UUID FIDO_SERVICE_UUID =
             UUID.fromString("0000FFFD-0000-1000-8000-00805F9B34FB"); // U2F
+
+    private static final UUID[] LE_AUDIO_SERVICE_UUIDS = {
+            UUID.fromString("00001844-0000-1000-8000-00805F9B34FB"), // VCS
+            UUID.fromString("00001845-0000-1000-8000-00805F9B34FB"), // VOCS
+            UUID.fromString("00001843-0000-1000-8000-00805F9B34FB"), // AICS
+            UUID.fromString("00001850-0000-1000-8000-00805F9B34FB"), // PACS
+            UUID.fromString("0000184E-0000-1000-8000-00805F9B34FB"), // ASCS
+            UUID.fromString("0000184F-0000-1000-8000-00805F9B34FB"), // BASS
+    };
 
     /**
      * Example raw beacons captured from a Blue Charm BC011
@@ -863,7 +873,7 @@ public class GattService extends ProfileService {
             if (service == null) {
                 return;
             }
-            service.clientConnect(clientIf, address, isDirect, transport, opportunistic, phy,
+            service.clientConnect(clientIf, address, addressType, isDirect, transport, opportunistic, phy,
                     attributionSource);
         }
 
@@ -2461,8 +2471,7 @@ public class GattService extends ProfileService {
 
                     currSrvc = new BluetoothGattService(el.uuid, el.id, el.type);
                     dbOut.add(currSrvc);
-                    isRestrictedSrvc =
-                            isFidoSrvcUuid(el.uuid) || isAndroidTvRemoteSrvcUuid(el.uuid);
+                    isRestrictedSrvc = isRestrictedSrvcUuid(el.uuid);
                     isHidSrvc = isHidSrvcUuid(el.uuid);
                     if (isRestrictedSrvc) {
                         restrictedIds.add(el.id);
@@ -3194,13 +3203,12 @@ public class GattService extends ProfileService {
             this, attributionSource, "Starting GATT scan.")) {
             return;
         }
-
         enforcePrivilegedPermissionIfNeeded(settings);
         String callingPackage = attributionSource.getPackageName();
         settings = enforceReportDelayFloor(settings);
         enforcePrivilegedPermissionIfNeeded(filters);
         final ScanClient scanClient = new ScanClient(scannerId, settings, filters);
-        scanClient.userHandle = UserHandle.of(UserHandle.getCallingUserId());
+        scanClient.userHandle = Binder.getCallingUserHandle();
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
         scanClient.eligibleForSanitizedExposureNotification =
                 callingPackage.equals(mExposureNotificationPackage);
@@ -3247,7 +3255,7 @@ public class GattService extends ProfileService {
 
         mScanManager.addPendingScanToQueue(scanClient);
         mScanManager.startScan(scanClient);
-    }
+	}
 
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_SCAN)
     void registerPiAndStartScan(PendingIntent pendingIntent, ScanSettings settings,
@@ -3281,7 +3289,7 @@ public class GattService extends ProfileService {
         }
 
         ScannerMap.App app = mScannerMap.add(uuid, null, null, piInfo, this);
-        app.mUserHandle = UserHandle.of(UserHandle.getCallingUserId());
+        app.mUserHandle = UserHandle.getUserHandleForUid(Binder.getCallingUid());
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
         app.mEligibleForSanitizedExposureNotification =
                 callingPackage.equals(mExposureNotificationPackage);
@@ -3660,18 +3668,19 @@ public class GattService extends ProfileService {
     }
 
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
-    void clientConnect(int clientIf, String address, boolean isDirect, int transport,
-            boolean opportunistic, int phy, AttributionSource attributionSource) {
+    void clientConnect(int clientIf, String address, int addressType, boolean isDirect,
+            int transport, boolean opportunistic, int phy, AttributionSource attributionSource) {
         if (!Utils.checkConnectPermissionForDataDelivery(
                 this, attributionSource, "GattService clientConnect")) {
             return;
         }
 
         if (DBG) {
-            Log.d(TAG, "clientConnect() - address=" + address + ", isDirect=" + isDirect
-                    + ", opportunistic=" + opportunistic + ", phy=" + phy);
+            Log.d(TAG, "clientConnect() - address=" + address + ", addressType="
+                    + addressType + ", isDirect=" + isDirect + ", opportunistic="
+                    + opportunistic + ", phy=" + phy);
         }
-        gattClientConnectNative(clientIf, address, 0, isDirect, transport, opportunistic, phy);
+        gattClientConnectNative(clientIf, address, addressType, isDirect, transport, opportunistic, phy);
     }
 
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
@@ -4099,33 +4108,21 @@ public class GattService extends ProfileService {
         // Link supervision timeout is measured in N * 10ms
         int timeout = 500; // 5s
 
-        switch (connectionPriority) {
-            case BluetoothGatt.CONNECTION_PRIORITY_HIGH:
-                minInterval = getResources().getInteger(R.integer.gatt_high_priority_min_interval);
-                maxInterval = getResources().getInteger(R.integer.gatt_high_priority_max_interval);
-                latency = getResources().getInteger(R.integer.gatt_high_priority_latency);
-                break;
 
-            case BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER:
-                minInterval = getResources().getInteger(R.integer.gatt_low_power_min_interval);
-                maxInterval = getResources().getInteger(R.integer.gatt_low_power_max_interval);
-                latency = getResources().getInteger(R.integer.gatt_low_power_latency);
-                break;
+        CompanionManager manager =
+                AdapterService.getAdapterService().getCompanionManager();
 
-            default:
-                // Using the values for CONNECTION_PRIORITY_BALANCED.
-                minInterval =
-                        getResources().getInteger(R.integer.gatt_balanced_priority_min_interval);
-                maxInterval =
-                        getResources().getInteger(R.integer.gatt_balanced_priority_max_interval);
-                latency = getResources().getInteger(R.integer.gatt_balanced_priority_latency);
-                break;
-        }
+        minInterval = manager.getGattConnParameters(
+                address, CompanionManager.GATT_CONN_INTERVAL_MIN, connectionPriority);
+        maxInterval = manager.getGattConnParameters(
+                address, CompanionManager.GATT_CONN_INTERVAL_MAX, connectionPriority);
+        latency = manager.getGattConnParameters(
+                address, CompanionManager.GATT_CONN_LATENCY, connectionPriority);
 
-        if (DBG) {
-            Log.d(TAG, "connectionParameterUpdate() - address=" + address + "params="
-                    + connectionPriority + " interval=" + minInterval + "/" + maxInterval);
-        }
+        Log.d(TAG, "connectionParameterUpdate() - address=" + address + " params="
+                + connectionPriority + " interval=" + minInterval + "/" + maxInterval
+                + " timeout=" + timeout);
+
         gattConnectionParameterUpdateNative(clientIf, address, minInterval, maxInterval, latency,
                 timeout, 0, 0);
     }
@@ -4140,17 +4137,13 @@ public class GattService extends ProfileService {
             return;
         }
 
-        if (DBG) {
-            Log.d(TAG, "leConnectionUpdate() - address=" + address + ", intervals="
-                        + minInterval + "/" + maxInterval + ", latency=" + peripheralLatency
-                        + ", timeout=" + supervisionTimeout + "msec" + ", min_ce="
-                        + minConnectionEventLen + ", max_ce=" + maxConnectionEventLen);
+        Log.d(TAG, "leConnectionUpdate() - address=" + address + ", intervals="
+                    + minInterval + "/" + maxInterval + ", latency=" + peripheralLatency
+                    + ", timeout=" + supervisionTimeout + "msec" + ", min_ce="
+                    + minConnectionEventLen + ", max_ce=" + maxConnectionEventLen);
 
-
-        }
-        gattConnectionParameterUpdateNative(clientIf, address, minInterval, maxInterval,
-                                            peripheralLatency, supervisionTimeout,
-                                            minConnectionEventLen, maxConnectionEventLen);
+        gattConnectionParameterUpdateNative(clientIf, address, minInterval, maxInterval, peripheralLatency,
+                supervisionTimeout, minConnectionEventLen, maxConnectionEventLen);
     }
 
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
@@ -4796,6 +4789,21 @@ public class GattService extends ProfileService {
         return FIDO_SERVICE_UUID.equals(uuid);
     }
 
+    private boolean isLeAudioSrvcUuid(final UUID uuid) {
+        for (UUID leAudioUuid : LE_AUDIO_SERVICE_UUIDS) {
+            if (leAudioUuid.equals(uuid)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isRestrictedSrvcUuid(final UUID uuid) {
+        return isFidoSrvcUuid(uuid)
+                || isAndroidTvRemoteSrvcUuid(uuid)
+                || isLeAudioSrvcUuid(uuid);
+    }
+
     private int getDeviceType(BluetoothDevice device) {
         int type = gattClientGetDeviceTypeNative(device.getAddress());
         if (DBG) {
@@ -4901,24 +4909,27 @@ public class GattService extends ProfileService {
         }
 
         // Need to clear identity to pass device config permission check
-        long callerToken = Binder.clearCallingIdentity();
-        long floor = DeviceConfig.getLong(DeviceConfig.NAMESPACE_BLUETOOTH, "report_delay",
+        final long callerToken = Binder.clearCallingIdentity();
+        try {
+            long floor = DeviceConfig.getLong(DeviceConfig.NAMESPACE_BLUETOOTH, "report_delay",
                 DEFAULT_REPORT_DELAY_FLOOR);
-        Binder.restoreCallingIdentity(callerToken);
 
-        if (settings.getReportDelayMillis() > floor) {
-            return settings;
-        } else {
-            return new ScanSettings.Builder()
-                    .setCallbackType(settings.getCallbackType())
-                    .setLegacy(settings.getLegacy())
-                    .setMatchMode(settings.getMatchMode())
-                    .setNumOfMatches(settings.getNumOfMatches())
-                    .setPhy(settings.getPhy())
-                    .setReportDelay(floor)
-                    .setScanMode(settings.getScanMode())
-                    .setScanResultType(settings.getScanResultType())
-                    .build();
+            if (settings.getReportDelayMillis() > floor) {
+                return settings;
+            } else {
+                return new ScanSettings.Builder()
+                        .setCallbackType(settings.getCallbackType())
+                        .setLegacy(settings.getLegacy())
+                        .setMatchMode(settings.getMatchMode())
+                        .setNumOfMatches(settings.getNumOfMatches())
+                        .setPhy(settings.getPhy())
+                        .setReportDelay(floor)
+                        .setScanMode(settings.getScanMode())
+                        .setScanResultType(settings.getScanResultType())
+                        .build();
+            }
+        } finally {
+            Binder.restoreCallingIdentity(callerToken);
         }
     }
 

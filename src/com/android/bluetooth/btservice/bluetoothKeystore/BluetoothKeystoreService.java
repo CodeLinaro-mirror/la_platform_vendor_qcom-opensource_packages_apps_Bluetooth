@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyStore;
@@ -42,9 +41,9 @@ import java.security.NoSuchProviderException;
 import java.security.ProviderException;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -92,10 +91,6 @@ public class BluetoothKeystoreService {
 
     private static final String CONFIG_FILE_PATH = "/data/misc/bluedroid/bt_config.conf";
     private static final String CONFIG_BACKUP_PATH = "/data/misc/bluedroid/bt_config.bak";
-    private static final String CONFIG_FILE_CHECKSUM_PATH =
-            "/data/misc/bluedroid/bt_config.conf.encrypted-checksum";
-    private static final String CONFIG_BACKUP_CHECKSUM_PATH =
-            "/data/misc/bluedroid/bt_config.bak.encrypted-checksum";
 
     private static final int BUFFER_SIZE = 400 * 10;
 
@@ -192,7 +187,6 @@ public class BluetoothKeystoreService {
             debugLog("cleanup() called before start()");
             return;
         }
-
         // Mark service as stopped
         setBluetoothKeystoreService(null);
 
@@ -213,7 +207,6 @@ public class BluetoothKeystoreService {
     @VisibleForTesting
     public void cleanupForCommonCriteriaModeEnable() {
         try {
-            Thread.sleep(100);
             setEncryptKeyOrRemoveKey(CONFIG_FILE_PREFIX, CONFIG_FILE_HASH);
         } catch (InterruptedException e) {
             reportBluetoothKeystoreException(e, "Interrupted while operating.");
@@ -362,16 +355,10 @@ public class BluetoothKeystoreService {
             if (decryptedString.isEmpty()) {
                 cleanupAll();
             } else if (decryptedString.equals(CONFIG_FILE_HASH)) {
-                backupConfigEncryptionFile();
                 readHashFile(CONFIG_FILE_PATH, CONFIG_FILE_PREFIX);
-                //save Map
-                if (mNameDecryptKey.containsKey(CONFIG_FILE_PREFIX)
-                        && mNameDecryptKey.get(CONFIG_FILE_PREFIX).equals(
-                        mNameDecryptKey.get(CONFIG_BACKUP_PREFIX))) {
-                    infoLog("Since the hash is same with previous, don't need encrypt again.");
-                } else {
-                    mPendingEncryptKey.put(prefixString);
-                }
+                mPendingEncryptKey.put(CONFIG_FILE_PREFIX);
+                readHashFile(CONFIG_BACKUP_PATH, CONFIG_BACKUP_PREFIX);
+                mPendingEncryptKey.put(CONFIG_BACKUP_PREFIX);
                 saveEncryptedKey();
             }
             return;
@@ -457,8 +444,8 @@ public class BluetoothKeystoreService {
     @VisibleForTesting
     public void saveEncryptedKey() {
         stopThread();
-        List<String> configEncryptedLines = new LinkedList<>();
-        List<String> keyEncryptedLines = new LinkedList<>();
+        List<String> configEncryptedLines = new ArrayList<>();
+        List<String> keyEncryptedLines = new ArrayList<>();
         for (String key : mNameEncryptKey.keySet()) {
             if (key.equals(CONFIG_FILE_PREFIX) || key.equals(CONFIG_BACKUP_PREFIX)) {
                 configEncryptedLines.add(getEncryptedKeyData(key));
@@ -474,6 +461,7 @@ public class BluetoothKeystoreService {
             }
             if (!keyEncryptedLines.isEmpty()) {
                 Files.write(Paths.get(CONFIG_FILE_ENCRYPTION_PATH), keyEncryptedLines);
+                Files.write(Paths.get(CONFIG_BACKUP_ENCRYPTION_PATH), keyEncryptedLines);
             }
         } catch (IOException e) {
             throw new RuntimeException("write encryption file fail");
@@ -501,20 +489,6 @@ public class BluetoothKeystoreService {
     @VisibleForTesting
     public Map<String, String> getNameDecryptKey() {
         return mNameDecryptKey;
-    }
-
-    private void backupConfigEncryptionFile() throws IOException {
-        if (Files.exists(Paths.get(CONFIG_FILE_ENCRYPTION_PATH))) {
-            Files.move(Paths.get(CONFIG_FILE_ENCRYPTION_PATH),
-                    Paths.get(CONFIG_BACKUP_ENCRYPTION_PATH),
-                    StandardCopyOption.REPLACE_EXISTING);
-        }
-        if (mNameEncryptKey.containsKey(CONFIG_FILE_PREFIX)) {
-            mNameEncryptKey.put(CONFIG_BACKUP_PREFIX, mNameEncryptKey.get(CONFIG_FILE_PREFIX));
-        }
-        if (mNameDecryptKey.containsKey(CONFIG_FILE_PREFIX)) {
-            mNameDecryptKey.put(CONFIG_BACKUP_PREFIX, mNameDecryptKey.get(CONFIG_FILE_PREFIX));
-        }
     }
 
     private boolean doesComparePass(int item) {
@@ -583,7 +557,7 @@ public class BluetoothKeystoreService {
                 }
 
                 byte[] messageDigestBytes = messageDigest.digest();
-                StringBuffer hashString = new StringBuffer();
+                StringBuilder hashString = new StringBuilder();
                 for (int index = 0; index < messageDigestBytes.length; index++) {
                     hashString.append(Integer.toString((
                             messageDigestBytes[index] & 0xff) + 0x100, 16).substring(1));
@@ -600,15 +574,6 @@ public class BluetoothKeystoreService {
         if (counter > 3) {
             errorLog("Fail to open file");
         }
-    }
-
-    private void readChecksumFile(String filePathString, String prefixString) throws IOException {
-        if (!Files.exists(Paths.get(filePathString))) {
-            return;
-        }
-        byte[] allBytes = Files.readAllBytes(Paths.get(filePathString));
-        String checksumDataBase64 = mEncoder.encodeToString(allBytes);
-        mNameEncryptKey.put(prefixString, checksumDataBase64);
     }
 
     /**
@@ -758,7 +723,7 @@ public class BluetoothKeystoreService {
     /**
      * Decrypt the original data blob from the provided {@link EncryptedData}.
      *
-     * @param data String as base64 to be decrypted.
+     * @param encryptedDataBase64 String as base64 to be decrypted.
      * @return String.
      */
     private @Nullable String decrypt(String encryptedDataBase64) {
