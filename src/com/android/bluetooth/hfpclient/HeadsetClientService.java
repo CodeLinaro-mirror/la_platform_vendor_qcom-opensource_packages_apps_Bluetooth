@@ -880,12 +880,12 @@ public class HeadsetClientService extends ProfileService {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
-            return null;
+            return  new ArrayList<BluetoothHeadsetClientCall>();
         }
 
         int connectionState = sm.getConnectionState(device);
         if (connectionState != BluetoothProfile.STATE_CONNECTED) {
-            return null;
+            return  new ArrayList<BluetoothHeadsetClientCall>();
         }
         return sm.getCurrentCalls();
     }
