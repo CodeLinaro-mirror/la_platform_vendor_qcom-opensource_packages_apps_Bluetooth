@@ -13,6 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 package com.android.bluetooth.avrcpcontroller;
 
@@ -128,6 +134,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     //External
     static final int MSG_AVRCP_FETCH_COVER_ART = 450;
 
+    static final int INVALID_TRANSACTION_LABEL = 0xFFFF;
     /*
      * Base value for absolute volume from JNI
      */
@@ -175,7 +182,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     private SparseArray<AvrcpPlayer> mAvailablePlayerList;
 
     private int mVolumeChangedNotificationsToIgnore = 0;
-    private int mVolumeNotificationLabel = -1;
+    private int mVolumeNotificationLabel;
     private int mRemoteFeatures;
     private int mRemoteVersion;
 
@@ -403,11 +410,20 @@ class AvrcpControllerStateMachine extends StateMachine {
                 if (zoneId == CarAudioManager.PRIMARY_AUDIO_ZONE
                         && groupId == mVolumeGroupId) {
                     int volume = getAbsVolume();
+                    int label = getTransactionLabel();
                     logD("notify abs volume changed: " + volume);
-                    // send volume changed notification
-                    mService.sendRegisterAbsVolRspNative(mDeviceAddress,
-                            NOTIFICATION_RSP_TYPE_CHANGED,
-                            volume, mVolumeNotificationLabel);
+                    // ABS volume changed notification should only be sent when getting
+                    // available transaction label from native layer. The key point is
+                    // one trasaction label one notification.
+                    if (isValidTransactionLabel(label)) {
+                        // send volume changed notification only when peer device registers the
+                        // notificaiton and there has available transaction label locally.
+                        mService.sendRegisterAbsVolRspNative(mDeviceAddress,
+                                NOTIFICATION_RSP_TYPE_CHANGED,
+                                volume, label);
+                        // reset to invalid value, wait for next transaction label
+                        clearTransactionLabel();
+                    }
                 }
             }
         };
@@ -465,6 +481,7 @@ class AvrcpControllerStateMachine extends StateMachine {
             mIsVolumeFixed = mAudioManager.isVolumeFixed();
         }
 
+        clearTransactionLabel();
         setInitialState(mDisconnected);
     }
 
@@ -518,6 +535,22 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     public synchronized int getRemoteVersion() {
         return mRemoteVersion;
+    }
+
+    private synchronized void setTransactionLabel(int transactionLabel) {
+        mVolumeNotificationLabel = transactionLabel;
+    }
+
+    private synchronized void clearTransactionLabel() {
+        mVolumeNotificationLabel = INVALID_TRANSACTION_LABEL;
+    }
+
+    private synchronized int getTransactionLabel() {
+        return mVolumeNotificationLabel;
+    }
+
+    private boolean isValidTransactionLabel(int transactionLabel) {
+        return (transactionLabel != INVALID_TRANSACTION_LABEL);
     }
 
     /**
@@ -750,6 +783,7 @@ class AvrcpControllerStateMachine extends StateMachine {
             if (mMostRecentState != BluetoothProfile.STATE_DISCONNECTED) {
                 sendMessage(CLEANUP);
             }
+            clearTransactionLabel();
             broadcastConnectionStateChanged(BluetoothProfile.STATE_DISCONNECTED);
         }
 
@@ -842,10 +876,15 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
 
                 case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
-                    mVolumeNotificationLabel = msg.arg1;
-                    mService.sendRegisterAbsVolRspNative(mDeviceAddress,
-                            NOTIFICATION_RSP_TYPE_INTERIM,
-                            getAbsVolume(), mVolumeNotificationLabel);
+                    int label = msg.arg1;
+                    if (isValidTransactionLabel(label)) {
+                        setTransactionLabel(label);
+                        mService.sendRegisterAbsVolRspNative(mDeviceAddress,
+                                NOTIFICATION_RSP_TYPE_INTERIM,
+                                getAbsVolume(), label);
+                    } else {
+                        Log.e(TAG, STATE_TAG + "Invalid transaction label " + label);
+                    }
                     return true;
 
                 case MESSAGE_GET_FOLDER_ITEMS:
