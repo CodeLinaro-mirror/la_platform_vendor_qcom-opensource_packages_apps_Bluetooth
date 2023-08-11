@@ -1291,7 +1291,20 @@ class AdapterProperties {
                             newUuids[j] = ParcelUuid.fromString(uuids[j]);
                             debugLog("BT_PROPERTY_UUID "+(j + 1)+" :: " + newUuids[j].toString());
                         }
-                        mUuids = newUuids;
+                        if(mUuids != null) {
+                            ParcelUuid[] resUuids = new ParcelUuid[newUuids.length + mUuids.length];
+                            System.arraycopy(mUuids, 0, resUuids, 0, mUuids.length);
+                            System.arraycopy(newUuids, 0, resUuids, mUuids.length, newUuids.length);
+                            mUuids = resUuids;
+                            debugLog("BT_PROPERTY_UUIDS After update mUuids");
+                            for(int k = 0; k < mUuids.length; k++)
+                                debugLog("BT_PROPERTY_UUID mUuids["+ k +"] :: " + mUuids[k].toString());
+                        } else {
+                            mUuids = newUuids;
+                            debugLog("BT_PROPERTY_UUIDS After update mUuids:");
+                            for(int k = 0; k < mUuids.length; k++)
+                                debugLog("BT_PROPERTY_UUID mUuids["+ k +"] :: " + mUuids[k].toString());
+                        }
                         break;
                     case AbstractionLayer.BT_PROPERTY_ADAPTER_BONDED_DEVICES:
                         int number = val.length / BD_ADDR_LEN;
