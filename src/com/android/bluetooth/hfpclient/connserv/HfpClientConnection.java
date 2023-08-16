@@ -30,7 +30,7 @@ import java.util.UUID;
 
 public class HfpClientConnection extends Connection {
     private static final String TAG = "HfpClientConnection";
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
 
     private final Context mContext;
     private final BluetoothDevice mDevice;

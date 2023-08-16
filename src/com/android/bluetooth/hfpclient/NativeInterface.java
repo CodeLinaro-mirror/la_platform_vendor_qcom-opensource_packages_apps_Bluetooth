@@ -33,7 +33,7 @@ import com.android.internal.annotations.VisibleForTesting;
  */
 public class NativeInterface {
     private static final String TAG = "NativeInterface";
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
 
     static {
         classInitNative();

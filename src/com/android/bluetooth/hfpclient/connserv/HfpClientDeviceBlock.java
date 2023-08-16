@@ -39,7 +39,7 @@ import java.util.UUID;
 // has only the active state otherwise the block should be GCed.
 public class HfpClientDeviceBlock {
     private final String mTAG;
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
     private final Context mContext;
     private final BluetoothDevice mDevice;
     private final PhoneAccount mPhoneAccount;
