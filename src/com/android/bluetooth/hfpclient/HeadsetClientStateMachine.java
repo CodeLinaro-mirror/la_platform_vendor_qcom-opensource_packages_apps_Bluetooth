@@ -113,6 +113,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int QUERY_OPERATOR_NAME = 51;
     private static final int SUBSCRIBER_INFO = 52;
     private static final int CONNECTING_TIMEOUT = 53;
+    public static final int ACTION_PLAYING_STATE_CHANGED = 55;
 
     // special action to handle terminating specific call from multiparty call
     static final int TERMINATE_SPECIFIC_CALL = 53;
@@ -135,6 +136,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     // Keep track of client call put on hold due to active ag call.
     private boolean mIsClientIncomingCallHeld = false;
     private boolean mIsClientActiveCallHeld = false;
+    private boolean mA2dpSuspendIssued = false;
 
     // Keep track of audio routing across all devices.
     private static boolean sAudioIsRouted = false;
@@ -595,7 +597,9 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         if (flag == BluetoothHeadsetClient.CALL_ACCEPT_HOLD) {
             // When unholding a call over Bluetooth make sure to route audio.
-            routeHfpAudio(true);
+            if(mA2dpSuspend) {
+                routeHfpAudio(true);
+            }
         }
 
         if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
@@ -798,6 +802,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         mAudioState = BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
         mAudioWbs = false;
         mA2dpSuspend = false;
+        mA2dpSuspendIssued = false;
         mVoiceRecognitionActive = HeadsetClientHalConstants.VR_STATE_STOPPED;
 
         mIndicatorNetworkState = HeadsetClientHalConstants.NETWORK_STATE_NOT_AVAILABLE;
@@ -842,6 +847,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     synchronized void routeHfpAudio(boolean enable) {
+
         if (mAudioManager == null) {
             Log.e(TAG, "AudioManager is null!");
             return;
@@ -850,9 +856,37 @@ public class HeadsetClientStateMachine extends StateMachine {
             Log.d(TAG, "hfp_enable=" + enable);
         }
         if (enable && !sAudioIsRouted) {
+            // We need to set the volume after switching into HFP mode as some Audio HALs
+            // reset the volume to a known-default on mode switch.
+            final int amVol = mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
+            final int hfVol = amToHfVol(amVol);
+
+            if (DBG) {
+                Log.d(TAG, "hfp_enable=true mAudioWbs is " + mAudioWbs);
+            }
+            if (mAudioWbs) {
+                if (DBG) {
+                    Log.d(TAG, "Setting sampling rate as 16000");
+                }
+                mAudioManager.setParameters("hfp_set_sampling_rate=16000");
+            } else {
+                    if (DBG) {
+                        Log.d(TAG, "Setting sampling rate as 8000");
+                    }
+                    mAudioManager.setParameters("hfp_set_sampling_rate=8000");
+            }
+            if (DBG) {
+                Log.d(TAG, "hf_volume " + hfVol);
+            }
+
+            mAudioFocusRequest = requestAudioFocus();
+
             //this ensures that hfp audio is routed to speaker
             mAudioManager.setParameters("hfp_route_spkr=2");
             mAudioManager.setParameters("hfp_enable=true");
+
+            mAudioManager.setParameters("hfp_volume=" + hfVol);
+
         } else if (!enable) {
             mAudioManager.setParameters("hfp_enable=false");
         }
@@ -918,6 +952,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
             // cleanup
             mA2dpSuspend = false;
+            mA2dpSuspendIssued = false;
             mIndicatorNetworkState = HeadsetClientHalConstants.NETWORK_STATE_NOT_AVAILABLE;
             mIndicatorNetworkType = HeadsetClientHalConstants.SERVICE_TYPE_HOME;
             mIndicatorNetworkSignal = 0;
@@ -1208,37 +1243,21 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         private void processOnCallEvent(int call, BluetoothDevice device) {
             Log.d(TAG, "Enter Connecting processOnCallEvent() Device: "+ device);
-            BluetoothDevice a2dpActivedevice = mA2dpService.getActiveDevice();
-            boolean misA2dpPlaying = false;
-            if(a2dpActivedevice != null)
-                misA2dpPlaying = mA2dpService.isA2dpPlaying(a2dpActivedevice);
 
             if(call == 0) {
                 mCallIsInSetupOrActive = false;
-            } else if((misA2dpPlaying)
-                       && mAudioManager.isMusicActive() && (!mA2dpSuspend)) {
-                //since call is active and A2dp is streaming, suspend streaming
-                Log.d(TAG, "Since call is active, suspend a2dp streaming");
-                mAudioManager.setParameters("A2dpSuspended=true");
-                mA2dpSuspend = true;
+            } else if(!mA2dpSuspendIssued) {
+                mA2dpSuspend = suspendA2DP();
             }
         }
 
         private void processOnCallSetupEvent(int callsetup, BluetoothDevice device) {
             Log.d(TAG, "Enter Connecting processOnCallSetupEvent() device:" + device);
-            BluetoothDevice a2dpActivedevice = mA2dpService.getActiveDevice();
-            boolean misA2dpPlaying = false;
-            if(a2dpActivedevice != null)
-                misA2dpPlaying = mA2dpService.isA2dpPlaying(a2dpActivedevice);
 
             if(callsetup == 0) {
                 mCallIsInSetupOrActive = false;
-            } else if((misA2dpPlaying)
-                       && mAudioManager.isMusicActive() && (!mA2dpSuspend)) {
-                //since call is in setup and A2dp is streaming, suspend streaming
-                Log.d(TAG, "callsetup received, suspend a2dp streaming");
-                mAudioManager.setParameters("A2dpSuspended=true");
-                mA2dpSuspend = true;
+            } else if(!mA2dpSuspendIssued) {
+                mA2dpSuspend = suspendA2DP();
             }
         }
 
@@ -1436,6 +1455,14 @@ public class HeadsetClientStateMachine extends StateMachine {
                         sendMessageDelayed(QUERY_CURRENT_CALLS, QUERY_CURRENT_CALLS_WAIT_MILLIS);
                     }
                     queryCallsStart();
+                    break;
+                case ACTION_PLAYING_STATE_CHANGED:
+                    int mA2dpState = message.arg1;
+                    Log.d(TAG, "Connected: mA2dpState  " + mA2dpState);
+                    if (mCallIsInSetupOrActive && mA2dpState == BluetoothA2dp.STATE_NOT_PLAYING) {
+                        Log.d(TAG, "Connected: a2dp is suspended");
+                        mA2dpSuspend = true;
+                    }
                     break;
                 case StackEvent.STACK_EVENT:
                     Intent intent = null;
@@ -1689,37 +1716,21 @@ public class HeadsetClientStateMachine extends StateMachine {
         // In Connected state
         private void processOnCallEvent(int call, BluetoothDevice device) {
             Log.d(TAG, "Enter Connected processOnCallEvent() device:" + device);
-            BluetoothDevice a2dpActivedevice = mA2dpService.getActiveDevice();
-            boolean misA2dpPlaying = false;
-            if(a2dpActivedevice != null)
-                misA2dpPlaying = mA2dpService.isA2dpPlaying(a2dpActivedevice);
 
             if(call == 0) {
                 mCallIsInSetupOrActive = false;
-            } else if((misA2dpPlaying)
-                       && mAudioManager.isMusicActive() && (!mA2dpSuspend)) {
-                //since call is active and A2dp is streaming, suspend streaming
-                Log.d(TAG, "Since call is active, suspend a2dp streaming");
-                mAudioManager.setParameters("A2dpSuspended=true");
-                mA2dpSuspend = true;
+            } else if(!mA2dpSuspendIssued) {
+                mA2dpSuspend = suspendA2DP();
             }
         }
 
         private void processOnCallSetupEvent(int callsetup, BluetoothDevice device) {
             Log.d(TAG, "Enter Connected processOnCallSetupEvent() device:" + device);
-            BluetoothDevice a2dpActivedevice = mA2dpService.getActiveDevice();
-            boolean misA2dpPlaying = false;
-            if(a2dpActivedevice != null)
-                misA2dpPlaying = mA2dpService.isA2dpPlaying(a2dpActivedevice);
 
             if(callsetup == 0) {
                 mCallIsInSetupOrActive = false;
-            } else if((misA2dpPlaying)
-                       && mAudioManager.isMusicActive() && (!mA2dpSuspend)) {
-                //since call is in setup and A2dp is streaming, suspend streaming
-                Log.d(TAG, "callsetup received, suspend a2dp streaming");
-                mAudioManager.setParameters("A2dpSuspended=true");
-                mA2dpSuspend = true;
+            } else if(!mA2dpSuspendIssued) {
+                mA2dpSuspend = suspendA2DP();
             }
         }
 
@@ -1755,31 +1766,12 @@ public class HeadsetClientStateMachine extends StateMachine {
 
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_CONNECTED;
 
-                    // We need to set the volume after switching into HFP mode as some Audio HALs
-                    // reset the volume to a known-default on mode switch.
-                    final int amVol = mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
-                    final int hfVol = amToHfVol(amVol);
-
-                    if (DBG) {
-                        Log.d(TAG, "hfp_enable=true mAudioWbs is " + mAudioWbs);
-                    }
-                    if (mAudioWbs) {
-                        if (DBG) {
-                            Log.d(TAG, "Setting sampling rate as 16000");
-                        }
-                        mAudioManager.setParameters("hfp_set_sampling_rate=16000");
+                    if(mA2dpSuspend) {
+                        routeHfpAudio(true);
                     } else {
-                        if (DBG) {
-                            Log.d(TAG, "Setting sampling rate as 8000");
-                        }
-                        mAudioManager.setParameters("hfp_set_sampling_rate=8000");
+                        Log.d(TAG, "wait for a2dp to suspend, delaying the route Hfp Audio");
                     }
-                    if (DBG) {
-                        Log.d(TAG, "hf_volume " + hfVol);
-                    }
-                    routeHfpAudio(true);
-                    mAudioFocusRequest = requestAudioFocus();
-                    mAudioManager.setParameters("hfp_volume=" + hfVol);
+
                     transitionTo(mAudioOn);
                     break;
 
@@ -1797,9 +1789,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
                     if(mA2dpSuspend) {
                         if(!mCallIsInSetupOrActive) {
-                            log("Audio is closed,Set A2dpSuspended=false");
-                            mAudioManager.setParameters("A2dpSuspended=false");
-                            mA2dpSuspend = false;
+                            releaseA2DP();
                         }
                     }
                     break;
@@ -1873,6 +1863,15 @@ public class HeadsetClientStateMachine extends StateMachine {
                      */
                 case CONNECT_AUDIO:
                     break;
+                case ACTION_PLAYING_STATE_CHANGED:
+                    int mA2dpState = message.arg1;
+                    Log.d(TAG, "AudioOn mA2dpState  " + mA2dpState);
+                    if (mA2dpState == BluetoothA2dp.STATE_NOT_PLAYING) {
+                        Log.d(TAG, "AudioOn: a2dp is suspended now route hfp audio");
+                        mA2dpSuspend = true;
+                        routeHfpAudio(true);
+                    }
+                    break;
                 case StackEvent.STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
                     if (DBG) {
@@ -1942,9 +1941,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     transitionTo(mConnected);
                     if(mA2dpSuspend) {
                         if(!mCallIsInSetupOrActive) {
-                            log("Audio is closed,Set A2dpSuspended=false");
-                            mAudioManager.setParameters("A2dpSuspended=false");
-                            mA2dpSuspend = false;
+                            releaseA2DP();
                         }
                     }
                     break;
@@ -2167,4 +2164,50 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
         return BluetoothAdapter.STATE_DISCONNECTED;
     }
+
+    synchronized public boolean suspendA2DP() {
+        /* set mA2dpSuspendIssued flag in begaining of suspendA2DP function
+         * so that we cam avoid repeat calling of suspendA2DP function in case
+         * where we are return without calling setParameters("A2dpSuspended=true")
+         */
+        mA2dpSuspendIssued = true;
+
+        if(mA2dpService == null) {
+            Log.e(TAG, "A2dpService is null");
+            return true;
+        }
+
+        if(mA2dpService.getConnectedDevices().isEmpty())
+        {
+            Log.d(TAG,"A2DP is not Connected,don't wait for suspend ");
+            return true;
+        }
+
+        BluetoothDevice a2dpActivedevice = mA2dpService.getActiveDevice();
+        boolean misA2dpPlaying = false;
+        if(a2dpActivedevice != null)
+            misA2dpPlaying = mA2dpService.isA2dpPlaying(a2dpActivedevice);
+
+        mAudioManager.setParameters("A2dpSuspended=true");
+        if(!misA2dpPlaying) {
+             Log.d(TAG," A2DP Connected,don't wait for suspend ");
+             return true;
+         } else {
+             Log.d(TAG," A2DP Playing ,wait for suspend ");
+             return false;
+         }
+   }
+
+   synchronized public void releaseA2DP() {
+       Log.d(TAG," releaseA2DP suspend ");
+       mA2dpSuspend = false;
+       mA2dpSuspendIssued = false;
+
+        if(mA2dpService.getConnectedDevices().isEmpty())
+        {
+             Log.d(TAG,"A2DP is not Connected,no need to releaseA2DP");
+             return;
+        }
+        mAudioManager.setParameters("A2dpSuspended=false");
+   }
 }
