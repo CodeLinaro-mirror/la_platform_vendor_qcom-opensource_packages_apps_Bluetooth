@@ -4561,7 +4561,20 @@ public class GattService extends ProfileService {
                 this, attributionSource, "GattService serverConnect")) {
             return;
         }
-
+        if (transport == BluetoothDevice.TRANSPORT_AUTO) {
+            int dev_type = mAdapter.getRemoteDevice(address).getType();
+            switch (dev_type) {
+                case AbstractionLayer.BT_DEVICE_TYPE_BREDR:
+                  transport = BluetoothDevice.TRANSPORT_BREDR;
+                  break;
+                case AbstractionLayer.BT_DEVICE_TYPE_BLE:
+                  transport = BluetoothDevice.TRANSPORT_LE;
+                  break;
+                case AbstractionLayer.BT_DEVICE_TYPE_DUAL:
+                  transport = BluetoothDevice.TRANSPORT_LE;
+                  break;
+            }
+        }
         if (DBG) {
             Log.d(TAG, "serverConnect() - address=" + address);
         }
