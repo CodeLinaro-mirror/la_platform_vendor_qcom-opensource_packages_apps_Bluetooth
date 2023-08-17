@@ -3677,10 +3677,25 @@ public class GattService extends ProfileService {
             return;
         }
 
+        /* If transport is auto assign it based on device type of remote */
+        if(transport == BluetoothDevice.TRANSPORT_AUTO) {
+            int dev_type = mAdapter.getRemoteDevice(address).getType();
+            switch (dev_type) {
+                case AbstractionLayer.BT_DEVICE_TYPE_BREDR:
+                  transport = BluetoothDevice.TRANSPORT_BREDR;
+                  break;
+                case AbstractionLayer.BT_DEVICE_TYPE_BLE:
+                  transport = BluetoothDevice.TRANSPORT_LE;
+                  break;
+                case AbstractionLayer.BT_DEVICE_TYPE_DUAL:
+                  transport = BluetoothDevice.TRANSPORT_LE;
+                  break;
+            }
+        }
+
         if (DBG) {
-            Log.d(TAG, "clientConnect() - address=" + address + ", addressType="
-                    + addressType + ", isDirect=" + isDirect + ", opportunistic="
-                    + opportunistic + ", phy=" + phy);
+            Log.d(TAG, "clientConnect() - address=" + address + ", isDirect=" + isDirect
+                    + ", opportunistic=" + opportunistic + ", phy=" + phy + ", transport= " + transport);
         }
         gattClientConnectNative(clientIf, address, addressType, isDirect, transport, opportunistic, phy);
     }
