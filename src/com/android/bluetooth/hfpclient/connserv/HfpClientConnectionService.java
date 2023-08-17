@@ -207,7 +207,8 @@ public class HfpClientConnectionService extends ConnectionService {
     public Connection onCreateOutgoingConnection(PhoneAccountHandle connectionManagerAccount,
             ConnectionRequest request) {
         if (DBG) {
-            Log.d(TAG, "onCreateOutgoingConnection " + connectionManagerAccount);
+            Log.d(TAG,
+                    "onCreateOutgoingConnection " + connectionManagerAccount + " req: " + request);
         }
         HfpClientDeviceBlock block = findBlockForHandle(connectionManagerAccount);
         if (block == null) {
@@ -226,7 +227,8 @@ public class HfpClientConnectionService extends ConnectionService {
     public Connection onCreateUnknownConnection(PhoneAccountHandle connectionManagerAccount,
             ConnectionRequest request) {
         if (DBG) {
-            Log.d(TAG, "onCreateUnknownConnection " + connectionManagerAccount);
+            Log.d(TAG,
+                    "onCreateUnknownConnection " + connectionManagerAccount + " req: " + request);
         }
         HfpClientDeviceBlock block = findBlockForHandle(connectionManagerAccount);
         if (block == null) {

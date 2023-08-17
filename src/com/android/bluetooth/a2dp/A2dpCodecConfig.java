@@ -195,7 +195,7 @@ class A2dpCodecConfig {
             }
         }
 
-        try {
+        /*try {
             value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx);
         } catch (NotFoundException e) {
             value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
@@ -207,7 +207,11 @@ class A2dpCodecConfig {
                 !(a2dp_offload_cap.contains("aptx-") || (a2dp_offload_cap.endsWith("aptx")))) {
                 mA2dpSourceCodecPriorityAptx = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
             }
-        }
+        }*/
+        // Aptx is disabled on this target
+        mA2dpSourceCodecPriorityAptx = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
+
+        /*
         if(mAdapterService.isSplitA2DPSourceAPTXADAPTIVE()) {
             try {
                 value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_adaptive);
@@ -236,7 +240,11 @@ class A2dpCodecConfig {
         } else {
             mA2dpSourceCodecPriorityAptxAdaptive = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
         }
+        */
+        // Aptx-Adaptive is disabled on this target
+        mA2dpSourceCodecPriorityAptxAdaptive = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
 
+        /*
         if(mAdapterService.isSplitA2DPSourceAPTXHD()) {
             try {
                 value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_hd);
@@ -254,6 +262,9 @@ class A2dpCodecConfig {
         } else {
             mA2dpSourceCodecPriorityAptxHd = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
         }
+        */
+        //Aptx-HD is disabled on this target
+        mA2dpSourceCodecPriorityAptxHd = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
 
         /*
         if(mAdapterService.isSplitA2DPSourceLDAC()) {

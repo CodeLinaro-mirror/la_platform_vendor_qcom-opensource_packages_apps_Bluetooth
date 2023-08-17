@@ -307,7 +307,7 @@ class PhonePolicy {
                         ParcelUuid[] uuidsToSend = new ParcelUuid[uuids.length];
                         for (int i = 0; i < uuidsToSend.length; i++) {
                             uuidsToSend[i] = (ParcelUuid) uuids[i];
-                            debugLog("index=" + i + "uuid=" + uuidsToSend[i]);
+                            debugLog("index = " + i + "uuid = " + uuidsToSend[i]);
                         }
                         processInitProfilePriorities(device, uuidsToSend);
                     }

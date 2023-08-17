@@ -2350,9 +2350,13 @@ public class HeadsetService extends ProfileService {
             mVirtualCallStarted = true;
             mSystemInterface.getHeadsetPhoneState().setIsCsCall(false);
             // Send virtual phone state changed to initialize SCO
-            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_DIALING, "", 0, "", true);
-            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_ALERTING, "", 0, "", true);
-            phoneStateChanged(1, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, "", true);
+            if (SystemProperties.getBoolean("PTS_CERTIFICATION_HSP_PROPERTY", false)) {
+                phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_INCOMING, "", 0, "", true);
+            } else {
+                phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_DIALING, "", 0, "", true);
+                phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_ALERTING, "", 0, "", true);
+                phoneStateChanged(1, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, "", true);
+            }
             return true;
         }
     }
