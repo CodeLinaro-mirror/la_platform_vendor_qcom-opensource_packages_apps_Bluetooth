@@ -32,6 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.android.bluetooth.hfp.HeadsetService;
+
 // Helper class that manages the call handling for one device. HfpClientConnectionService holdes a
 // list of such blocks and routes traffic from the UI.
 //
@@ -49,7 +51,7 @@ public class HfpClientDeviceBlock {
     private final HfpClientConnectionService mConnServ;
     private HfpClientConference mConference;
 
-    private BluetoothHeadsetClient mHeadsetProfile;
+    private BluetoothHeadsetClient mHeadsetClientProfile;
 
     HfpClientDeviceBlock(HfpClientConnectionService connServ, BluetoothDevice device,
             BluetoothHeadsetClient headsetProfile) {
@@ -67,11 +69,11 @@ public class HfpClientDeviceBlock {
         mTelecomManager.registerPhoneAccount(mPhoneAccount);
         mTelecomManager.enablePhoneAccount(mPhoneAccount.getAccountHandle(), true);
         mTelecomManager.setUserSelectedOutgoingPhoneAccount(mPhoneAccount.getAccountHandle());
-        mHeadsetProfile = headsetProfile;
+        mHeadsetClientProfile = headsetProfile;
 
         // Read the current calls and add them to telecom if already present
-        if (mHeadsetProfile != null) {
-            List<BluetoothHeadsetClientCall> calls = mHeadsetProfile.getCurrentCalls(mDevice);
+        if (mHeadsetClientProfile != null) {
+            List<BluetoothHeadsetClientCall> calls = mHeadsetClientProfile.getCurrentCalls(mDevice);
             if (DBG) {
                 Log.d(mTAG, "Got calls " + calls);
             }
@@ -106,6 +108,8 @@ public class HfpClientDeviceBlock {
         HfpClientConnection connection = buildConnection(null, address);
         if (connection != null) {
             connection.onAdded();
+            /* Outgoing call from HF-Client, Allow SCO to be active on HF-client*/
+            enableAudio(true, true);
         }
         return connection;
     }
@@ -126,7 +130,7 @@ public class HfpClientDeviceBlock {
     synchronized void onConference(Connection connection1, Connection connection2) {
         if (mConference == null) {
             mConference = new HfpClientConference(mPhoneAccount.getAccountHandle(), mDevice,
-                    mHeadsetProfile);
+                    mHeadsetClientProfile);
         }
 
         if (connection1.getConference() == null) {
@@ -169,6 +173,11 @@ public class HfpClientDeviceBlock {
         }
 
         if (connection == null) {
+            if(call.getState() == BluetoothHeadsetClientCall.CALL_STATE_ACTIVE){
+            // We were told about the call after it became active
+            // Audio routing will be handled when the call state moves to active at telephony side
+                Log.d(mTAG, "connected to already active call");
+            }
             // Create the connection here, trigger Telecom to bind to us.
             // Do not allow new calls while SCO channel is in use.
             if (mConnections.isEmpty() && mAudioManager.isBluetoothScoOn()) {
@@ -193,10 +202,10 @@ public class HfpClientDeviceBlock {
             // telecom, it would be unclear which call would take priority for audio.
             if (mConnections.isEmpty() && mTelecomManager.isInCall()
                     && call.getState() != BluetoothHeadsetClientCall.CALL_STATE_INCOMING) {
-                if (mHeadsetProfile != null && mHeadsetProfile.getAudioState(mDevice) ==
+                if (mHeadsetClientProfile != null && mHeadsetClientProfile.getAudioState(mDevice) ==
                     BluetoothHeadsetClient.STATE_AUDIO_CONNECTED) {
                     Log.d(mTAG, " CS call in progress, disconnect SCO for Client call");
-                    mHeadsetProfile.disconnectAudio(mDevice);
+                    mHeadsetClientProfile.disconnectAudio(mDevice);
                 }
                 return;
             }
@@ -227,6 +236,21 @@ public class HfpClientDeviceBlock {
                 Log.d(mTAG, "Removing call " + call);
             }
             mConnections.remove(call.getUUID());
+            // lets check if there is an existing call active or held
+            boolean isOtherCallActiveOrHold = false;
+            for(HfpClientConnection conc: mConnections.values()){
+                if(conc.getCall().getState() == BluetoothHeadsetClientCall.CALL_STATE_ACTIVE ||
+                 conc.getCall().getState() == BluetoothHeadsetClientCall.CALL_STATE_HELD){
+                    isOtherCallActiveOrHold = true;
+                    break;
+                }
+            }
+
+            if(isOtherCallActiveOrHold) {
+                enableAudio(true, false);
+            } else {
+                enableAudio(false, false);
+            }
         }
 
         updateConferenceableConnections();
@@ -268,7 +292,7 @@ public class HfpClientDeviceBlock {
 
     private synchronized HfpClientConnection buildConnection(BluetoothHeadsetClientCall call,
             Uri number) {
-        if (mHeadsetProfile == null) {
+        if (mHeadsetClientProfile == null) {
             Log.e(mTAG,
                     "Cannot create connection for call " + call + " when Profile not available");
             return null;
@@ -285,9 +309,9 @@ public class HfpClientDeviceBlock {
 
         HfpClientConnection connection = null;
         if (call != null) {
-            connection = new HfpClientConnection(mConnServ, mDevice, mHeadsetProfile, call);
+            connection = new HfpClientConnection(mConnServ, mDevice, mHeadsetClientProfile, call);
         } else {
-            connection = new HfpClientConnection(mConnServ, mDevice, mHeadsetProfile, number);
+            connection = new HfpClientConnection(mConnServ, mDevice, mHeadsetClientProfile, number);
         }
 
         if (connection.getState() != Connection.STATE_DISCONNECTED) {
@@ -326,7 +350,7 @@ public class HfpClientDeviceBlock {
                 // If this is the first connection with conference, create the conference first.
                 if (mConference == null) {
                     mConference = new HfpClientConference(mPhoneAccount.getAccountHandle(), mDevice,
-                            mHeadsetProfile);
+                            mHeadsetClientProfile);
                 }
                 if (mConference.addConnection(otherConn)) {
                     if (DBG) {
@@ -356,4 +380,49 @@ public class HfpClientDeviceBlock {
         }
     }
 
+/* This function controls functioning of SCO connection and disconnection
+ * @para: setAllowed: tells whether SCO to be accepted by HF-client
+ * reRoute: controls the direction of call audio, on HF-client or on AG
+ * combination of both @para will decide if we should connect SCO or disconnect latter
+ * Current Design: enableAudio() combinations
+ * 1) outgoing call from client, client may request for SCO --> (true, true)
+ * 2) incoming call on AG and accepted at client --> (true, true)
+ * 3) outgoing from AG, AG must reject SCO connect --> (false, true)
+ * 4) incoming call on AG and accepted at AG end, We must not allow allow SCO to be active
+ *     on Hf-Client
+ */
+
+    synchronized public void enableAudio(boolean setAllowed, boolean reRoute) {
+
+        Log.d(mTAG, "enableAudio: setAllowed= " + setAllowed + " reRoute= " + reRoute);
+
+        if (mHeadsetClientProfile == null) {
+            Log.e(mTAG, "Unable to enableAudio: Headset profile not ready. ");
+            return;
+        }
+
+        // Ensure we have a device, this is a last resort, and the mDevice should be set
+        if (mDevice == null) {
+            Log.w(mTAG, "Failed to determine a device; bailing.");
+            return;
+        }
+
+        if (mHeadsetClientProfile.getAudioRouteAllowed(mDevice) != setAllowed) {
+            mHeadsetClientProfile.setAudioRouteAllowed(mDevice, setAllowed);
+
+            HeadsetService headsetService = HeadsetService.getHeadsetService();
+            if (headsetService != null) {
+                headsetService.setAudioRouteAllowed(!setAllowed);
+            }
+        }
+        // No need to protect this against being called multiple times in a row - the bluetooth
+        // app takes care of redundant calls.
+        if (reRoute) {
+            if (setAllowed) {
+                mHeadsetClientProfile.connectAudio(mDevice);
+            } else {
+                mHeadsetClientProfile.disconnectAudio(mDevice);
+            }
+        }
+    }
 }
