@@ -123,8 +123,8 @@ public class HeadsetClientService extends ProfileService {
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
         // connection is available.
-        // Intent startIntent = new Intent(this, HfpClientConnectionService.class);
-        // startService(startIntent);
+        Intent startIntent = new Intent(this, HfpClientConnectionService.class);
+        startService(startIntent);
 
         // Create the thread on which all State Machines will run
         mSmThread = new HandlerThread("HeadsetClient.SM");
@@ -142,8 +142,8 @@ public class HeadsetClientService extends ProfileService {
         }
 
         // Stop the HfpClientConnectionService.
-        // Intent stopIntent = new Intent(this, HfpClientConnectionService.class);
-        // sHeadsetClientService.stopService(stopIntent);
+        Intent stopIntent = new Intent(this, HfpClientConnectionService.class);
+        sHeadsetClientService.stopService(stopIntent);
 
         setHeadsetClientService(null);
 
