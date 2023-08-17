@@ -3092,7 +3092,8 @@ public class GattService extends ProfileService {
 
         Set<BluetoothDevice> bondedDevices = mAdapter.getBondedDevices();
         for (BluetoothDevice device : bondedDevices) {
-            if (getDeviceType(device) != AbstractionLayer.BT_DEVICE_TYPE_BREDR) {
+            Log.d(TAG, "dev type" + device.getType());
+            if (device.getType() != AbstractionLayer.BT_DEVICE_TYPE_BREDR) {
                 deviceStates.put(device, BluetoothProfile.STATE_DISCONNECTED);
             }
         }
@@ -3106,6 +3107,7 @@ public class GattService extends ProfileService {
         for (String address : connectedDevices) {
             BluetoothDevice device = mAdapter.getRemoteDevice(address);
             if (device != null) {
+                Log.d(TAG, "dev type" + device.getType());
                 deviceStates.put(device, BluetoothProfile.STATE_CONNECTED);
             }
         }
