@@ -331,16 +331,16 @@ class A2dpCodecConfig {
                 new BluetoothCodecConfig[BluetoothCodecConfig.SOURCE_QVA_CODEC_TYPE_MAX];
 
         codecConfig = new BluetoothCodecConfig(BluetoothCodecConfig.SOURCE_CODEC_TYPE_SBC,
-                mA2dpSourceCodecPrioritySbc, BluetoothCodecConfig.SAMPLE_RATE_NONE,
-                BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, BluetoothCodecConfig
-                .CHANNEL_MODE_NONE, 0 /* codecSpecific1 */,
+                mA2dpSourceCodecPrioritySbc, BluetoothCodecConfig.SAMPLE_RATE_44100,
+                BluetoothCodecConfig.BITS_PER_SAMPLE_16, BluetoothCodecConfig
+                .CHANNEL_MODE_STEREO, 0 /* codecSpecific1 */,
                 0 /* codecSpecific2 */, 0 /* codecSpecific3 */, 0 /* codecSpecific4 */);
         codecConfigArray[codecCount++] = codecConfig;
         codecConfig = new BluetoothCodecConfig(BluetoothCodecConfig.SOURCE_CODEC_TYPE_AAC,
-                mA2dpSourceCodecPriorityAac, BluetoothCodecConfig.SAMPLE_RATE_NONE,
-                BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, BluetoothCodecConfig
-                .CHANNEL_MODE_NONE, 0 /* codecSpecific1 */,
-                0 /* codecSpecific2 */, 0 /* codecSpecific3 */, 0 /* codecSpecific4 */);
+                mA2dpSourceCodecPriorityAac, BluetoothCodecConfig.SAMPLE_RATE_44100,
+                BluetoothCodecConfig.BITS_PER_SAMPLE_16, BluetoothCodecConfig
+                .CHANNEL_MODE_STEREO, 0x80 /* codecSpecific1 */,
+                0 /* codecSpecific2 */, 165000 /* codecSpecific3 */, 0 /* codecSpecific4 */);
         codecConfigArray[codecCount++] = codecConfig;
         codecConfig = new BluetoothCodecConfig(BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX,
                 mA2dpSourceCodecPriorityAptx, BluetoothCodecConfig.SAMPLE_RATE_NONE,

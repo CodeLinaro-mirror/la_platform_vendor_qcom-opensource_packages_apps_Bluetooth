@@ -1212,7 +1212,11 @@ public class HeadsetClientStateMachine extends StateMachine {
                             mAudioManager.isMicrophoneMute() ? 0 : 15, 0));
                     // query subscriber info
                     deferMessage(obtainMessage(HeadsetClientStateMachine.SUBSCRIBER_INFO));
-                    transitionTo(mConnected);
+
+                    //if (!queryRemoteSupportedFeatures()) {
+                        Log.w(TAG, "Couldn't query Android AT remote supported!");
+                        transitionTo(mConnected);
+                    //}
                     break;
 
                 case HeadsetClientHalConstants.CONNECTION_STATE_CONNECTED:
@@ -1730,7 +1734,8 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         // In Connected state
         private void processOnCallEvent(int call, BluetoothDevice device) {
-            Log.d(TAG, "Enter Connected processOnCallEvent() device:" + device);
+            Log.d(TAG, "Enter Connected processOnCallEvent() device:" +
+                            device + "call = " + call);
 
             mCallIndRcvd = call;
             if (call == 0) {

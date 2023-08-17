@@ -185,6 +185,7 @@ public class BluetoothInCallService extends InCallService {
     public CallInfo mCallInfo = new CallInfo();
 
     protected boolean mServiceCreated = false;
+    private String hfpclass = "ClientConnectionService";
 
     /**
      * Listens to connections and disconnections of bluetooth headsets.  We need to save the current
@@ -440,6 +441,12 @@ public class BluetoothInCallService extends InCallService {
             if (mCallInfo.isNullCall(call)) {
                 return false;
             }
+
+            if (checkIfCallIsHfpClientCall(call)) {
+                Log.i(TAG, "HFP Client call is ringing, ignore answerCall");
+                return false;
+            }
+
             call.answer(VideoProfile.STATE_AUDIO_ONLY);
             return true;
         }
@@ -458,7 +465,7 @@ public class BluetoothInCallService extends InCallService {
             enforceModifyPermission();
             Log.i(TAG, "BT - hanging up call");
             BluetoothCall call = mCallInfo.getForegroundCall();
-            if (mCallInfo.isNullCall(call)) {
+            if (mCallInfo.isNullCall(call) && checkIfCallIsHfpClientCall(call)) {
                 return false;
             }
             // release the parent if there is a conference call
@@ -650,6 +657,13 @@ public class BluetoothInCallService extends InCallService {
     public boolean isCsCallInProgress() {
         boolean isCsCall = false;
         BluetoothCall activeCall = mCallInfo.getActiveCall();
+
+        if (checkIfCallIsHfpClientCall(activeCall)) {
+            /* While swaping the held ag and active client call, for some time both calls
+             * are active untill client call move to hold, check if any AG call with active state
+             */
+             activeCall = getCSCall(Call.STATE_ACTIVE);
+        }
         if (mNumActiveCalls > 0) {
             isCsCall =  ((activeCall != null) &&
              !(activeCall.isHighDefAudio() ||
@@ -662,8 +676,22 @@ public class BluetoothInCallService extends InCallService {
     public boolean isHighDefCallInProgress() {
         boolean isHighDef = false;
         BluetoothCall ringingCall = mCallInfo.getRingingOrSimulatedRingingCall();
+        if (checkIfCallIsHfpClientCall(ringingCall)) {
+            ringingCall = null;
+        }
+
         BluetoothCall dialingCall = mCallInfo.getOutgoingCall();
+        if (checkIfCallIsHfpClientCall(dialingCall)) {
+            dialingCall = null;
+        }
+
         BluetoothCall activeCall = mCallInfo.getActiveCall();
+        if (checkIfCallIsHfpClientCall(activeCall)) {
+            /* While swaping the held ag and active client call, for some time both calls
+             * are active untill client call move to hold, check if any AG call with active state
+             */
+             activeCall = getCSCall(Call.STATE_ACTIVE);
+        }
 
         /* If its an incoming call we will have codec info in dialing state */
         if (ringingCall != null) {
@@ -837,9 +865,9 @@ public class BluetoothInCallService extends InCallService {
             // We don't send the parent conference BluetoothCall to the bluetooth device.
             // We do, however want to send conferences that have no children to the bluetooth
             // device (e.g. IMS Conference).
-            if (!call.isConference()
+            if ((!checkIfCallIsHfpClientCall(call)) && (!call.isConference()
                     || (call.isConference()
-                            && call.can(Connection.CAPABILITY_CONFERENCE_HAS_NO_CHILDREN))) {
+                            && call.can(Connection.CAPABILITY_CONFERENCE_HAS_NO_CHILDREN)))) {
                 sendClccForCall(call, shouldLog);
             }
         }
@@ -1024,7 +1052,15 @@ public class BluetoothInCallService extends InCallService {
 
     private boolean _processChld(int chld) {
         BluetoothCall activeCall = mCallInfo.getActiveCall();
+        if (checkIfCallIsHfpClientCall(activeCall)) {
+            activeCall = null;
+        }
+
         BluetoothCall ringingCall = mCallInfo.getRingingOrSimulatedRingingCall();
+        if (checkIfCallIsHfpClientCall(ringingCall)) {
+            ringingCall = null;
+        }
+
         if (ringingCall == null) {
             Log.i(TAG, "asdf ringingCall null");
         } else {
@@ -1032,6 +1068,9 @@ public class BluetoothInCallService extends InCallService {
         }
 
         BluetoothCall heldCall = mCallInfo.getHeldCall();
+        if(checkIfCallIsHfpClientCall(heldCall)) {
+            heldCall = null;
+        }
 
         Log.i(TAG, "Active: " + activeCall
                 + " Ringing: " + ringingCall
@@ -1110,6 +1149,18 @@ public class BluetoothInCallService extends InCallService {
     }
 
     /**
+     * return the CS call with given call state
+     */
+    private BluetoothCall getCSCall(int callState) {
+        for (BluetoothCall call : mCallInfo.getBluetoothCalls()) {
+            if (!checkIfCallIsHfpClientCall(call) && call.getState() == callState) {
+                return call;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Sends an update of the current BluetoothCall state to the current Headset.
      *
      * @param force {@code true} if the headset state should be sent regardless if no changes to
@@ -1118,8 +1169,26 @@ public class BluetoothInCallService extends InCallService {
      */
     private void updateHeadsetWithCallState(boolean force) {
         BluetoothCall activeCall = mCallInfo.getActiveCall();
+        // do not update the client call to headset service
+        if (checkIfCallIsHfpClientCall(activeCall)) {
+        /* While swaping the held ag and active client call, for some time both the calls are
+        * active untill client call move to hold, check if any AG call with active state
+        */
+            activeCall = getCSCall(Call.STATE_ACTIVE);
+        }
+
         BluetoothCall ringingCall = mCallInfo.getRingingOrSimulatedRingingCall();
+        // do not update the client call to headset service
+        if (checkIfCallIsHfpClientCall(ringingCall)) {
+            ringingCall = null;
+        }
+
         BluetoothCall heldCall = mCallInfo.getHeldCall();
+        // do not update the client call to headset service
+        if (checkIfCallIsHfpClientCall(heldCall)) {
+            //check if any AG call with hold state
+            heldCall = getCSCall(Call.STATE_HOLDING);
+        }
 
         int bluetoothCallState = getBluetoothCallStateForUpdate();
 
@@ -1142,7 +1211,15 @@ public class BluetoothInCallService extends InCallService {
         }
 
         int numActiveCalls = mCallInfo.isNullCall(activeCall) ? 0 : 1;
-        int numHeldCalls = mCallInfo.getNumHeldCalls();
+        //int numHeldCalls = mCallInfo.getNumHeldCalls();
+        int numHeldCalls = 0;
+        // do not update the client call to headset service
+        for (BluetoothCall call : mCallInfo.getBluetoothCalls()) {
+            if (!checkIfCallIsHfpClientCall(call) && call.getParentId() == null
+                             && call.getState() == Call.STATE_HOLDING) {
+                numHeldCalls++;
+            }
+        }
         int numChildrenOfActiveCall =
                 mCallInfo.isNullCall(activeCall) ? 0 : activeCall.getChildrenIds().size();
 
@@ -1236,9 +1313,64 @@ public class BluetoothInCallService extends InCallService {
         }//synchronized (LOCK)
     }
 
+    /**
+     * check if the call is with hfpClient phone account.
+     * return true if call is HfpClientCall.
+     */
+    private boolean checkIfCallIsHfpClientCall(BluetoothCall call) {
+        if((call != null) && (call.getAccountHandle() != null) &&
+          (call.getAccountHandle().getComponentName() != null) ) {
+            String cname = call.getAccountHandle().getComponentName().getClassName();
+            if(cname != null) {
+                if(cname.contains(hfpclass)){
+                     Log.i(TAG," checkIfCallIsHfpClientCall : true");
+                     return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /*
+     * check if only Disconnected CS calls are present.
+     * return false if atleast one CS Call with state as not disconnected.
+     * return true if only CS call with disconnected state present.
+     */
+    private boolean hasOnlyCsDisconnectedCalls() {
+        Collection<BluetoothCall> mCalls = mCallInfo.getBluetoothCalls();
+        boolean atleasetOneCsCallPresent = false;
+
+        if (mCalls.size() == 0) {
+            return false;
+        }
+        for (BluetoothCall call : mCalls) {
+            if (checkIfCallIsHfpClientCall(call)) {
+                continue;
+            } else {
+                atleasetOneCsCallPresent = true;
+                if (call.getState() != Call.STATE_DISCONNECTED) {
+                    return false;
+                }
+            }
+        }
+        // we need to return true if only CS call with Disconnected state
+        if (atleasetOneCsCallPresent) {
+            return true;
+        } else {
+            return false;
+        }
+    }
     private int getBluetoothCallStateForUpdate() {
         BluetoothCall ringingCall = mCallInfo.getRingingOrSimulatedRingingCall();
+         // do not update the client call to headset service
+        if(checkIfCallIsHfpClientCall(ringingCall)) {
+            ringingCall = null;
+        }
         BluetoothCall dialingCall = mCallInfo.getOutgoingCall();
+        // do not update the client call to headset service
+        if(checkIfCallIsHfpClientCall(dialingCall)) {
+            dialingCall = null;
+        }
         boolean hasOnlyDisconnectedCalls = mCallInfo.hasOnlyDisconnectedCalls();
 
         //

@@ -2006,7 +2006,7 @@ public class HeadsetService extends ProfileService {
 
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean setActiveDevice(BluetoothDevice device) {
-        if((ApmConstIntf.getQtiLeAudioEnabled()) || (ApmConstIntf.getAospLeaEnabled())) {
+        if(/*ApmConstIntf.getQtiLeAudioEnabled()*/ false) {
             ActiveDeviceManagerServiceIntf mActiveDeviceManager =
                     ActiveDeviceManagerServiceIntf.get();
             /*Precautionary Change: Force Active Device Manager

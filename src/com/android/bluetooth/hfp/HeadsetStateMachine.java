@@ -863,6 +863,7 @@ public class HeadsetStateMachine extends StateMachine {
                         break;
                     }
                     stateLogW("CONNECT_TIMEOUT");
+                    mNativeInterface.disconnectHfp(device);
                     transitionTo(mDisconnected);
                     break;
                 }

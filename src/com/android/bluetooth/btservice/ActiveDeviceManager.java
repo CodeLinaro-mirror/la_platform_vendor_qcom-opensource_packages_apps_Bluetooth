@@ -417,6 +417,9 @@ public class ActiveDeviceManager {
                               if (DBG) {
                                  Log.d(TAG, "BAP_MEDIA Profile is active"
                                  + "Not setting active device null A2DP");
+                                 final A2dpService a2dpService = mFactory.getA2dpService();
+                                 if(a2dpService != null)
+                                  a2dpService.setActiveDevice(null);
                               } break;
                            }
                         }

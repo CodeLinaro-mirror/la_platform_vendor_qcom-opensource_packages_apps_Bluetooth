@@ -1000,17 +1000,7 @@ public class A2dpService extends ProfileService {
      */
     public boolean setActiveDevice(BluetoothDevice device) {
 
-        if(ApmConstIntf.getQtiLeAudioEnabled() || (ApmConstIntf.getAospLeaEnabled())) {
-            if (mShoActive) {
-                Log.e(TAG, "setActiveDevice: Pending SHO, ignore");
-                return false;
-            } else if (device != null && Objects.equals(device, mActiveDevice)) {
-                Log.d(TAG, "setActiveDevice: same device");
-                return true;
-            } else if (device == null) {
-                Log.d(TAG, "setActiveDevice: Null Device received, " +
-                            "going for setActive in ActiveDeviceManagerService");
-            }
+        if(/*ApmConstIntf.getQtiLeAudioEnabled()*/ false) {
             ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
             return activeDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
         }
@@ -1022,6 +1012,8 @@ public class A2dpService extends ProfileService {
                 return true;
             }
         }
+        setActiveDeviceInternal(device);
+
         boolean playReq = device != null &&
                         mActiveDevice != null && isA2dpPlaying(mActiveDevice);
         if(mAvrcp_ext != null) {
@@ -1075,7 +1067,7 @@ public class A2dpService extends ProfileService {
         Log.w(TAG, "setActiveDeviceInternal(" + device +
                    "): previous is " + previousActiveDevice);
 
-        if (device == null) {
+        /*if (device == null) {
             // Remove active device and continue playing audio only if necessary.
             synchronized(mBtAvrcpLock) {
                 if(mAvrcp_ext != null)
@@ -1083,7 +1075,7 @@ public class A2dpService extends ProfileService {
             }
             removeActiveDevice(false);
             return true;
-        }
+        }*/
 
         synchronized (mBtA2dpLock) {
             BATService mBatService = BATService.getBATService();
