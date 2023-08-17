@@ -70,6 +70,7 @@ import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.IState;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
+import com.android.bluetooth.hfp.BluetoothCmeError;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -79,6 +80,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
+import java.util.UUID;
 import com.android.bluetooth.hfp.HeadsetService;
 
 public class HeadsetClientStateMachine extends StateMachine {
@@ -112,6 +114,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int DISABLE_NREC = 20;
     public static final int SEND_VENDOR_AT_COMMAND = 21;
     public static final int SEND_CLCC = 22;
+    public static final int SEND_ANDROID_AT_COMMAND = 23;
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
     public static final int QUERY_OPERATOR_NAME = 51;
@@ -431,7 +434,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                 Log.w(TAG, "Outgoing call did not see a response, clear the calls and send CHUP");
                 // We send a terminate because we are in a bad state and trying to
                 // recover.
-                terminateCall();
+                terminateCall(c.getUUID());
 
                 // Clean out the state for outgoing call.
                 for (Integer idx : mCalls.keySet()) {
@@ -659,7 +662,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
     }
 
-    private void terminateCall() {
+    private void terminateCall(UUID uuid) {
         if (DBG) {
             Log.d(TAG, "terminateCall");
         }
@@ -675,7 +678,8 @@ public class HeadsetClientStateMachine extends StateMachine {
             action = HeadsetClientHalConstants.CALL_ACTION_CHLD_0;
         }
         if (c != null) {
-            if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
+            Log.d(TAG, "call uuid: " + c.getUUID() + " terminate call uuid " + uuid);
+            if (c.getUUID().compareTo(uuid) == 0 && mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
                 addQueuedAction(TERMINATE_CALL, action);
             } else {
                 Log.e(TAG, "ERROR: Couldn't terminate outgoing call");
@@ -1159,6 +1163,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                 case CONNECTING_TIMEOUT:
                     // We timed out trying to connect, transition to disconnected.
                     Log.w(TAG, "Connection timeout for " + mCurrentDevice);
+                    mNativeInterface.disconnect(getByteAddress(mCurrentDevice));
                     transitionTo(mDisconnected);
                     break;
 
@@ -1424,7 +1429,11 @@ public class HeadsetClientStateMachine extends StateMachine {
                     holdCall();
                     break;
                 case TERMINATE_CALL:
-                    terminateCall();
+                    {
+                      UUID uuid = (UUID) message.obj;
+                      Log.d(TAG, "terminate call request uuid = " + uuid.toString());
+                      terminateCall(uuid);
+                    }
                     break;
                 case ENTER_PRIVATE_MODE:
                     enterPrivateMode(message.arg1);
@@ -1660,6 +1669,30 @@ public class HeadsetClientStateMachine extends StateMachine {
                                                 HeadsetClientHalConstants.VR_STATE_STOPPED;
                                     }
                                     break;
+                                case DIAL_NUMBER:
+                                    Log.d(TAG, "Received status for dial " + event);
+                                    int cme = event.valueInt2;
+                                    if(cme >= BluetoothCmeError.AG_FAILURE
+                                                    && cme <= BluetoothCmeError.ONLY_911_ALLOWED) {
+                                        Log.w(TAG, "dial failed with error " + cme);
+                                        BluetoothHeadsetClientCall mOutC = mCalls.get(HF_ORIGINATED_CALL_ID);
+                                        mOutC.setState(BluetoothHeadsetClientCall.CALL_STATE_TERMINATED);
+                                        // check if any other call is in setup.
+                                        // if any other call is in setup,
+                                        // sending intent with call terminated causing the other
+                                        // getting terminted.
+                                        // telephony will overwrite the dial call state
+                                        // with new call state which is in setup.
+                                        if (!mCallIsInSetup)
+                                        sendCallChangedIntent(mOutC);
+                                        mCalls.remove(HF_ORIGINATED_CALL_ID);
+                                    }
+                                    break;
+                                case SEND_ANDROID_AT_COMMAND:
+                                   if (DBG) {
+                                       Log.d(TAG,
+                                           "Connected: Received OK for AT+ANDROID");
+                                    }
                                 default:
                                     Log.w(TAG, "Unhandled AT OK " + event);
                                     break;

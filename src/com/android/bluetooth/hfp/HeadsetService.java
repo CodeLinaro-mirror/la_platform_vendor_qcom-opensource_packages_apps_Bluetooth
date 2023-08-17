@@ -2184,7 +2184,23 @@ public class HeadsetService extends ProfileService {
     }
 
     int connectAudio() {
+        boolean isPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
+        if (isPts) {
+            boolean mPts = SystemProperties.getBoolean(DISABLE_CONNECT_AUDIO, false);
+            Log.w(TAG, "persist.bluetooth.disableconnectaudio " + mPts);
 
+            if (mPts) {
+                Log.w(TAG, "not initiating connect Audio");
+                // inform stack about routing allowed
+                setAudioRouteAllowed(false);
+                // keep routing allowed for incoming SCO conncetion
+                mAudioRouteAllowed = true;
+                return BluetoothStatusCodes.NOT_ALLOWED;
+            } else {
+                Log.w(TAG, "initiating connect Audio");
+                setAudioRouteAllowed(true);
+            }
+        }
         synchronized (mStateMachines) {
             BluetoothDevice device = mActiveDevice;
             if (device == null) {

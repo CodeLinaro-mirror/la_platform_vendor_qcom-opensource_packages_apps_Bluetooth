@@ -36,6 +36,7 @@ import java.util.Objects;
 class A2dpCodecConfig {
     private static final boolean DBG = true;
     private static final String TAG = "A2dpCodecConfig";
+    private static final String A2DP_OFFLOAD_CAP = "persist.vendor.qcom.bluetooth.a2dp_offload_cap";
 
     private Context mContext;
     private A2dpNativeInterface mA2dpNativeInterface;
@@ -166,7 +167,10 @@ class A2dpCodecConfig {
 
         int value;
         AdapterService mAdapterService = AdapterService.getAdapterService();
-        String a2dp_offload_cap = mAdapterService.getA2apOffloadCapability();
+        String a2dp_offload_cap = SystemProperties.get(A2DP_OFFLOAD_CAP);
+
+        Log.i(TAG, "a2dp_offload_cap " + a2dp_offload_cap);
+
         try {
             value = resources.getInteger(R.integer.a2dp_source_codec_priority_sbc);
         } catch (NotFoundException e) {
@@ -310,7 +314,7 @@ class A2dpCodecConfig {
         //TWS Codec not supported on target
         mA2dpSourceCodecPriorityAptxTwsp = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
 
-        try {
+        /* try {
             value = resources.getInteger(R.integer.a2dp_source_codec_priority_lc3);
         } catch (NotFoundException e) {
             value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
@@ -322,7 +326,8 @@ class A2dpCodecConfig {
                 !a2dp_offload_cap.contains("lc3")) {
                 mA2dpSourceCodecPriorityLc3 = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
             }
-        }
+        } */
+        mA2dpSourceCodecPriorityLc3 = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
 
         BluetoothCodecConfig codecConfig;
         BluetoothCodecConfig[] codecConfigArray;

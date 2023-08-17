@@ -946,13 +946,13 @@ static void initNative(JNIEnv* env, jobject object) {
     ALOGE("Bluetooth module is not loaded");
     return;
   }
-
+  /*
   if (sBluetoothAvrcpVendorInterface != NULL) {
     ALOGW("Cleaning up Avrcp Vendor Interface before initializing...");
     sBluetoothAvrcpVendorInterface->cleanup_vendor();
     sBluetoothAvrcpVendorInterface = NULL;
   }
-
+  */
   if (sBluetoothAvrcpInterface != NULL) {
     ALOGW("Cleaning up Avrcp Interface before initializing...");
     sBluetoothAvrcpInterface->cleanup();
@@ -972,7 +972,7 @@ static void initNative(JNIEnv* env, jobject object) {
     ALOGE("Failed to get Bluetooth Avrcp Controller Interface");
     return;
   }
-
+  ALOGI("GOT Bluetooth Avrcp Controller Interface");
   bt_status_t status =
       sBluetoothAvrcpInterface->init(&sBluetoothAvrcpCallbacks);
   if (status != BT_STATUS_SUCCESS) {
@@ -981,7 +981,8 @@ static void initNative(JNIEnv* env, jobject object) {
     sBluetoothAvrcpInterface = NULL;
     return;
   }
-
+  ALOGI("INIT Bluetooth Avrcp Controller Interface");
+  /*
   sBluetoothAvrcpVendorInterface =
       (btrc_vendor_ctrl_interface_t*)btInf->get_profile_interface(
           BT_PROFILE_AV_RC_VENDOR_CTRL_ID);
@@ -1002,7 +1003,7 @@ static void initNative(JNIEnv* env, jobject object) {
     sBluetoothAvrcpInterface = NULL;
     return;
   }
-
+  */
 
   sCallbacksObj = env->NewGlobalRef(object);
 }
@@ -1015,12 +1016,12 @@ static void cleanupNative(JNIEnv* env, jobject object) {
     ALOGE("Bluetooth module is not loaded");
     return;
   }
-
+  /*
   if (sBluetoothAvrcpVendorInterface != NULL) {
     sBluetoothAvrcpVendorInterface->cleanup_vendor();
     sBluetoothAvrcpVendorInterface = NULL;
   }
-
+  */
   if (sBluetoothAvrcpInterface != NULL) {
     sBluetoothAvrcpInterface->cleanup();
     sBluetoothAvrcpInterface = NULL;

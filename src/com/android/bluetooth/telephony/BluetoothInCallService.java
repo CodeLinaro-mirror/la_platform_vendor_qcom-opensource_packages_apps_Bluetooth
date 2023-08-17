@@ -286,7 +286,7 @@ public class BluetoothInCallService extends InCallService {
                 return;
             }
             mLastState = state;
-            updateHeadsetWithCallState(false /* force */);
+            updateHeadsetWithCallState(call, false /* force */);
         }
 
         @Override
@@ -310,7 +310,7 @@ public class BluetoothInCallService extends InCallService {
                    if (details.getState() == Call.STATE_DISCONNECTING) {
                      Log.i(TAG, "Ignore Call STATE_DISCONNECTING");
                    } else {
-                     updateHeadsetWithCallState(false /* force */);
+                     updateHeadsetWithCallState(call, false /* force */);
                    }
                 }
             }
@@ -333,7 +333,7 @@ public class BluetoothInCallService extends InCallService {
                         "Ignoring onIsConferenceChanged from child BluetoothCall with new parent");
                 return;
             }
-            updateHeadsetWithCallState(false /* force */);
+            updateHeadsetWithCallState(call, false /* force */);
         }
 
         @Override
@@ -359,7 +359,7 @@ public class BluetoothInCallService extends InCallService {
                         "Ignoring onIsConferenceChanged from parent with only one child call");
                 return;
             }
-            updateHeadsetWithCallState(false /* force */);
+            updateHeadsetWithCallState(call, false /* force */);
         }
 
         @Override
@@ -466,6 +466,10 @@ public class BluetoothInCallService extends InCallService {
             Log.i(TAG, "BT - hanging up call");
             BluetoothCall call = mCallInfo.getForegroundCall();
             if (mCallInfo.isNullCall(call) && checkIfCallIsHfpClientCall(call)) {
+                return false;
+            }
+            if (checkIfCallIsHfpClientCall(call)) {
+                Log.i(TAG, "HFP Client call available");
                 return false;
             }
             // release the parent if there is a conference call
@@ -755,7 +759,7 @@ public class BluetoothInCallService extends InCallService {
             call.registerCallback(callback);
 
             mBluetoothCallHashMap.put(call.getTelecomCallId(), call);
-            updateHeadsetWithCallState(false /* force */);
+            updateHeadsetWithCallState(call, false /* force */);
         }
     }
 
@@ -800,7 +804,7 @@ public class BluetoothInCallService extends InCallService {
         }
 
         mClccIndexMap.remove(call);
-        updateHeadsetWithCallState(false /* force */);
+        updateHeadsetWithCallState(call, false /* force */);
     }
 
     @Override
@@ -1159,7 +1163,15 @@ public class BluetoothInCallService extends InCallService {
         }
         return null;
     }
+    private void updateHeadsetWithCallState(BluetoothCall call, boolean force) {
+        Log.i(TAG, "updateHeadsetWithCallState with call parameter");
 
+        if(checkIfCallIsHfpClientCall(call)) {
+            Log.i(TAG,"hfpclient call, do not update call status to headset");
+            return;
+        }
+        updateHeadsetWithCallState(force);
+    }
     /**
      * Sends an update of the current BluetoothCall state to the current Headset.
      *
@@ -1331,35 +1343,6 @@ public class BluetoothInCallService extends InCallService {
         return false;
     }
 
-    /*
-     * check if only Disconnected CS calls are present.
-     * return false if atleast one CS Call with state as not disconnected.
-     * return true if only CS call with disconnected state present.
-     */
-    private boolean hasOnlyCsDisconnectedCalls() {
-        Collection<BluetoothCall> mCalls = mCallInfo.getBluetoothCalls();
-        boolean atleasetOneCsCallPresent = false;
-
-        if (mCalls.size() == 0) {
-            return false;
-        }
-        for (BluetoothCall call : mCalls) {
-            if (checkIfCallIsHfpClientCall(call)) {
-                continue;
-            } else {
-                atleasetOneCsCallPresent = true;
-                if (call.getState() != Call.STATE_DISCONNECTED) {
-                    return false;
-                }
-            }
-        }
-        // we need to return true if only CS call with Disconnected state
-        if (atleasetOneCsCallPresent) {
-            return true;
-        } else {
-            return false;
-        }
-    }
     private int getBluetoothCallStateForUpdate() {
         BluetoothCall ringingCall = mCallInfo.getRingingOrSimulatedRingingCall();
          // do not update the client call to headset service
@@ -1371,8 +1354,8 @@ public class BluetoothInCallService extends InCallService {
         if(checkIfCallIsHfpClientCall(dialingCall)) {
             dialingCall = null;
         }
-        boolean hasOnlyDisconnectedCalls = mCallInfo.hasOnlyDisconnectedCalls();
-
+        boolean hasOnlyDisconnectedCalls = mCallInfo.hasOnlyCsDisconnectedCalls();
+        Log.i(TAG, "getBluetoothCallStateForUpdate hasOnlyDisconnectedCalls " + hasOnlyDisconnectedCalls);
         //
         // !! WARNING !!
         // You will note that CALL_STATE_WAITING, CALL_STATE_HELD, and CALL_STATE_ACTIVE are not
@@ -1530,7 +1513,34 @@ public class BluetoothInCallService extends InCallService {
             }
             return number;
         }
-
+    /*
+     * check if only Disconnected CS calls are present.
+     * return false if atleast one CS Call with state as not disconnected.
+     * return true if only CS call with disconnected state present.
+     */
+    public boolean hasOnlyCsDisconnectedCalls() {
+        Collection<BluetoothCall> mCalls = mCallInfo.getBluetoothCalls();
+        boolean atleasetOneCsCallPresent = false;
+        if (mCalls.size() == 0) {
+            return false;
+        }
+        for (BluetoothCall call : mCalls) {
+            if (checkIfCallIsHfpClientCall(call)) {
+                continue;
+            } else {
+                atleasetOneCsCallPresent = true;
+                if (call.getState() != Call.STATE_DISCONNECTED) {
+                    return false;
+                }
+            }
+        }
+        // we need to return true if only CS call with Disconnected state
+        if (atleasetOneCsCallPresent) {
+            return true;
+        } else {
+            return false;
+        }
+    }
         public boolean hasOnlyDisconnectedCalls() {
             List<BluetoothCall> calls = getBluetoothCalls();
             if (calls.size() == 0) {

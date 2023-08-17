@@ -1068,6 +1068,11 @@ public class A2dpService extends ProfileService {
                    "): previous is " + previousActiveDevice);
 
         /*if (device == null) {
+        if(Objects.equals(device, previousActiveDevice)) {
+            Log.e(TAG, "Same active device set request. Bail out");
+            return true;
+        }
+        if (device == null) {
             // Remove active device and continue playing audio only if necessary.
             synchronized(mBtAvrcpLock) {
                 if(mAvrcp_ext != null)

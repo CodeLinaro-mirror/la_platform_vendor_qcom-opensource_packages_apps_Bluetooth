@@ -171,6 +171,12 @@ class PhonePolicy {
 
     private Boolean mPreferLeAudioOnlyMode = false;
     private static final int DELAY_A2DP_SLEEP_MILLIS = 100;
+    // Feature flags
+    private final boolean mAutoConnectProfilesSupported;
+
+    private static final String sAutoConnectProfilesProperty =
+            "bluetooth.auto_connect_profiles.enabled";
+
     ///*_REF
     Object mBCService = null;
     Method mBCGetService = null;
@@ -402,6 +408,10 @@ class PhonePolicy {
         mFactory = factory;
         mHandler = new PhonePolicyHandler(service.getMainLooper());
         mPreferLeAudioOnlyMode = SystemProperties.getBoolean(PREFER_LE_AUDIO_ONLY_MODE, true);
+        mAutoConnectProfilesSupported = SystemProperties.getBoolean(
+            sAutoConnectProfilesProperty, false);
+        debugLog("mAutoConnectProfilesSupported " + mAutoConnectProfilesSupported);
+
     }
 
     // Policy implementation, all functions MUST be private
@@ -473,13 +483,18 @@ class PhonePolicy {
                 || ArrayUtils.contains(uuids, BluetoothUuid.HFP)) && (
                 headsetService.getConnectionPolicy(device)
                         == BluetoothProfile.CONNECTION_POLICY_UNKNOWN))) {
-            debugLog("setting peer device to connection policy on for hfp" + device);
-            mAdapterService.getDatabase().setProfileConnectionPolicy(device,
+            if (mAutoConnectProfilesSupported) {
+                headsetService.setConnectionPolicy(device,
+                    BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+            } else {
+             debugLog("setting peer device to connection policy on for hfp" + device);
+             mAdapterService.getDatabase().setProfileConnectionPolicy(device,
                     BluetoothProfile.HEADSET, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
-            if (peerTwsDevice != null) {
+             if (peerTwsDevice != null) {
                 debugLog("setting peer earbud to connection policy on for hfp" + peerTwsDevice);
-            mAdapterService.getDatabase().setProfileConnectionPolicy(device,
+             mAdapterService.getDatabase().setProfileConnectionPolicy(device,
                     BluetoothProfile.HEADSET, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+             }
             }
         }
 
@@ -491,13 +506,18 @@ class PhonePolicy {
                 || ArrayUtils.contains(uuids, ADV_AUDIO_P_MEDIA)) && (
                 a2dpService.getConnectionPolicy(device)
                         == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
-            debugLog("setting peer device to connection policy on for a2dp" + device);
-            mAdapterService.getDatabase().setProfileConnectionPolicy(device,
+            if (mAutoConnectProfilesSupported) {
+                a2dpService.setConnectionPolicy(device,
+                        BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+            } else {
+             debugLog("setting peer device to connection policy on for a2dp" + device);
+             mAdapterService.getDatabase().setProfileConnectionPolicy(device,
                     BluetoothProfile.A2DP, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
-            if (peerTwsDevice != null) {
+             if (peerTwsDevice != null) {
                 debugLog("setting peer earbud to connection policy on for a2dp" + peerTwsDevice);
-            mAdapterService.getDatabase().setProfileConnectionPolicy(device,
+             mAdapterService.getDatabase().setProfileConnectionPolicy(device,
                     BluetoothProfile.A2DP, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+             }
             }
         }
 
