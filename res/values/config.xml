@@ -48,12 +48,12 @@
 
 -->
 <resources>
-    <bool name="profile_supported_a2dp">true</bool>
+    <bool name="profile_supported_a2dp">false</bool>
     <bool name="profile_supported_ca">false</bool>
     <bool name="profile_supported_a2dp_sink">false</bool>
-    <bool name="profile_supported_hs_hfp">true</bool>
+    <bool name="profile_supported_hs_hfp">false</bool>
     <bool name="profile_supported_hfpclient">false</bool>
-    <bool name="profile_supported_hfp_incallservice">true</bool>
+    <bool name="profile_supported_hfp_incallservice">false</bool>
     <bool name="profile_supported_hid_host">false</bool>
     <bool name="profile_supported_opp">false</bool>
     <bool name="profile_supported_pc">false</bool>
@@ -64,7 +64,7 @@
     <bool name="pbap_use_profile_for_owner_vcard">false</bool>
     <bool name="profile_supported_map">false</bool>
     <bool name="profile_supported_avrcp_target">false</bool>
-    <bool name="profile_supported_avrcp_controller">true</bool>
+    <bool name="profile_supported_avrcp_controller">false</bool>
     <bool name="profile_supported_bac">false</bool>
     <bool name="profile_supported_sap">false</bool>
     <bool name="profile_supported_pbapclient">false</bool>
