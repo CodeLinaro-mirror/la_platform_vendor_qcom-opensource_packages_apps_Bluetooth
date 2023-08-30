@@ -287,6 +287,11 @@ public class HeadsetClientStateMachine extends StateMachine {
         return true;
     }
 
+    public boolean getIsHFPDisableInProgress() {
+        return  (sAudioIsRouted == true &&
+            mAudioState == BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED);
+    }
+
     private void queryCallsDone() {
         if (DBG) {
             Log.d(TAG, "queryCallsDone");
@@ -1754,6 +1759,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // (such as Telecom) and hence this will still keep the call around, there
                     // is not much we can do here since dropping the call without user consent
                     // even if the audio connection snapped may not be a good idea.
+                    queryCallsStart();
                     routeHfpAudio(false);
                     returnAudioFocusIfNecessary();
                     transitionTo(mConnected);
