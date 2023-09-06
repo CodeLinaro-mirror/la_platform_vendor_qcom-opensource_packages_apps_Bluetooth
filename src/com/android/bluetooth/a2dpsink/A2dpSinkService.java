@@ -295,6 +295,15 @@ public class A2dpSinkService extends ProfileService {
             }
             return service.getAudioConfig(device);
         }
+
+        @Override
+        public int getFocusState(AttributionSource source) {
+            A2dpSinkService service = getService(source);
+            if (service == null) {
+                return AudioManager.ERROR;
+            }
+            return service.getFocusState();
+        }
     }
 
     /* Generic Profile Code */
