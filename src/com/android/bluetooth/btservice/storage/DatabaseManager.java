@@ -1603,9 +1603,9 @@ public class DatabaseManager {
                 // Do not log anything if metadata doesn't fall into above categories
                 return;
         }
-        /*BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_DEVICE_INFO_REPORTED,
+/*        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_DEVICE_INFO_REPORTED,
                 mAdapterService.obfuscateAddress(device),
                 BluetoothProtoEnums.DEVICE_INFO_EXTERNAL, callingApp, manufacturerName, modelName,
-                hardwareVersion, softwareVersion, 0);*/
+                hardwareVersion, softwareVersion, 0); */
     }
 }
