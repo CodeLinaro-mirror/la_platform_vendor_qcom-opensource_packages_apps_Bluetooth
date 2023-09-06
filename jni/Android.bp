@@ -47,10 +47,9 @@ cc_library_shared {
         "com_android_bluetooth_csip_client.cpp",
         "com_android_bluetooth_csip_setcoordinator.cpp",
     ],
-    header_libs: ["libbluetooth_headers", "libnativehelper_header_only", "opensource_btext_vhal_inc", "system_bt_utils_inc"],
-    include_dirs: [
-        "packages/modules/Bluetooth/system/types",
-    ],
+    header_libs: ["libbluetooth_headers_qti", "libnativehelper_header_only", "opensource_btext_vhal_inc", "system_bt_utils_inc",
+	    "opensource_commonsys_system_bt_all_inc",
+	],
     shared_libs: [
         "libbase",
         "libchrome",
@@ -72,4 +71,10 @@ cc_library_shared {
     sanitize: {
         scs: true,
     },
+}
+
+cc_library_headers {
+    name: "opensource_commonsys_packages_jni_headers",
+	vendor_available: true,
+	export_include_dirs: ["."],
 }
