@@ -55,10 +55,10 @@ java_library {
     srcs: ["lib/mapapi/**/*.java"],
 }
 
-platform_compat_config {
-    name: "bluetoothapk_qti-platform-compat-config",
-    src: ":bluetooth_qti.change-ids",
-}
+//platform_compat_config {
+//    name: "bluetoothapk_qti-platform-compat-config",
+//    src: ":bluetooth_qti.change-ids",
+//}
 
 // Bluetooth APK
 
