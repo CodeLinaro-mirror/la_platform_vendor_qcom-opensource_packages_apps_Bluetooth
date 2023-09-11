@@ -2,14 +2,14 @@ soong_namespace {
 }
 
 soong_config_module_type_import {
-    from: "frameworks/base/Android.bp",
+    from: "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/Android.bp",
     module_types: [
-         "bredr_vs_btadva_java_defaults",
-         "aosp_vs_qva_java_defaults"
+         "bluetooth_ext_bredr_vs_btadva_java_defaults",
+         "bluetooth_ext_aosp_vs_qva_java_defaults"
     ],
 }
 
-bredr_vs_btadva_java_defaults {
+bluetooth_ext_bredr_vs_btadva_java_defaults {
     name: "btadva_java_defaults",
 
     soong_config_variables: {
@@ -21,7 +21,7 @@ bredr_vs_btadva_java_defaults {
    }
 }
 
-aosp_vs_qva_java_defaults {
+bluetooth_ext_aosp_vs_qva_java_defaults {
     name: "qva_java_defaults",
     soong_config_variables: {
         aosp_or_qva: {
