@@ -62,9 +62,9 @@ public class HeadsetClientService extends ProfileService {
     private static final boolean DBG = true;
     private static final String TAG = "HeadsetClientService";
 
-    private static final String ACTION_AUDIO_CONN_DISCONN = "android.bluetooth.action.HFP_CLIENT_AUDIO_ACTION";
+    //private static final String ACTION_AUDIO_CONN_DISCONN = "android.bluetooth.action.HFP_CLIENT_AUDIO_ACTION";
     private static final String EXTRA_AUDIO_STATE = "android.bluetooth.extra.audio.STATE";
-    private static final String ACTION_QUERY_NETWORK = "android.bluetooth.action.HFP_CLIENT_NETWORK_NAME";
+    //private static final String ACTION_QUERY_NETWORK = "android.bluetooth.action.HFP_CLIENT_NETWORK_NAME";
     private HashMap<BluetoothDevice, HeadsetClientStateMachine> mStateMachineMap = new HashMap<>();
     private static HeadsetClientService sHeadsetClientService;
     private NativeInterface mNativeInterface = null;
@@ -113,11 +113,11 @@ public class HeadsetClientService extends ProfileService {
         mStateMachineMap.clear();
 
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
-        filter.addAction(ACTION_AUDIO_CONN_DISCONN);
-        filter.addAction(ACTION_QUERY_NETWORK);
+        //filter.addAction(ACTION_AUDIO_CONN_DISCONN);
+        //filter.addAction(ACTION_QUERY_NETWORK);
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(AG_CALL_DISCONNECTED);
+        //filter.addAction(AG_CALL_DISCONNECTED);
         filter.addAction(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED);
         registerReceiver(mBroadcastReceiver, filter);
 
@@ -201,9 +201,9 @@ public class HeadsetClientService extends ProfileService {
                         }
                     }
                 }
-            } else if (intent.getAction().equals(ACTION_AUDIO_CONN_DISCONN)) {
+          /*  } else if (intent.getAction().equals(ACTION_AUDIO_CONN_DISCONN)) {
                 /*Audio connect changes to pass pts tests ATAH/BV-01-1, ORR/BV-02-1 */
-                Log.e(TAG, "HeadsetClientService -  Received ACTION_AUDIO_CONN_DISCONN");
+            /*    Log.e(TAG, "HeadsetClientService -  Received ACTION_AUDIO_CONN_DISCONN");
                 int con_status = intent.getIntExtra( EXTRA_AUDIO_STATE, 0);
                 Log.d(TAG, " HeadsetClientService con_status" + con_status);
                 for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
@@ -226,7 +226,7 @@ public class HeadsetClientService extends ProfileService {
                       sm.sendMessage(
                               HeadsetClientStateMachine.QUERY_OPERATOR_NAME);
                   }
-              }
+              }*/
            } else if (action.equals(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED)) {
               Log.d(TAG, "Received BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED");
               int currState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE,
@@ -248,7 +248,7 @@ public class HeadsetClientService extends ProfileService {
                   }
               }
            }
-           else if (action.equals(AG_CALL_DISCONNECTED)) {
+          /* else if (action.equals(AG_CALL_DISCONNECTED)) {
             Log.d(TAG, "Received AG_CALL_DISCONNECTED");
             // If SCO is not present here with Headset, for eg, if AG call
             // is on DUT speaker, we need to check if any active
@@ -265,7 +265,7 @@ public class HeadsetClientService extends ProfileService {
                             HeadsetClientStateMachine.SEND_CLCC);
                 }
             }
-         }
+         }*/
          else if (action.equals(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED)) {
             Log.d(TAG, "Received BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED");
             // Query HFP Client call information after AG SCO is disconnected
