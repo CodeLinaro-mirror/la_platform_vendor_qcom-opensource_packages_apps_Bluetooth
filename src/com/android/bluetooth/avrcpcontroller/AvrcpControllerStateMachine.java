@@ -2041,7 +2041,10 @@ class AvrcpControllerStateMachine extends StateMachine {
         @Override
         public void onStop() {
             logD("onStop");
-            sendMessage(MSG_AVRCP_PASSTHRU, AvrcpControllerService.PASS_THRU_CMD_ID_STOP);
+            // When media player is switched from Bluetooth Audio to other media player,
+            // This callback is invoked, and results the playback position of now playing
+            // track back to the very begining. Change the command to 'PAUSE'.
+            sendMessage(MSG_AVRCP_PASSTHRU, AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
         }
 
         @Override
