@@ -150,6 +150,29 @@ public class ActiveDeviceManagerServiceIntf {
 
         return false;
     }
+
+    public boolean isStableState(int mAudioType) {
+        if(activeDeviceManagerService == null)
+            return false;
+
+        Class[] arg = new Class[1];
+        arg[0] = Integer.class;
+
+        try {
+            Method isStableState=activeDeviceManagerService.getDeclaredMethod("isStableState", arg);
+            Boolean ret = (Boolean)isStableState.invoke(mActiveDeviceManagerService, mAudioType);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return false;
+    }
+
     public boolean suspendRecording(Boolean suspend) {
         if(activeDeviceManagerService == null)
             return false;

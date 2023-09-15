@@ -484,10 +484,11 @@ public class HeadsetPhoneState {
                 cindService == HeadsetHalConstants.NETWORK_STATE_AVAILABLE &&
                 mCindSignal == 0) {
                 if (mTelephonyManager != null) {
-                    if (mTelephonyManager.getSignalStrength() != null) {
+                    SignalStrength signalStrength = mTelephonyManager.getSignalStrength();
+                    if (signalStrength != null) {
                         Log.d(TAG, "Service is available and signal strength was zero, updating the "+
                                    "current signal strength");
-                        mCindSignal = mTelephonyManager.getSignalStrength().getLevel() + 1;
+                        mCindSignal = signalStrength.getLevel() + 1;
                     } else {
                         Log.w(TAG, "SignalStrength is null");
                     }

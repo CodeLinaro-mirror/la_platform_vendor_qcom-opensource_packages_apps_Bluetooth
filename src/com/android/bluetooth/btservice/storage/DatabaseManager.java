@@ -262,6 +262,15 @@ public class DatabaseManager {
             case BluetoothDevice.METADATA_UNTETHERED_RIGHT_CHARGING:
             case BluetoothDevice.METADATA_UNTETHERED_CASE_CHARGING:
             case BluetoothDevice.METADATA_ENHANCED_SETTINGS_UI_URI:
+            case BluetoothDevice.METADATA_DEVICE_TYPE:
+            case BluetoothDevice.METADATA_MAIN_BATTERY:
+            case BluetoothDevice.METADATA_MAIN_CHARGING:
+            case BluetoothDevice.METADATA_MAIN_LOW_BATTERY_THRESHOLD:
+            case BluetoothDevice.METADATA_UNTETHERED_LEFT_LOW_BATTERY_THRESHOLD:
+            case BluetoothDevice.METADATA_UNTETHERED_RIGHT_LOW_BATTERY_THRESHOLD:
+            case BluetoothDevice.METADATA_UNTETHERED_CASE_LOW_BATTERY_THRESHOLD:
+            case BluetoothDevice.METADATA_SPATIAL_AUDIO:
+            case BluetoothDevice.METADATA_FAST_PAIR_CUSTOMIZED_FIELDS:
                 return true;
         }
         Log.w(TAG, "Invalid metadata key " + key);

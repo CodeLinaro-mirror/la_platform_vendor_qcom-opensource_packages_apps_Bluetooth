@@ -773,7 +773,13 @@ public class HearingAidService extends ProfileService {
             BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED,
                     BluetoothProfile.HEARING_AID, mAdapterService.obfuscateAddress(device), 0);
         }
-
+        if (device == null) {
+           Intent intent = new Intent(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
+           intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+           intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
+                   | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
+           sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
+        }
         boolean stopAudio = device == null
                 && (getConnectionState(mPreviousAudioDevice) != BluetoothProfile.STATE_CONNECTED);
         if (DBG) {
@@ -906,16 +912,17 @@ public class HearingAidService extends ProfileService {
             mHiSyncIdConnectedMap.put(myHiSyncId, false);
         }
         // Check if the device is disconnected - if unbond, remove the state machine
-        synchronized (mVariableLock) {
-            if (toState == BluetoothProfile.STATE_DISCONNECTED) {
-                int bondState = mAdapterService.getBondState(device);
-                if (bondState == BluetoothDevice.BOND_NONE) {
-                    if (DBG) {
-                        Log.d(TAG, device + " is unbond. Remove state machine");
-                    }
-                    removeStateMachine(device);
-                }
-            }
+        int bondState = BluetoothDevice.BOND_NONE;
+        if (toState == BluetoothProfile.STATE_DISCONNECTED) {
+           synchronized (mVariableLock) {
+              bondState = mAdapterService.getBondState(device);
+           }
+           if (bondState == BluetoothDevice.BOND_NONE) {
+              if (DBG) {
+                 Log.d(TAG, device + " is unbond. Remove state machine");
+              }
+              removeStateMachine(device);
+           }
         }
     }
 

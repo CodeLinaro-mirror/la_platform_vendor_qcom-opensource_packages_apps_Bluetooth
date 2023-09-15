@@ -259,6 +259,7 @@ public class ActiveDeviceManager {
                             if (leAudioService.getGroupId(device) == groupId) {
                                 Log.d(TAG, "Lead device is already active");
                             } else {
+                                Log.d(TAG, "Lead device is not active");
                                 setLeAudioActiveDevice(device);
                                 break;
                             }
@@ -300,7 +301,8 @@ public class ActiveDeviceManager {
                                 List<BluetoothDevice> leAudioConnectedDevice =
                                         leAudioService.getConnectedDevices();
                                 for (BluetoothDevice peerDevice : leAudioConnectedDevice) {
-                                    if (leAudioService.getGroupId(peerDevice) == groupId) {
+                                    if (!Objects.equals(peerDevice, device) &&
+                                        leAudioService.getGroupId(peerDevice) == groupId) {
                                         peerLeAudioDevice = peerDevice;
                                         break;
                                     }
@@ -325,12 +327,12 @@ public class ActiveDeviceManager {
                                                            ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
                                     BluetoothDevice voiceActiveDevice = activeDeviceManager.getActiveAbsoluteDevice(
                                                            ApmConstIntf.AudioFeatures.CALL_AUDIO);
-                                    if (mediaActiveDevice != null) {
-                                        isMediaActive = (groupId == leAudioService.getGroupId(mediaActiveDevice));
-                                    }
-                                    if (voiceActiveDevice != null) {
-                                        isCallActive = (groupId == leAudioService.getGroupId(voiceActiveDevice));
-                                    }
+                                    Log.d(TAG, "mediaActiveDevice: " + mediaActiveDevice +
+                                                   " voiceActiveDevice: " + voiceActiveDevice);
+                                    isMediaActive =
+                                      (groupId == leAudioService.getGroupId(mediaActiveDevice));
+                                    isCallActive =
+                                      (groupId == leAudioService.getGroupId(voiceActiveDevice));
                                 }
 
                                 Log.w(TAG, "isMediaActive: " + isMediaActive +

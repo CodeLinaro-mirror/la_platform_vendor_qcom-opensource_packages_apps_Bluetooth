@@ -430,6 +430,7 @@ public class BluetoothInCallService extends InCallService {
             Log.d(TAG, "answercall: hfp");
             Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
             DsdaIntent.putExtra("state", ANSWER_CALL);
+            DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
             sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
             return true;
         }
@@ -451,6 +452,7 @@ public class BluetoothInCallService extends InCallService {
             Log.d(TAG, "hangup call: hfp");
             Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
             DsdaIntent.putExtra("state", HANGUP_CALL);
+            DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
             sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
             return true;
         }
@@ -606,6 +608,7 @@ public class BluetoothInCallService extends InCallService {
             Log.d(TAG, "listCurrentCalls: hfp");
             Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
             DsdaIntent.putExtra("state", LIST_CLCC);
+            DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
             sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
             return true;
         }
@@ -630,6 +633,7 @@ public class BluetoothInCallService extends InCallService {
     public boolean queryPhoneState() {
         Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
         DsdaIntent.putExtra("state", QUERY_PHONE_STATE);
+        DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -643,6 +647,7 @@ public class BluetoothInCallService extends InCallService {
         mBluetoothCallHashMap.clear();
         Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
         DsdaIntent.putExtra("state", CLEAN_UP);
+        DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
         Log.i(TAG, "BluetoothCallHashMap Cleared");
     }
@@ -696,6 +701,7 @@ public class BluetoothInCallService extends InCallService {
             Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
             DsdaIntent.putExtra("state", PROCESS_CHLD);
             DsdaIntent.putExtra("chld", chld);
+            DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
             sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
             return true;
         }
