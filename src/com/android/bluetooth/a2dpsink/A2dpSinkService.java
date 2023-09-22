@@ -91,6 +91,7 @@ public class A2dpSinkService extends ProfileService {
     private static boolean mPausedDueToCallIndicators = false;
     private List<BluetoothDevice> connectedDevices = null;
     private static final int DELAY_REMOVE_ACTIVE_DEV = 1000;
+    private static final int HFP_DISABLING_TIMEOUT =100;
 
     static {
         classInitNative();
@@ -860,6 +861,16 @@ public class A2dpSinkService extends ProfileService {
 
     public void onStartIndCallback(byte[] address) {
         mHeadsetClientService = HeadsetClientService.getHeadsetClientService();
+        BluetoothDevice dev = getDevice(address);
+        if ( mHeadsetClientService!= null &&
+                mHeadsetClientService.IsHFPDisableInProgress(dev) == true) {
+            Log.d(TAG, "HFP Disabling in Progress for device: "+dev);
+            Message msg = mA2dpSinkStreamHandler.obtainMessage(
+                              A2dpSinkStreamHandler.DELAYED_START_IND);
+            msg.obj = dev;
+            mA2dpSinkStreamHandler.sendMessageDelayed(msg,HFP_DISABLING_TIMEOUT);
+            return;
+        }
         if ( mHeadsetClientService!= null && mHeadsetClientService.isA2dpSinkPossible() == false) {
             if(mA2dpSinkVendor!= null){
                 Log.d(TAG, "Reject A2dpSink");
