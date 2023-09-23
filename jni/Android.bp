@@ -1,5 +1,5 @@
 soong_config_module_type_import {
-    from: "vendor/qcom/opensource/commonsys/bluetooth_ext/system_bt_ext/Android.bp",
+    from: "vendor/qcom/opensource/monaco/commonsys/bluetooth_ext/system_bt_ext/Android.bp",
     module_types: [
          "bluetooth_ext_bredr_vs_btadva_cc_defaults",
     ],
