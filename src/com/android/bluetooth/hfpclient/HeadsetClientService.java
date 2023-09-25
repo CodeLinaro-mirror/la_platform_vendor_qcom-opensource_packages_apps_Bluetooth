@@ -23,6 +23,7 @@ import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHeadsetClientCall;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothHeadsetClient;
+import android.bluetooth.IBluetoothHeadsetClientScoCallback;
 import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -33,6 +34,8 @@ import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.os.SystemProperties;
+import android.os.RemoteCallbackList;
+import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.bluetooth.Utils;
@@ -78,7 +81,8 @@ public class HeadsetClientService extends ProfileService {
     private static final int CONNECT_AUDIO_DELAY = 5000;
     private static final String AG_CALL_DISCONNECTED = "22";
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
-
+    private RemoteCallbackList<IBluetoothHeadsetClientScoCallback> mHeadsetClientScoCallbacks;
+    private final Object mCallbackNotifyLock = new Object();
     @Override
     public IProfileServiceBinder initBinder() {
         return new BluetoothHeadsetClientBinder(this);
@@ -131,6 +135,7 @@ public class HeadsetClientService extends ProfileService {
         mSmThread.start();
 
         setHeadsetClientService(this);
+        mHeadsetClientScoCallbacks = new RemoteCallbackList<IBluetoothHeadsetClientScoCallback>();
         return true;
     }
 
@@ -727,9 +732,61 @@ public class HeadsetClientService extends ProfileService {
                 receiver.propagateException(e);
             }
         }
+
+        @Override
+        public void registerHeadsetClientScoCallback(IBluetoothHeadsetClientScoCallback callback, AttributionSource source,
+                SynchronousResultReceiver receiver) {
+            try {
+                HeadsetClientService service = getService(source);
+                if ((service == null)) {
+                 receiver.propagateException(new IllegalStateException("Service is unavailable"));
+                 return;
+                }
+                service.registerHeadsetClientScoCallback(callback);
+                receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+        @Override
+        public void unregisterHeadsetClientScoCallback(IBluetoothHeadsetClientScoCallback callback, AttributionSource source,
+                SynchronousResultReceiver receiver) {
+            try {
+                HeadsetClientService service = getService(source);
+                if ((service == null)) {
+                 receiver.propagateException(new IllegalStateException("Service is unavailable"));
+                 return;
+                }
+                service.unregisterHeadsetClientScoCallback(callback);
+                receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+
     }
 
     ;
+
+    public void notifyHeadsetClientScoStateChanged(int sco_state) {
+        if (mHeadsetClientScoCallbacks != null) {
+            synchronized (mCallbackNotifyLock) {
+                final int n = mHeadsetClientScoCallbacks.beginBroadcast();
+                for (int i = 0; i < n; i++) {
+                    final IBluetoothHeadsetClientScoCallback callback =
+                            mHeadsetClientScoCallbacks.getBroadcastItem(i);
+                    try {
+                        Log.d(TAG, "Calling onHeadsetClientScoStateChanged: " + i);
+                        Log.d(TAG, "onHeadsetClientScoStateChanged sco_state: " + sco_state);
+                        callback.onHeadsetClientScoStateChanged(sco_state);
+                    } catch (RemoteException e) {
+                        Log.e(TAG, "Stack:" + Log.getStackTraceString(e));
+                    }
+                }
+                mHeadsetClientScoCallbacks.finishBroadcast();
+            }
+        }
+    }
 
     // API methods
     public static synchronized HeadsetClientService getHeadsetClientService() {
@@ -1252,6 +1309,18 @@ public class HeadsetClientService extends ProfileService {
             return null;
         }
         return sm.getCurrentAgFeatures();
+    }
+
+    public void registerHeadsetClientScoCallback(IBluetoothHeadsetClientScoCallback callback) {
+        if (mHeadsetClientScoCallbacks != null) {
+            mHeadsetClientScoCallbacks.register(callback);
+        }
+    }
+
+    public void unregisterHeadsetClientScoCallback(IBluetoothHeadsetClientScoCallback callback) {
+        if (mHeadsetClientScoCallbacks != null) {
+            mHeadsetClientScoCallbacks.unregister(callback);
+        }
     }
 
     // Handle messages from native (JNI) to java
