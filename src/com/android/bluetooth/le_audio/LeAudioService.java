@@ -71,20 +71,17 @@ import com.android.bluetooth.btservice.ServiceFactory;
 import com.android.bluetooth.hap.HapClientService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.lebroadcast.LeBroadcastServIntf;
-//import com.android.bluetooth.vc.VolumeControlService;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.SynchronousResultReceiver;
 
 import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 import com.android.bluetooth.apm.ApmConstIntf;
-import com.android.bluetooth.apm.ApmConst;
 import com.android.bluetooth.apm.MediaAudioIntf;
 import com.android.bluetooth.apm.CallAudioIntf;
 import com.android.bluetooth.apm.VolumeManagerIntf;
 import com.android.bluetooth.acm.AcmServIntf;
 import com.android.internal.util.ArrayUtils;
-import com.android.bluetooth.apm.DeviceProfileMap;
 
 import java.util.Arrays;
 import java.math.BigInteger;
@@ -1152,11 +1149,11 @@ public class LeAudioService extends ProfileService {
         }*/
         Log.d(TAG, "setActiveDevice() for device: " + device +
                    ", mPreviousActiveDevice: " + mPreviousActiveDevice);
-        DeviceProfileMap dpm = DeviceProfileMap.getDeviceProfileMapInstance();
+        /*DeviceProfileMap dpm = DeviceProfileMap.getDeviceProfileMapInstance();
         if (dpm == null) {
             Log.w(TAG, "setActiveDevice: dpm is null, return.");
             return false;
-        }
+        }*/
         BluetoothDevice fetchCurrentActiveDevice = null;
 
         if (device == null) {
@@ -1166,7 +1163,7 @@ public class LeAudioService extends ProfileService {
             fetchCurrentActiveDevice = device;
         }
 
-        int MediaProfID = dpm.getSupportedProfile(fetchCurrentActiveDevice,
+        /*int MediaProfID = dpm.getSupportedProfile(fetchCurrentActiveDevice,
                                            ApmConst.AudioFeatures.MEDIA_AUDIO);
         int VoiceProfID = dpm.getSupportedProfile(fetchCurrentActiveDevice,
                                             ApmConst.AudioFeatures.CALL_AUDIO);
@@ -1191,18 +1188,18 @@ public class LeAudioService extends ProfileService {
                                          ApmConst.AudioProfiles.BAP_MEDIA)) {
             activeDeviceManager.setActiveDevice(device,
                                             ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
-        }
+        }*/
         return true;
     }
 
     public boolean setActiveDeviceBlocking(BluetoothDevice device) {
         Log.d(TAG, "setActiveDeviceBlocking() for device: " + device +
                    ", mPreviousActiveDevice: " + mPreviousActiveDevice);
-        DeviceProfileMap dpm = DeviceProfileMap.getDeviceProfileMapInstance();
+        /*DeviceProfileMap dpm = DeviceProfileMap.getDeviceProfileMapInstance();
         if (dpm == null) {
             Log.w(TAG, "setActiveDeviceBlocking: dpm is null, return.");
             return false;
-        }
+        }*/
         BluetoothDevice fetchCurrentActiveDevice = null;
 
         if (device == null) {
@@ -1215,7 +1212,7 @@ public class LeAudioService extends ProfileService {
         Log.d(TAG, "setActiveDeviceBlocking(): fetchCurrentActiveDevice: " +
                                                        fetchCurrentActiveDevice);
 
-        int MediaProfID = dpm.getSupportedProfile(fetchCurrentActiveDevice,
+        /*int MediaProfID = dpm.getSupportedProfile(fetchCurrentActiveDevice,
                                               ApmConst.AudioFeatures.MEDIA_AUDIO);
         int VoiceProfID = dpm.getSupportedProfile(fetchCurrentActiveDevice,
                                                ApmConst.AudioFeatures.CALL_AUDIO);
@@ -1240,7 +1237,7 @@ public class LeAudioService extends ProfileService {
                                                  ApmConst.AudioProfiles.BAP_MEDIA)) {
             activeDeviceManager.setActiveDeviceBlocking(device,
                                             ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
-        }
+        }*/
         return true;
     }
 
@@ -1324,11 +1321,11 @@ public class LeAudioService extends ProfileService {
             }
         }*/
 
-        if ((ActiveAudioMediaProfile == ApmConst.AudioProfiles.BROADCAST_LE) &&
+        /*if ((ActiveAudioMediaProfile == ApmConst.AudioProfiles.BROADCAST_LE) &&
                 (ActiveAudioCallProfile == ApmConst.AudioProfiles.TMAP_CALL ||
                 ActiveAudioCallProfile == ApmConst.AudioProfiles.BAP_CALL)) {
             mActiveAudioOutDevice = mActiveAudioInDevice;
-        }
+        }*/
         activeDevices.add(0, mActiveAudioOutDevice);
         int activeGid = getGroupId(mActiveAudioOutDevice);
         if (activeGid < INVALID_SET_ID) {
@@ -2491,11 +2488,11 @@ public class LeAudioService extends ProfileService {
                                ", mPreviousActiveDevice: " + mPreviousActiveDevice);
                     ActiveDeviceManagerServiceIntf activeDeviceManager =
                                                 ActiveDeviceManagerServiceIntf.get();
-                    DeviceProfileMap dpm = DeviceProfileMap.getDeviceProfileMapInstance();
+                    /*DeviceProfileMap dpm = DeviceProfileMap.getDeviceProfileMapInstance();
                     if (dpm == null) {
                         Log.w(TAG, "Binder setActiveDevice: dpm is null, return.");
                         return;
-                    }
+                    }*/
 
                     BluetoothDevice fetchCurrentActiveDevice = null;
 
@@ -2506,7 +2503,7 @@ public class LeAudioService extends ProfileService {
                         fetchCurrentActiveDevice = device;
                     }
 
-                    int MediaProfID = dpm.getSupportedProfile(fetchCurrentActiveDevice,
+                    /*int MediaProfID = dpm.getSupportedProfile(fetchCurrentActiveDevice,
                                                       ApmConst.AudioFeatures.MEDIA_AUDIO);
                     int VoiceProfID = dpm.getSupportedProfile(fetchCurrentActiveDevice,
                                                        ApmConst.AudioFeatures.CALL_AUDIO);
@@ -2531,7 +2528,7 @@ public class LeAudioService extends ProfileService {
                                               ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
                     }
 
-                    defaultValue = (defaultValueVoice & defaultValueMedia);
+                    defaultValue = (defaultValueVoice & defaultValueMedia);*/
                 }
                 receiver.send(defaultValue);
             } catch (RuntimeException e) {

@@ -1523,6 +1523,7 @@ static void gattSetScanParametersNative(JNIEnv* env, jobject object,
   if(scan_window_cnt > 0) {
     env->GetIntArrayRegion(scan_window_unit, 0, scan_window_cnt, (jint *)&scan_window[0]);
   }
+  ALOGE("gattSetScanParametersNative");
   sGattIf->scanner->SetScanParameters(client_if,
       scan_phy, scan_interval, scan_window,
       base::Bind(&set_scan_params_cmpl_cb, client_if));
@@ -1638,6 +1639,7 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
 
   int numFilters = env->GetArrayLength(filters);
   if (numFilters == 0) {
+    ALOGE("gattClientScanFilterAddNative : numFilters = 0");
     sGattIf->scanner->ScanFilterAdd(client_if, filter_index, std::move(native_filters),
                                     base::Bind(&scan_filter_cfg_cb, client_if));
     return;
@@ -1759,6 +1761,7 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
     native_filters.push_back(curr);
   }
 
+  ALOGE("gattClientScanFilterAddNative ");
   sGattIf->scanner->ScanFilterAdd(client_if, filter_index, std::move(native_filters),
                                   base::Bind(&scan_filter_cfg_cb, client_if));
 }
@@ -1766,6 +1769,7 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
 static void gattClientScanFilterClearNative(JNIEnv* env, jobject object,
                                             jint client_if, jint filt_index) {
   if (!sGattIf) return;
+  ALOGE("gattClientScanFilterClearNative ");
   sGattIf->scanner->ScanFilterClear(client_if, filt_index,
                                     base::Bind(&scan_filter_cfg_cb, client_if));
 }
@@ -1784,6 +1788,7 @@ void scan_enable_cb(uint8_t client_if, uint8_t action, uint8_t status) {
 static void gattClientScanFilterEnableNative(JNIEnv* env, jobject object,
                                              jint client_if, jboolean enable) {
   if (!sGattIf) return;
+  ALOGE("gattClientScanFilterEnableNative ");
   sGattIf->scanner->ScanFilterEnable(client_if, enable,
                                      base::Bind(&scan_enable_cb, client_if));
 }
@@ -1855,6 +1860,7 @@ static void gattClientStartBatchScanNative(JNIEnv* env, jobject object,
                                            jint scan_window_unit,
                                            jint addr_type, jint discard_rule) {
   if (!sGattIf) return;
+  ALOGE("gattClientStartBatchScanNative ");
   sGattIf->scanner->BatchscanEnable(client_if,
       scan_mode, scan_interval_unit, scan_window_unit, addr_type, discard_rule,
       base::Bind(&batchscan_enable_cb, client_if));
@@ -1863,6 +1869,7 @@ static void gattClientStartBatchScanNative(JNIEnv* env, jobject object,
 static void gattClientStopBatchScanNative(JNIEnv* env, jobject object,
                                           jint client_if) {
   if (!sGattIf) return;
+  ALOGE("gattClientStopBatchScanNative ");
   sGattIf->scanner->BatchscanDisable(client_if,
       base::Bind(&batchscan_enable_cb, client_if));
 }

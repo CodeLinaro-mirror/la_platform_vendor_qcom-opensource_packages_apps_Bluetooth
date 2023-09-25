@@ -15,7 +15,7 @@ bluetooth_ext_bredr_vs_btadva_java_defaults {
     soong_config_variables: {
         bredr_or_btadva: {
            btadva: {
-              srcs: [ ":bluetooth-apps-adva-srcs" ],
+              //srcs: [ ":bluetooth-apps-adva-srcs" ],
            }
        }
    }
@@ -71,8 +71,7 @@ android_app {
         ":vendor_qcom_opensource_commonsys_bluetooth_ext_packages_apps_bluetooth_ext",
     ],
     exclude_srcs: [
-        "src/com/android/bluetooth/directionfinder/*.java",
-    ],
+        "src/com/android/bluetooth/directionfinder/*.java",    ],
     platform_apis: true,
     certificate: "platform",
     aaptflags: [ "--custom-package", "com.android.bluetooth" ],
