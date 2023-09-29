@@ -171,7 +171,7 @@ static void btavrcp_setplayerapplicationsetting_rsp_callback(
                                addr.get(), (jint)accepted);
 }
 
-static void btavrcp_get_vendor_rcfeatures_callback(RawAddress* bd_addr, int features,
+/*static void btavrcp_get_vendor_rcfeatures_callback(RawAddress* bd_addr, int features,
     uint16_t cover_art_psm) {
   ALOGV("%s", __func__);
   CallbackEnv sCallbackEnv(__func__);
@@ -188,15 +188,15 @@ static void btavrcp_get_vendor_rcfeatures_callback(RawAddress* bd_addr, int feat
                                    (jbyte*)bd_addr);
   sCallbackEnv->CallVoidMethod(sCallbacksObj, method_getRcFeatures, addr.get(),
                                (jint)features, (jint) cover_art_psm);
-}
+}*/
 
-static void  btavrcp_vendor_get_mediaelementattribute_rsp_callback(RawAddress *bd_addr,
-        uint8_t num_attr, btrc_element_attr_val_t *p_attrs) {
+/*static void  btavrcp_vendor_get_mediaelementattribute_rsp_callback(RawAddress *bd_addr,
+        uint8_t num_attr, btrc_element_attr_val_t *p_attrs) {*/
    /*
     * byteArray will be formatted like this: id,len,string
     * Assuming text feild to be null terminated.
     */
-    jbyteArray addr;
+    /*jbyteArray addr;
     jintArray attribIds;
     jobjectArray stringArray;
     jstring str;
@@ -245,11 +245,11 @@ static void  btavrcp_vendor_get_mediaelementattribute_rsp_callback(RawAddress *b
     sCallbackEnv->CallVoidMethod(sCallbacksObj, method_handleElementAttrupdate, addr,
          (jbyte)(num_attr), attribIds, stringArray);
     sCallbackEnv->DeleteLocalRef(addr);
-    sCallbackEnv->DeleteLocalRef(attribIds);
+    sCallbackEnv->DeleteLocalRef(attribIds);*/
     /* TODO check do we need to delete str seperately or not */
-    sCallbackEnv->DeleteLocalRef(stringArray);
+    /*sCallbackEnv->DeleteLocalRef(stringArray);
     sCallbackEnv->DeleteLocalRef(strclazz);
-}
+}*/
 
 static void btavrcp_playerapplicationsetting_callback(
     RawAddress *bd_addr, uint8_t num_attr,
@@ -851,11 +851,11 @@ static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     btavrcp_now_playing_content_changed_callback;*/
     btavrcp_available_player_changed_callback};
 
-static btrc_vendor_ctrl_callbacks_t  sBluetoothAvrcpVendorCallbacks = {
+/*static btrc_vendor_ctrl_callbacks_t  sBluetoothAvrcpVendorCallbacks = {
     sizeof(sBluetoothAvrcpVendorCallbacks),
     btavrcp_get_vendor_rcfeatures_callback,
     btavrcp_vendor_get_mediaelementattribute_rsp_callback,
-};
+};*/
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
   method_handlePassthroughRsp =

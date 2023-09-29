@@ -300,7 +300,7 @@ static void initNative(JNIEnv* env, jobject object) {
                           &mPlayerSettingsInterface);
 }
 
-static void registerBipServerNative(JNIEnv* env, jobject object,
+/*static void registerBipServerNative(JNIEnv* env, jobject object,
                                     jint l2cap_psm) {
   ALOGD("%s: l2cap_psm=%d", __func__, (int)l2cap_psm);
   std::unique_lock<std::shared_timed_mutex> interface_lock(interface_mutex);
@@ -319,7 +319,7 @@ static void unregisterBipServerNative(JNIEnv* env, jobject object) {
     return;
   }
   sServiceInterface->UnregisterBipServer();
-}
+}*/
 
 static void sendMediaUpdateNative(JNIEnv* env, jobject object,
                                   jboolean metadata, jboolean state,
