@@ -2048,6 +2048,10 @@ public class AdapterService extends Service {
             PendingIntent intent, AttributionSource attributionSource) {
         BluetoothServerSocket bluetoothServerSocket;
 
+        /* Already bt cleanup might done, we can’t continue rfcomm connections*/
+        if (mAdapter == null) {
+          return;
+        }
         try {
             bluetoothServerSocket =
                     mAdapter.listenUsingRfcommWithServiceRecord(name, uuid);
@@ -4605,6 +4609,16 @@ public class AdapterService extends Service {
 
         private Bundle getPreferredAudioProfiles(BluetoothDevice device,
                 AttributionSource source) {
+            ActiveDeviceManagerServiceIntf activeDeviceManager =
+                                                            ActiveDeviceManagerServiceIntf.get();
+            Bundle mMedia = activeDeviceManager.getpreferredProfile(
+                                                ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+            Bundle mCall = activeDeviceManager.getpreferredProfile(
+                                                ApmConstIntf.AudioFeatures.CALL_AUDIO);
+            int outputOnlyProfile = mMedia.getInt(Integer.toString(
+                                                        ApmConstIntf.AudioFeatures.MEDIA_AUDIO));
+            int duplexProfile = mCall.getInt(Integer.toString(
+                                                        ApmConstIntf.AudioFeatures.CALL_AUDIO));
             return null;
         }
 

@@ -1014,10 +1014,14 @@ public class HeadsetService extends ProfileService {
             try {
                 int defaultValue = BluetoothStatusCodes.ERROR_PROFILE_SERVICE_NOT_BOUND;
                 if(ApmConstIntf.getQtiLeAudioEnabled()) {
-                     Log.d(TAG, "connectAudio(): Adv Audio enabled");
-                    CallAudioIntf mCallAudio = CallAudioIntf.get();
-                    if (mCallAudio != null) {
-                        defaultValue = mCallAudio.connectAudio();
+                    Log.d(TAG, "connectAudio(): Adv Audio enabled");
+                    if(!SystemProperties.getBoolean(DISABLE_CONNECT_AUDIO, false)) {
+                      CallAudioIntf mCallAudio = CallAudioIntf.get();
+                      if (mCallAudio != null) {
+                          defaultValue = mCallAudio.connectAudio();
+                      }
+                    } else {
+                         Log.w(TAG, "not initiating connect Audio");
                     }
                 } else {
                     HeadsetService service = getService(source);
@@ -1027,9 +1031,9 @@ public class HeadsetService extends ProfileService {
                           enforceBluetoothPrivilegedPermission(service);
                           defaultValue = service.connectAudio();
                        }
-                     } else {
-                         Log.w(TAG, "not initiating connect Audio");
-                     }
+                    } else {
+                        Log.w(TAG, "not initiating connect Audio");
+                    }
                 }
                 receiver.send(defaultValue);
             } catch (RuntimeException e) {

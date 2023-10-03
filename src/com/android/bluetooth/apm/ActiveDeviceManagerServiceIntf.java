@@ -30,6 +30,7 @@
 package com.android.bluetooth.apm;
 
 import android.bluetooth.BluetoothDevice;
+import android.os.Bundle;
 import android.util.Log;
 import android.util.StatsLog;
 
@@ -288,6 +289,30 @@ public class ActiveDeviceManagerServiceIntf {
         }
 
         return false;
+    }
+
+    public Bundle getpreferredProfile(int mAudioType) {
+        if(activeDeviceManagerService == null)
+            return Bundle.EMPTY;
+
+        Class[] arg = new Class[1];
+        arg[0] = Integer.class;
+
+        try {
+            Method getpreferredProfile = activeDeviceManagerService.getDeclaredMethod(
+                                                                    "getpreferredProfile", arg);
+            Bundle ret = (Bundle)getpreferredProfile.invoke(
+                                                        mActiveDeviceManagerService, mAudioType);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return Bundle.EMPTY;
     }
 
     public BluetoothDevice getActiveDevice(int mAudioType) {

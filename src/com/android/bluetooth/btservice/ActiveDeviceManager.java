@@ -953,6 +953,15 @@ public class ActiveDeviceManager {
         if (!a2dpService.setActiveDevice(device)) {
             return false;
         }
+        if (device != null) {
+           if ((ApmConstIntf.getQtiLeAudioEnabled() ||
+                ApmConstIntf.getAospLeaEnabled()) &&
+                mAdapterService.isGroupDevice(device)) {
+               Log.d(TAG, "setA2dpActiveDevice(" + device + ")" +
+                                            " is a group device, ignore");
+               return true;
+           }
+        }
         mA2dpActiveDevice = device;
         Log.d(TAG, "setA2dpActiveDevice(): mA2dpActiveDevice: " +
                                                      mA2dpActiveDevice);

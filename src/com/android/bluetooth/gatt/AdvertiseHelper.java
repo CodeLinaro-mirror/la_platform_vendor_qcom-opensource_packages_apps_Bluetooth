@@ -81,6 +81,11 @@ class AdvertiseHelper {
                 ret.write(type);
                 ret.write(nameBytes, 0, nameLength);
                 if (data.getIncludePublicBroadcastDeviceName()) {
+                    String bname = data.getPublicBroadcastDeviceName();
+                    if (bname != null) {
+                        nameBytes = bname.getBytes("UTF-8");
+                        nameLength = nameBytes.length;
+                    }
                     ret.write(nameLength + 1);
                     ret.write(PUBLIC_BROADCAST_NAME);
                     ret.write(nameBytes, 0, nameLength);

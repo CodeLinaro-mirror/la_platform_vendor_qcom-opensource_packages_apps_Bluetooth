@@ -853,6 +853,10 @@ final class A2dpStateMachine extends StateMachine {
 
         mA2dpService.updateStreamState(mDevice, newState);
 
+        if(mA2dpService.isQtiLeAudioEnabled()) {
+            return;
+        }
+
         BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_A2DP_PLAYBACK_STATE_CHANGED, newState);
         Intent intent = new Intent(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mDevice);

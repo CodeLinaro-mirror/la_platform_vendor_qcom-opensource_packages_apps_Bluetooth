@@ -2052,6 +2052,7 @@ public class HeadsetStateMachine extends StateMachine {
         Log.i(TAG, "onAudioSeverUp: restore audio parameters");
         mSystemInterface.getAudioManager().setBluetoothScoOn(false);
         mSystemInterface.getAudioManager().setA2dpSuspended(true);
+        mSystemInterface.getAudioManager().setLeAudioSuspended(true);
         setAudioParameters();
         mSystemInterface.getAudioManager().setBluetoothScoOn(true);
     }

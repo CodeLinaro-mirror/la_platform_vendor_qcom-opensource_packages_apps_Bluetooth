@@ -112,6 +112,7 @@ public class CsipSetCoordinatorService extends ProfileService {
     private static HashMap<Integer, ArrayList<BluetoothDevice>> sGroupIdToDeviceMap
             = new HashMap<>();
     private static HashMap<Integer, byte[]> setSirkMap = new HashMap<Integer, byte[]>();
+    private static HashMap<Integer, UUID> setUuidMap = new HashMap<Integer, UUID>();
 
     private final int INVALID_APP_ID = 0x10;
     private static final int INVALID_SET_ID = 0x10;
@@ -362,6 +363,7 @@ public class CsipSetCoordinatorService extends ProfileService {
                     setId = Integer.parseInt(propSplit[1]);
                 } else if (propSplit[0].equals(INCLUDING_SRVC)) {
                     inclSrvcUuid = UUID.fromString(propSplit[1]);
+                    setUuidMap.put(setId, inclSrvcUuid);
                 } else if (propSplit[0].equals(SIZE)) {
                     size = Integer.parseInt(propSplit[1]);
                 } else if (propSplit[0].equals(SIRK) && setId != 16) {
@@ -874,10 +876,13 @@ public class CsipSetCoordinatorService extends ProfileService {
             uuid = new ParcelUuid(EMPTY_UUID);
         }
 
+        ParcelUuid emptyUuid = new ParcelUuid(EMPTY_UUID);
+
         for (DeviceGroup cSet: mCoordinatedSets) {
             if ((cSet.getDeviceGroupMembers().contains(device) ||
-                    cSet.getDeviceGroupMembers().contains(setDevice))
-                    && cSet.getIncludingServiceUUID().equals(uuid)) {
+                    cSet.getDeviceGroupMembers().contains(setDevice)) &&
+                    (cSet.getIncludingServiceUUID().equals(uuid) ||
+                     uuid.equals(emptyUuid))) {
                 return cSet.getDeviceGroupId();
             }
         }
@@ -899,6 +904,7 @@ public class CsipSetCoordinatorService extends ProfileService {
                 Log.i(TAG, "Last device unpaired. Removing Device Group from database");
                 mCoordinatedSets.remove(cSet);
                 setSirkMap.remove(setId);
+                setUuidMap.remove(setId);
                 if (getCoordinatedSet(setId, false) == null) {
                     Log.i(TAG, "Set " + setId + " removed completely");
                 }
@@ -913,6 +919,7 @@ public class CsipSetCoordinatorService extends ProfileService {
                 Log.i(TAG, "Last device unpaired. Removing Device Group from database");
                 mCoordinatedSets.remove(cSet);
                 setSirkMap.remove(setId);
+                setUuidMap.remove(setId);
                 if (getCoordinatedSet(setId, false) == null) {
                     Log.i(TAG, "Set " + setId + " removed completely");
                 }
@@ -1040,6 +1047,8 @@ public class CsipSetCoordinatorService extends ProfileService {
 
         // Store sirk in hashmap of setId, sirk
         setSirkMap.put(setId, sirk);
+        // store UUID in hashmap of setId, UUID
+        setUuidMap.put(setId, pSrvcUuid);
        addDevice(device, setId, new ParcelUuid(pSrvcUuid));
         // Discover remaining set members
         startSetDiscovery(mLocalAppId, setId);
@@ -1050,8 +1059,9 @@ public class CsipSetCoordinatorService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "onNewSetMemberFound: setId = " + setId + ", Device = " + device);
         }
+        UUID puuid = setUuidMap.get(setId);
         // Required to group set members in UI
-        addDevice(device, setId, new ParcelUuid(EMPTY_UUID));
+        addDevice(device, setId, new ParcelUuid(puuid));
         if (mAdapterService == null) {
             Log.e(TAG, "AdapterService instance is NULL. Return.");
             return;
