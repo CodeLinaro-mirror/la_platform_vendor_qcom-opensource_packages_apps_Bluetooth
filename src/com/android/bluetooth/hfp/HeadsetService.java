@@ -140,6 +140,8 @@ public class HeadsetService extends ProfileService {
     private static final boolean DBG = true;
     private static final String DISABLE_INBAND_RINGING_PROPERTY =
             "persist.bluetooth.disableinbandringing";
+    private static final String DISABLE_CONNECT_AUDIO =
+            "persist.bluetooth.disableconnectaudio";
     private static final ParcelUuid[] HEADSET_UUIDS = {BluetoothUuid.HSP, BluetoothUuid.HFP};
     private static final int[] CONNECTING_CONNECTED_STATES =
             {BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_CONNECTED};
@@ -909,6 +911,11 @@ public class HeadsetService extends ProfileService {
             if (service == null) {
                 return false;
             }
+           if(SystemProperties.getBoolean(DISABLE_CONNECT_AUDIO, false)) {
+                Log.d(TAG, "not initiating connectAudio");
+                return false;
+            }
+            Log.d(TAG, "Initiating connect Audio");
             return service.connectAudio();
         }
 
