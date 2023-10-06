@@ -48,7 +48,7 @@ import java.lang.reflect.*;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 import com.android.bluetooth.apm.CallAudioIntf;
-import com.android.bluetooth.acm.AcmService;
+//import com.android.bluetooth.acm.AcmService;
 
 /**
  * Defines methods used for synchronization between HFP and A2DP
@@ -184,7 +184,7 @@ public class HeadsetA2dpSync {
                 MediaProfile != ApmConstIntf.AudioProfiles.A2DP &&
                 VoiceProfile != ApmConstIntf.AudioProfiles.NONE &&
                 VoiceProfile == ApmConstIntf.AudioProfiles.HFP) {
-               AcmService mAcmService = AcmService.getAcmService();
+               /*AcmService mAcmService = AcmService.getAcmService();
                if (mAcmService != null) {
                   if (isBapMediaSuspend) {
                       Log.d(TAG,"hfpCallBapMediaSync(): hfp call active, suspend bap Music ");
@@ -193,7 +193,7 @@ public class HeadsetA2dpSync {
                       Log.d(TAG,"hfpCallBapMediaSync(): hfp call ended, resume bap Music ");
                       mAcmService.hfpCallBapMediaSync(false);
                   }
-               }
+               }*/
             }
         }
     }
