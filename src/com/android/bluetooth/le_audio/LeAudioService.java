@@ -71,6 +71,7 @@ import com.android.bluetooth.btservice.ServiceFactory;
 import com.android.bluetooth.hap.HapClientService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.lebroadcast.LeBroadcastServIntf;
+//import com.android.bluetooth.vc.VolumeControlService;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.SynchronousResultReceiver;
@@ -2655,6 +2656,7 @@ public class LeAudioService extends ProfileService {
                 if (service == null) {
                     throw new IllegalStateException("service is null");
                 }
+                enforceBluetoothPrivilegedPermission(service);
                 defaultValue = service.getGroupId(device);
                 receiver.send(defaultValue);
             } catch (RuntimeException e) {

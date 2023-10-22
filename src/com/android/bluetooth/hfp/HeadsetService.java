@@ -191,7 +191,7 @@ public class HeadsetService extends ProfileService {
     private Context mContext = null;
     private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
     private static final int AUDIO_CONNECTION_DELAY_DEFAULT = 100;
-    private static final String ACTION_ROAMING_STATE_CHANGED = "android.bluetooth.action.ROAMING_STATE_CHANGED";
+   private static final String ACTION_ROAMING_STATE_CHANGED = "android.bluetooth.action.ROAMING_STATE_CHANGED";
     @Override
     public IProfileServiceBinder initBinder() {
         return new BluetoothHeadsetBinder(this);
@@ -278,7 +278,7 @@ public class HeadsetService extends ProfileService {
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(ACTION_ROAMING_STATE_CHANGED);
-        registerReceiver(mHeadsetReceiver, filter);
+        registerReceiver(mHeadsetReceiver, filter, Context.RECEIVER_EXPORTED);
         // Step 7: Mark service as started
 
         setHeadsetService(this);
@@ -1158,28 +1158,41 @@ public class HeadsetService extends ProfileService {
         @Override
         public void phoneStateChanged(int numActive, int numHeld, int callState, String number,
             int type, String name, AttributionSource source) {
-
             Log.d(TAG, "phoneStateChanged()");
-            CallControlIntf mCallControl = CallControlIntf.get();
-            if (mCallControl != null)
-                mCallControl.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
-            else
-                Log.w(TAG, "mCallControl is null");
-
+            if (ApmConstIntf.getQtiLeAudioEnabled()) {
+                CallControlIntf mCallControl = CallControlIntf.get();
+                if (mCallControl != null) {
+                    mCallControl.phoneStateChanged(numActive, numHeld, callState, number,
+                                    type, name, false);
+                }
+            } else {
+                HeadsetService service = getService(source);
+                if (service != null) {
+                   service.phoneStateChanged(numActive, numHeld, callState, number,
+                                   type, name, false);
+                }
+            }
         }
 
         @Override
         public void clccResponse(int index, int direction, int status, int mode, boolean mpty,
                 String number, int type, AttributionSource source,
                 SynchronousResultReceiver receiver) {
-            Log.d(TAG, "clccResponse()");
             try {
-              CallControlIntf mCallControl = CallControlIntf.get();
-              if (mCallControl != null)
-                 mCallControl.clccResponse(index, direction, status, mode, mpty, number, type);
-              else
-                  Log.w(TAG, "mCallControl is null");
-              receiver.send(null);
+                Log.d(TAG, "clccResponse");
+                if (ApmConstIntf.getQtiLeAudioEnabled()) {
+                    CallControlIntf mCallControl = CallControlIntf.get();
+                    if (mCallControl != null) {
+                        mCallControl.clccResponse(index, direction, status, mode, mpty,
+                                        number, type);
+                    }
+                } else {
+                   HeadsetService service = getService(source);
+                   if (service != null) {
+                       service.clccResponse(index, direction, status, mode, mpty, number, type);
+                   }
+                }
+                receiver.send(null);
             } catch (RuntimeException e) {
                 receiver.propagateException(e);
             }
@@ -2669,7 +2682,6 @@ public class HeadsetService extends ProfileService {
 
     void phoneStateChanged(int numActive, int numHeld, int callState, String number,
             int type, String name, boolean isVirtualCall) {
-        enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, "Need MODIFY_PHONE_STATE permission");
         synchronized (mStateMachines) {
             if (mStateMachinesThread == null) {
                 Log.w(TAG, "mStateMachinesThread is null, returning");

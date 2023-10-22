@@ -116,6 +116,8 @@ public class DatabaseManager {
     private static final String
             LEGACY_HEADSET_PRIORITY_PREFIX = "bluetooth_headset_priority_";
     private static final String
+	        LEGACY_HEADSET_CLIENT_PRIORITY_PREFIX = "bluetooth_headset_client_priority_";
+    private static final String
             LEGACY_A2DP_SINK_PRIORITY_PREFIX = "bluetooth_a2dp_sink_priority_";
     private static final String
             LEGACY_A2DP_SRC_PRIORITY_PREFIX = "bluetooth_a2dp_src_priority_";
@@ -726,6 +728,41 @@ public class DatabaseManager {
             updateDatabase(metadata);
         }
     }
+    /**
+     * Updates the time this device was last connected with HFP CLIENT
+     *
+     * @param device is the remote bluetooth device for which we are setting the connection time
+     */
+    public void setConnectionForHfpClient(BluetoothDevice device) {
+        synchronized (mMetadataCache) {
+            Log.d(TAG, "setConnectionForHfpClient: device=" + device);
+            if (device == null) {
+                Log.e(TAG, "setConnectionForHfp: device is null");
+                return;
+            }
+
+            resetActiveHfpClientDevice();
+
+            String address = device.getAddress();
+
+            if (!mMetadataCache.containsKey(address)) {
+                Log.w(TAG, "setConnectionForHfp: Creating new metadata entry for device: "
+                        + device);
+                createMetadataHfpClient(address);
+                return;
+            }
+            // Updates last_active_time to the current counter value and increments the counter
+            Metadata metadata = mMetadataCache.get(address);
+            metadata.last_active_time = MetadataDatabase.sCurrentConnectionNumber++;
+
+            // Only update is_active_hfp_device if a hfp device is connected
+            metadata.is_active_hfpclient_device = true;
+
+            Log.d(TAG, "Updating last connected time for device: " + device + " to "
+                    + metadata.last_active_time);
+            updateDatabase(metadata);
+        }
+    }
 
     /**
      * Updates the time this device was last connected with A2dpSource
@@ -841,6 +878,34 @@ public class DatabaseManager {
             if (metadata.is_active_le_audio_device) {
                 metadata.is_active_le_audio_device = false;
                 Log.w(TAG, "setDisconnectionForLeAudio: Set is_active_le_audio_device to false for device: "
+                        + device);
+                updateDatabase(metadata);
+            }
+        }
+    }
+
+     /**
+     * Sets is_active_hfpclient_device to false if currently true for device
+     *
+     * @param device is the remote bluetooth device with which we have disconnected hfp
+     */
+    public void setDisconnectionForHfpClient(BluetoothDevice device) {
+        synchronized (mMetadataCache) {
+            if (device == null) {
+                Log.e(TAG, "setDisconnectionForHfp: device is null");
+                return;
+            }
+
+            String address = device.getAddress();
+
+            if (!mMetadataCache.containsKey(address)) {
+                return;
+            }
+            // Updates last connected time to either current time if connected or -1 if disconnected
+            Metadata metadata = mMetadataCache.get(address);
+            if (metadata.is_active_hfpclient_device) {
+                metadata.is_active_hfpclient_device = false;
+                Log.w(TAG, "setDisconnectionForHfp: Set is_active_hfpclient_device to false for device: "
                         + device);
                 updateDatabase(metadata);
             }
@@ -1025,6 +1090,22 @@ public class DatabaseManager {
 
 
     /**
+     * Remove hfpclientActiveDevice from the current active device in the connection order table
+     */
+    private void resetActiveHfpClientDevice() {
+        synchronized (mMetadataCache) {
+            Log.d(TAG, "resetActiveHfpClientDevice()");
+            for (Map.Entry<String, Metadata> entry : mMetadataCache.entrySet()) {
+                Metadata metadata = entry.getValue();
+                if (metadata.is_active_hfpclient_device) {
+                    Log.d(TAG, "resetActiveHfpClientDevice");
+                    metadata.is_active_hfpclient_device = false;
+                    updateDatabase(metadata);
+                }
+            }
+        }
+    }
+    /**
      * Remove ConnectedA2dpSrc device from the current connetced device
      * in the connection order table
      */
@@ -1136,6 +1217,28 @@ public class DatabaseManager {
         return null;
     }
 
+    /**
+     * Gets the last active hfp client device
+     *
+     * @return the most recently active hfp device or null if the last hfp device was null
+     */
+    public BluetoothDevice getMostRecentlyConnectedHfpClientDevice() {
+        synchronized (mMetadataCache) {
+            for (Map.Entry<String, Metadata> entry : mMetadataCache.entrySet()) {
+                Metadata metadata = entry.getValue();
+                if (metadata.is_active_hfpclient_device) {
+                    try {
+                        return BluetoothAdapter.getDefaultAdapter().getRemoteDevice(
+                                metadata.getAddress());
+                    } catch (IllegalArgumentException ex) {
+                        Log.d(TAG, "getMostRecentlyConnectedHfpClientDevice: Invalid address for "
+                                + "device " + metadata.getAddress());
+                    }
+                }
+            }
+        }
+        return null;
+    }
     /**
      * Gets the last Connected A2dpSource device
      *
@@ -1276,6 +1379,20 @@ public class DatabaseManager {
         mMetadataCache.put(address, data);
         updateDatabase(data);
     }
+
+    void createMetadataHfpClient(String address) {
+
+        // TODO: cross check the logic
+        Metadata data;
+        if (mMetadataCache.containsKey(address))
+           data = mMetadataCache.get(address);
+        else
+           data = new Metadata(address);
+        data.is_active_hfpclient_device = true;
+        mMetadataCache.put(address, data);
+        updateDatabase(data);
+    }
+
 
     void createMetadataLeAudio(String address) {
         Metadata data;
@@ -1460,6 +1577,13 @@ public class DatabaseManager {
     }
 
     /**
+     * Get the key that retrieves a bluetooth headset's client priority.
+     */
+    private static String getLegacyHeadsetClientPriorityKey(String address) {
+        return LEGACY_HEADSET_CLIENT_PRIORITY_PREFIX + address.toUpperCase(Locale.ROOT);
+    }
+
+    /**
      * Get the key that retrieves a bluetooth a2dp sink's priority.
      */
     private static String getLegacyA2dpSinkPriorityKey(String address) {
@@ -1603,9 +1727,9 @@ public class DatabaseManager {
                 // Do not log anything if metadata doesn't fall into above categories
                 return;
         }
-        /*BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_DEVICE_INFO_REPORTED,
+/*        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_DEVICE_INFO_REPORTED,
                 mAdapterService.obfuscateAddress(device),
                 BluetoothProtoEnums.DEVICE_INFO_EXTERNAL, callingApp, manufacturerName, modelName,
-                hardwareVersion, softwareVersion, 0);*/
+                hardwareVersion, softwareVersion, 0); */
     }
 }

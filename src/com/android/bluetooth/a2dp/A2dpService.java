@@ -2391,7 +2391,9 @@ public class A2dpService extends ProfileService {
         int previousSupport = getSupportsOptionalCodecs(device);
         boolean supportsOptional = false;
         boolean hasMandatoryCodec = false;
-
+        if (DBG) {
+            Log.d(TAG, "updateOptionalCodecsSupport(): " + device);
+        }
         synchronized (mBtA2dpLock) {
             A2dpStateMachine sm = mStateMachines.get(device);
             if (sm == null) {

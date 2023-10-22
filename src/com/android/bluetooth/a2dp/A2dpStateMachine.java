@@ -879,6 +879,12 @@ final class A2dpStateMachine extends StateMachine {
 
     private static boolean sameSelectableCodec(BluetoothCodecStatus prevCodecStatus,
             BluetoothCodecStatus newCodecStatus) {
+        if(DBG) {
+           Log.d(TAG, "sameSelectableCodec prevCodecStatus -> "
+                    + prevCodecStatus.getCodecConfig() +
+                    " newCodecStatus -> "
+                    + newCodecStatus.getCodecConfig());
+        }
         if (prevCodecStatus == null || newCodecStatus == null) {
             return false;
         }

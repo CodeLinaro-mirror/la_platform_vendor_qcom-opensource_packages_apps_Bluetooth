@@ -119,7 +119,7 @@ public class HeadsetClientService extends ProfileService {
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(AG_CALL_DISCONNECTED);
         filter.addAction(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED);
-        registerReceiver(mBroadcastReceiver, filter);
+        registerReceiver(mBroadcastReceiver, filter, Context.RECEIVER_EXPORTED);
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
         // connection is available.
