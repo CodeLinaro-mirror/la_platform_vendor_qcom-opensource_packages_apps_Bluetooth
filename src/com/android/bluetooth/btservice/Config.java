@@ -69,6 +69,7 @@ public class Config {
     private static ArrayList<Class> profiles = new ArrayList<>();
     private static boolean mIsA2dpSink, mIsSplitSink, mIsBAEnabled, mIsSplitA2dpEnabled;
     private static boolean mIsHfpClient;
+    private static String mBluetoothRole;
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -180,6 +181,26 @@ public class Config {
 
     private static Class[] sSupportedProfiles = new Class[0];
 
+    /* List of Profiles for car */
+    private static ArrayList<String> CarRoleprofiles = new ArrayList<String>(
+           Arrays.asList(
+                "A2dpSinkService",
+                "HeadsetClientService",
+                "AvrcpControllerService",
+                "PbapClientService",
+                "MapClientService")
+           );
+
+    /* List of Profiles for phone */
+    private static ArrayList<String> PhoneRoleprofiles = new ArrayList<String>(
+           Arrays.asList(
+                "A2dpService",
+                "HeadsetService",
+                "AvrcpTargetService",
+                "BluetoothPbapService",
+                "BluetoothMapService")
+           );
+
     static void init(Context ctx) {
         if (ctx == null) {
             return;
@@ -196,6 +217,7 @@ public class Config {
 
         profiles.clear();
         getAudioProperties();
+        getRole();
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = resources.getBoolean(config.mSupported);
 
@@ -210,15 +232,7 @@ public class Config {
                     Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
                     continue;
                 }
-                // ignore adding map server service for targets where map client is enabled
-                if ((config.mClass.getSimpleName().equals("BluetoothMapService")) &&
-                    (mIsSplitSink)) {
-                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
-                    continue;
-                }
-                // ignore adding map client service for targets where map client is disabled
-                if ((config.mClass.getSimpleName().equals("MapClientService")) &&
-                    (!mIsSplitSink)) {
+                if (!addRoleProfiles(config.mClass.getSimpleName(), mBluetoothRole)) {
                     Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
                     continue;
                 }
@@ -440,18 +454,9 @@ public class Config {
     }
 
     private static synchronized boolean addAudioProfiles(String serviceName) {
-        /* If property not enabled and request is for A2DPSinkService, don't add */
-        if ((serviceName.equals("A2dpSinkService")) && (!mIsA2dpSink))
-            return false;
-        if ((serviceName.equals("A2dpService")) && (mIsA2dpSink))
-            return false;
         if (serviceName.equals("BATService")) {
             return mIsBAEnabled && mIsSplitA2dpEnabled;
         }
-        if ((serviceName.equals("HeadsetClientService")) && (!mIsHfpClient))
-            return false;
-        if ((serviceName.equals("HeadsetService")) && (mIsHfpClient))
-            return false;
 
         // always return true for other profiles
         return true;
@@ -482,4 +487,38 @@ public class Config {
         }
         Log.d(TAG, "getAudioProperties mIsHfpClient" + mIsHfpClient);
     }
+
+    private static synchronized boolean addRoleProfiles(String serviceName,String bluetoothRole) {
+        /* If bt role is car, don't add phone profiles*/
+        if ((bluetoothRole.equals("car")) && (PhoneRoleprofiles.contains(serviceName))) {
+            Log.i(TAG, " addRoleProfiles Phone Role " + serviceName + " Not added ");
+            return false;
+        }
+        /* If bt role is phone, don't add car profiles*/
+        if ((bluetoothRole.equals("phone")) && (CarRoleprofiles.contains(serviceName))) {
+            Log.i(TAG, " addRoleProfiles Car Role " + serviceName + " Not added ");
+            return false;
+        }
+
+        // always return true for other profiles
+        return true;
+    }
+
+    private static void getRole() {
+        /* get bluetooth role, car or phone */
+        mBluetoothRole = SystemProperties.get("persist.vendor.service.bt.role","car");
+        Log.d(TAG, "getRole mBluetoothRole " + mBluetoothRole);
+        if (mBluetoothRole.equals("car"))
+            SystemProperties.set("persist.vendor.service.bt.a2dp.sink", "true");
+        else if (mBluetoothRole.equals("phone"))
+            SystemProperties.set("persist.vendor.service.bt.a2dp.sink", "false");
+        else {
+            Log.e(TAG, "Got invalid value for property, set profiles as car role");
+            SystemProperties.set("persist.vendor.service.bt.role", "car");
+            SystemProperties.set("persist.vendor.service.bt.a2dp.sink", "true");
+            mBluetoothRole = "car";
+        }
+        Log.i(TAG, "mIsA2dpSink "+ SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", false));
+    }
+
 }
