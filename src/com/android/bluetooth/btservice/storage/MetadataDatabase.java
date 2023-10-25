@@ -15,7 +15,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
@@ -39,7 +39,7 @@ import java.util.List;
 /**
  * MetadataDatabase is a Room database stores Bluetooth persistence data
  */
-@Database(entities = {Metadata.class}, version = 106)
+@Database(entities = {Metadata.class}, version = 107)
 public abstract class MetadataDatabase extends RoomDatabase {
     /**
      * The metadata database file name
@@ -65,6 +65,7 @@ public abstract class MetadataDatabase extends RoomDatabase {
                 .addMigrations(MIGRATION_103_104)
                 .addMigrations(MIGRATION_104_105)
                 .addMigrations(MIGRATION_105_106)
+                .addMigrations(MIGRATION_106_107)
                 .allowMainThreadQueries()
                 .build();
     }
@@ -134,8 +135,6 @@ public abstract class MetadataDatabase extends RoomDatabase {
                     + "`address` TEXT NOT NULL, `migrated` INTEGER NOT NULL, "
                     + "`a2dpSupportsOptionalCodecs` INTEGER NOT NULL, "
                     + "`a2dpOptionalCodecsEnabled` INTEGER NOT NULL, "
-                    + "`a2dpMediaPlayer` TEXT NOT NULL, "
-                    + "`a2dpAudioZone` INTEGER, "
                     + "`a2dp_priority` INTEGER, `a2dp_sink_priority` INTEGER, "
                     + "`hfp_priority` INTEGER, `hfp_client_priority` INTEGER, "
                     + "`hid_host_priority` INTEGER, `pan_priority` INTEGER, "
@@ -153,7 +152,6 @@ public abstract class MetadataDatabase extends RoomDatabase {
 
             database.execSQL("INSERT INTO metadata_tmp ("
                     + "address, migrated, a2dpSupportsOptionalCodecs, a2dpOptionalCodecsEnabled, "
-                    + "a2dpMediaPlayer, a2dpAudioZone, "
                     + "a2dp_priority, a2dp_sink_priority, hfp_priority, hfp_client_priority, "
                     + "hid_host_priority, pan_priority, pbap_priority, pbap_client_priority, "
                     + "map_priority, sap_priority, hearing_aid_priority, map_client_priority, "
@@ -165,7 +163,6 @@ public abstract class MetadataDatabase extends RoomDatabase {
                     + "untethered_case_charging, enhanced_settings_ui_uri) "
                     + "SELECT "
                     + "address, migrated, a2dpSupportsOptionalCodecs, a2dpOptionalCodecsEnabled, "
-                    + "a2dpMediaPlayer, a2dpAudioZone, "
                     + "a2dp_priority, a2dp_sink_priority, hfp_priority, hfp_client_priority, "
                     + "hid_host_priority, pan_priority, pbap_priority, pbap_client_priority, "
                     + "map_priority, sap_priority, hearing_aid_priority, map_client_priority, "
@@ -202,8 +199,6 @@ public abstract class MetadataDatabase extends RoomDatabase {
                         + "`address` TEXT NOT NULL, `migrated` INTEGER NOT NULL, "
                         + "`a2dpSupportsOptionalCodecs` INTEGER NOT NULL, "
                         + "`a2dpOptionalCodecsEnabled` INTEGER NOT NULL, "
-                        + "`a2dpMediaPlayer` TEXT NOT NULL, "
-                        + "`a2dpAudioZone` INTEGER, "
                         + "`a2dp_connection_policy` INTEGER, "
                         + "`a2dp_sink_connection_policy` INTEGER, `hfp_connection_policy` INTEGER, "
                         + "`hfp_client_connection_policy` INTEGER, "
@@ -224,7 +219,6 @@ public abstract class MetadataDatabase extends RoomDatabase {
 
                 database.execSQL("INSERT INTO metadata_tmp ("
                         + "address, migrated, a2dpSupportsOptionalCodecs, "
-                        + "a2dpMediaPlayer, a2dpAudioZone, "
                         + "a2dpOptionalCodecsEnabled, a2dp_connection_policy, "
                         + "a2dp_sink_connection_policy, hfp_connection_policy,"
                         + "hfp_client_connection_policy, hid_host_connection_policy,"
@@ -240,7 +234,6 @@ public abstract class MetadataDatabase extends RoomDatabase {
                         + "untethered_case_charging, enhanced_settings_ui_uri) "
                         + "SELECT "
                         + "address, migrated, a2dpSupportsOptionalCodecs, "
-                        + "a2dpMediaPlayer, a2dpAudioZone, "
                         + "a2dpOptionalCodecsEnabled, a2dp_priority, a2dp_sink_priority, "
                         + "hfp_priority, hfp_client_priority, hid_host_priority, pan_priority, "
                         + "pbap_priority, pbap_client_priority, map_priority, sap_priority, "
@@ -357,6 +350,24 @@ public abstract class MetadataDatabase extends RoomDatabase {
                 // Check if user has new schema, but is just missing the version update
                 Cursor cursor = database.query("SELECT * FROM metadata");
                 if (cursor == null || cursor.getColumnIndex("le_audio_connection_policy") == -1) {
+                    throw ex;
+                }
+            }
+        }
+    };
+
+    @VisibleForTesting
+    static final Migration MIGRATION_106_107 = new Migration(106, 107) {
+        @Override
+        public void migrate (SupportSQLiteDatabase database) {
+            try {
+                database.execSQL("ALTER TABLE metadata ADD COLUMN `a2dpMediaPlayer` "
+                        + "TEXT NOT NULL");
+                database.execSQL("ALTER TABLE metadata ADD COLUMN `a2dpAudioZone` INTEGER");
+            } catch (SQLException ex) {
+                // Check if user has new schema, but is just missing the version update
+                Cursor cursor = database.query("SELECT * FROM metadata");
+                if (cursor == null || cursor.getColumnIndex("a2dpMediaPlayer") == -1) {
                     throw ex;
                 }
             }

@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.mapclient;
@@ -20,6 +25,7 @@ import android.Manifest;
 import android.annotation.RequiresPermission;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAdapterUtil;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
@@ -655,7 +661,10 @@ public class MapClientService extends ProfileService {
             }
 
             if (action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED)) {
-                if (stateMachine.getState() == BluetoothProfile.STATE_CONNECTED) {
+                // Map(client) runs in default adapter only
+                // Thus ACL disconnection event in new adapter shall be ignored
+                if (BluetoothAdapterUtil.isDefaultAdapter(device) &&
+                    stateMachine.getState() == BluetoothProfile.STATE_CONNECTED) {
                     stateMachine.disconnect();
                 }
             }

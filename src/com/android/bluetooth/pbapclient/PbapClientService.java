@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.pbapclient;
@@ -19,6 +24,7 @@ package com.android.bluetooth.pbapclient;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.annotation.RequiresPermission;
+import android.bluetooth.BluetoothAdapterUtil;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothProfile;
@@ -197,7 +203,10 @@ public class PbapClientService extends ProfileService {
             if (DBG) Log.v(TAG, "onReceive" + action);
             if (action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (getConnectionState(device) == BluetoothProfile.STATE_CONNECTED) {
+                // Pbap(client) runs in default adapter only
+                // Thus ACL disconnection event in new adapter shall be ignored
+                if (BluetoothAdapterUtil.isDefaultAdapter(device) &&
+                    getConnectionState(device) == BluetoothProfile.STATE_CONNECTED) {
                     disconnect(device);
                 }
             } else if (action.equals(Intent.ACTION_USER_UNLOCKED)) {

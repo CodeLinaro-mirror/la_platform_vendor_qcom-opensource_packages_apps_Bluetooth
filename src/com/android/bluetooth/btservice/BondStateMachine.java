@@ -15,7 +15,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
@@ -28,6 +28,7 @@ import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.ActivityThread;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAdapterUtil;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
@@ -388,6 +389,22 @@ final class BondStateMachine extends StateMachine {
 
     @VisibleForTesting
     void sendIntent(BluetoothDevice device, int newState, int reason) {
+        if (AdapterUtil.isDualBluetoothEnabled()) {
+            BluetoothDevice deviceInCounterAdapter = AdapterUtil.getCounterpartDevice(device);
+            /*
+             * OPP is enabled in both default adapter(OPP server) and new adapter(OPP client)
+             * This results into remote device may try to pair with both the adapters
+             * Pairing triggered by OPP is temporary and pairing state can only be
+             * {@link BluetoothDevice#BOND_NONE} and {@link BluetoothDevice#BOND_BONDING}
+             * This means the pairing states specific with OPP can be ignored when remote
+             * device is already paired with the other adapter
+             */
+            if (deviceInCounterAdapter.getBondState() == BluetoothDevice.BOND_BONDED) {
+                Log.i(TAG, "Device is bonded in the other adapter, ignore!");
+                return;
+            }
+        }
+
         DeviceProperties devProp = mRemoteDevices.getDeviceProperties(device);
         int oldState = BluetoothDevice.BOND_NONE;
         if (newState != BluetoothDevice.BOND_NONE

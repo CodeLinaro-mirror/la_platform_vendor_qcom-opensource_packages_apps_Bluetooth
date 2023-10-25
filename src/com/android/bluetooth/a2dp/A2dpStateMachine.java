@@ -797,7 +797,7 @@ final class A2dpStateMachine extends StateMachine {
         }
     }
 
-    private void processClearMediaPlayer() {
+    public void processClearMediaPlayer() {
         if (mA2dpAudioZone != null) {
             Log.i(TAG, "clear media player");
             mA2dpAudioZone.clearMediaPlayer();

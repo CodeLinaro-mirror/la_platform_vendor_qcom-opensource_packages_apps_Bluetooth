@@ -15,7 +15,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
@@ -275,6 +275,13 @@ final class RemoteDevices {
             }
         }
 
+        void setBluetoothClass(BluetoothClass btClass) {
+            int classInt = btClass.getClassOfDevice();
+            this.mBluetoothClass = classInt;
+            sAdapterService.setDevicePropertyNative(mAddress,
+                    AbstractionLayer.BT_PROPERTY_CLASS_OF_DEVICE, Utils.intToByteArray(classInt));
+        }
+
         /**
          * @return the mUuids
          */
@@ -349,9 +356,8 @@ final class RemoteDevices {
          */
         void setBondState(int newBondState) {
             synchronized (mObject) {
-                if ((mBondState == BluetoothDevice.BOND_BONDED
-                        && newBondState == BluetoothDevice.BOND_BONDING)
-                        || newBondState == BluetoothDevice.BOND_NONE) {
+                this.mBondState = newBondState;
+                if (newBondState == BluetoothDevice.BOND_NONE) {
                     /* Clearing the Uuids local copy when the device is unpaired. If not cleared,
                     cachedBluetoothDevice issued a connect using the local cached copy of uuids,
                     without waiting for the ACTION_UUID intent.
@@ -359,7 +365,6 @@ final class RemoteDevices {
                     mUuids = null;
                     mAlias = null;
                 }
-                mBondState = newBondState;
             }
         }
 

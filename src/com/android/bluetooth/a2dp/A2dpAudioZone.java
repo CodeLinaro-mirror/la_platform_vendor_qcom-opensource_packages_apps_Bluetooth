@@ -201,6 +201,8 @@ public final class A2dpAudioZone {
                     if (appInfo != null) {
                         CarAudioManager carAudioManager = getCarAudioManager(mContext);
                         if (carAudioManager != null) {
+                            debugLog("clearZoneId: device: " + device + ", mediaPlayer: " + mediaPlayer
+                                      + ", uid: " + appInfo.uid);
                             carAudioManager.clearZoneIdForUid(appInfo.uid);
                         }
                     }

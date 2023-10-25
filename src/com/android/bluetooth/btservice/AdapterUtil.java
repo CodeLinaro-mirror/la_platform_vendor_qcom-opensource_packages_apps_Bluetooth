@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -38,6 +38,8 @@ public final class AdapterUtil {
     private static final int ADAPTER_DEFAULT = BluetoothAdapterCommon.ADAPTER_DEFAULT;
     private static final int ADAPTER_1 = BluetoothAdapterCommon.ADAPTER_1;
     private static final int ADAPTER_NUMBER = BluetoothAdapterCommon.ADAPTER_NUMBER;
+    // @link BluetoothClass.Device.Major.BITMASK
+    private static final int DEFAULT_BLUETOOTH_CLASS = 0x1F00;
 
     private static Context sContext = null;
     private static boolean sDualBluetooth = false;
@@ -110,6 +112,10 @@ public final class AdapterUtil {
         return isAdapterDefault(getAdapterIndex());
     }
 
+    public static boolean isAdapterDefault(BluetoothDevice device) {
+        return isAdapterDefault(device.getAdapterIndex());
+    }
+
     private static boolean isAdapterDefault(int adapterIndex) {
         return BluetoothAdapterCommon.isAdapterDefault(adapterIndex);
     }
@@ -180,6 +186,10 @@ public final class AdapterUtil {
         return isAdapter1() ? getAddress(ADAPTER_DEFAULT) : getAddress(ADAPTER_1);
     }
 
+    private static int getCounterpartIndex() {
+        return isAdapterDefault() ? ADAPTER_1 : ADAPTER_DEFAULT;
+    }
+
     private static String getAddress(int adapterIndex) {
         BluetoothAdapter adapter = getAdapter(adapterIndex);
         return adapter != null ? adapter.getAddress() : null;
@@ -196,5 +206,14 @@ public final class AdapterUtil {
     public static boolean isOppClientInNewAdapter() {
         return sDualBluetooth &&
                 sContext.getResources().getBoolean(R.bool.opp_client_in_new_adapter);
+    }
+
+    public static BluetoothDevice getCounterpartDevice(BluetoothDevice device) {
+        BluetoothAdapter counterpartAdapter = BluetoothAdapterUtil.getAdapter(getCounterpartIndex());
+        return counterpartAdapter.getRemoteDevice(device.getAddress());
+    }
+
+    public static int getDefaultBluetoothClass() {
+        return DEFAULT_BLUETOOTH_CLASS;
     }
 }
