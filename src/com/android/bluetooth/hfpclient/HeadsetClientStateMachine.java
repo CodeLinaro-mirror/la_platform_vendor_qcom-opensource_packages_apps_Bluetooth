@@ -115,6 +115,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int SEND_VENDOR_AT_COMMAND = 21;
     public static final int SEND_CLCC = 22;
     public static final int SEND_ANDROID_AT_COMMAND = 23;
+    public static final int CONNECT_AUDIO_WITH_DELAY = 30;
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
     public static final int QUERY_OPERATOR_NAME = 51;
@@ -1332,6 +1333,14 @@ public class HeadsetClientStateMachine extends StateMachine {
                     if (!mNativeInterface.disconnect(getByteAddress(dev))) {
                         Log.e(TAG, "disconnectNative failed for " + dev);
                     }
+                    break;
+
+                case CONNECT_AUDIO_WITH_DELAY:
+                    /* Sending message with a delay, In most cases SCO will be
+                     * initiated by AG, In case its not done till 5 sec, DUT
+                     * ( HFP-Client ) will send SCO request from here
+                     */
+                    sendMessageDelayed(CONNECT_AUDIO, CONNECT_AUDIO_DELAY);
                     break;
 
                 case CONNECT_AUDIO:

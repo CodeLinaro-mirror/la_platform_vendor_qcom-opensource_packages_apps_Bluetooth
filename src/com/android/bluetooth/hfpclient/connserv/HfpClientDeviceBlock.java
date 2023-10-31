@@ -180,10 +180,14 @@ public class HfpClientDeviceBlock {
             }
             // Create the connection here, trigger Telecom to bind to us.
             // Do not allow new calls while SCO channel is in use.
-            if (mConnections.isEmpty() && mAudioManager.isBluetoothScoOn()) {
+
+            /* Commenting the below code to Allow new calls to display
+               even though SCO channel is in use */
+
+            /* if (mConnections.isEmpty() && mAudioManager.isBluetoothScoOn()) {
                 Log.d(mTAG, " Do not allow new calls while SCO channel is in use");
                 return;
-            }
+            } */
 
             // If the new call's state is terminated, just discard this call
             if (call.getState() == BluetoothHeadsetClientCall.CALL_STATE_TERMINATED) {
