@@ -5251,8 +5251,14 @@ public class AdapterService extends Service {
     }
 
     int getConnectionState(BluetoothDevice device) {
-        byte[] addr = Utils.getBytesFromAddress(device.getAddress());
-        return getConnectionStateNative(addr);
+        Log.e(TAG,"getConnectionState device is :: "+device);
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        if (deviceProp == null) {
+            return 0;
+        }
+        return deviceProp.getIsConnected();
+        //byte[] addr = Utils.getBytesFromAddress(device.getAddress());
+        //return getConnectionStateNative(addr);
     }
 
     int getConnectionHandle(BluetoothDevice device, int transport) {
