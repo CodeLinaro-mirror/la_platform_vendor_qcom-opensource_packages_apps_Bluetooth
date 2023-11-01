@@ -1096,6 +1096,18 @@ final class RemoteDevices {
         if (device == null) {
             errorLog("aclStateChangeCallback: device is NULL, address="
                     + Utils.getAddressStringFromByte(address) + ", newState=" + newState);
+            deviceProperties = addDeviceProperties(address);
+            device = getDevice(address);
+            if(device != null){
+                deviceProperties = getDeviceProperties(device);
+            }
+            if (deviceProperties != null) {
+                if (newState == AbstractionLayer.BT_ACL_STATE_CONNECTED) {
+                    deviceProperties.setIsConnected(AbstractionLayer.BT_PROPERTY_STATE_CONNECTED);
+                }else{
+                    deviceProperties.setIsConnected(AbstractionLayer.BT_PROPERTY_STATE_DISCONNECTED);
+                }
+            }
             return;
         }
         int state = sAdapterService.getState();
