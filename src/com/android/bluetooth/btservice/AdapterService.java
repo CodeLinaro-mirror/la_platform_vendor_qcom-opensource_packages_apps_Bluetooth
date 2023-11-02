@@ -410,7 +410,7 @@ public class AdapterService extends Service {
 
     private VendorSocket mVendorSocket;
     private BluetoothSocketManagerBinder mBluetoothSocketManagerBinder;
-    private BluetoothKeystoreService mBluetoothKeystoreService;
+    //private BluetoothKeystoreService mBluetoothKeystoreService;
     private A2dpService mA2dpService;
     private A2dpSinkService mA2dpSinkService;
     private HeadsetService mHeadsetService;
@@ -724,9 +724,9 @@ public class AdapterService extends Service {
         mAdapterStateMachine =  AdapterState.make(this);
         mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
         mVendorSocket = new VendorSocket(this);
-        mBluetoothKeystoreService = new BluetoothKeystoreService(isCommonCriteriaMode());
-        mBluetoothKeystoreService.start();
-        int configCompareResult = mBluetoothKeystoreService.getCompareResult();
+        //mBluetoothKeystoreService = new BluetoothKeystoreService(isCommonCriteriaMode());
+        //mBluetoothKeystoreService.start();
+        int configCompareResult = 0b00;//mBluetoothKeystoreService.getCompareResult();
 
         // Android TV doesn't show consent dialogs for just works and encryption only le pairing
         boolean isAtvDevice = getApplicationContext().getPackageManager().hasSystemFeature(
@@ -749,7 +749,7 @@ public class AdapterService extends Service {
         mBatteryStats = IBatteryStats.Stub.asInterface(
                 ServiceManager.getService(BatteryStats.SERVICE_NAME));
         mCompanionDeviceManager = getSystemService(CompanionDeviceManager.class);
-        mBluetoothKeystoreService.initJni();
+        //mBluetoothKeystoreService.initJni();
 
         mSdpManager = SdpManager.init(this);
         registerReceiver(mAlarmBroadcastReceiver, new IntentFilter(ACTION_ALARM_WAKEUP));
@@ -1256,10 +1256,10 @@ public class AdapterService extends Service {
             mJniCallbacks.cleanup();
         }
 
-        if (mBluetoothKeystoreService != null) {
+        /*if (mBluetoothKeystoreService != null) {
             debugLog("cleanup(): mBluetoothKeystoreService.cleanup()");
             mBluetoothKeystoreService.cleanup();
-        }
+        }*/
 
         if (mPhonePolicy != null) {
             mPhonePolicy.cleanup();
@@ -3852,9 +3852,9 @@ public class AdapterService extends Service {
             if (service.mDatabaseManager != null) {
                 service.mDatabaseManager.factoryReset();
             }
-            if (service.mBluetoothKeystoreService != null) {
+            /*if (service.mBluetoothKeystoreService != null) {
                 service.mBluetoothKeystoreService.factoryReset();
-            }
+            }*/
             if (service.mBtCompanionManager != null) {
                 service.mBtCompanionManager.factoryReset();
             }
