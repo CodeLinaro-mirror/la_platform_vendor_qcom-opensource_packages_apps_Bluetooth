@@ -118,14 +118,22 @@ public class MasClient {
                 }
                 mSocket = mRemoteDevice.createL2capSocket(l2capSocket);
             } else {
-                if (!connectSocket()) {
-                   // Fail to connect socket for RFCOMM
-                   mCallback.sendMessage(MceStateMachine.MSG_MAS_DISCONNECTED);
-                   // Release resource otherwise there is fd leakage
-                   mThread.quitSafely();
-                   return;
+                int rfcommChannel = mSdpMasRecord.getRfcommCannelNumber();
+                mSocket = mRemoteDevice.createRfcommSocket(rfcommChannel);
+                if (DBG) {
+                    Log.d(TAG, "Connecting to OBEX for RFCOMM " + rfcommChannel);
                 }
-           }
+            }
+            if (mSocket != null) {
+                mSocket.connect();
+                Log.d(TAG, "connect socket complete ");
+            } else {
+                Log.e(TAG, "Could not create socket ");
+                mCallback.sendMessage(MceStateMachine.MSG_MAS_DISCONNECTED);
+                // Release resource otherwise there is fd leakage
+                mThread.quitSafely();
+                return;
+            }
             mTransport = new BluetoothObexTransport(mSocket);
 
             mSession = new ClientSession(mTransport);
