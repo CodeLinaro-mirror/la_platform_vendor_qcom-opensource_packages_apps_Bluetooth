@@ -141,21 +141,23 @@ public class CallLogPullRequest extends PullRequest {
 
     private void updateTimesContacted() {
         for (String key : mCallCounter.keySet()) {
-            ContentValues values = new ContentValues();
-            values.put(ContactsContract.RawContacts.TIMES_CONTACTED, mCallCounter.get(key));
-            Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-                    Uri.encode(key));
-            Cursor c = mContext.getContentResolver().query(uri, null, null, null);
-            if (c != null && c.getCount() > 0) {
-                c.moveToNext();
-                String contactId = c.getString(c.getColumnIndex(
-                        ContactsContract.PhoneLookup.CONTACT_ID));
-                if (VDBG) {
-                    Log.d(TAG, "onPullComplete: ID " + contactId + " key : " + key);
+            if (key != null && key.length() > 0) {
+                ContentValues values = new ContentValues();
+                values.put(ContactsContract.RawContacts.TIMES_CONTACTED, mCallCounter.get(key));
+                Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                        Uri.encode(key));
+                Cursor c = mContext.getContentResolver().query(uri, null, null, null);
+                if (c != null && c.getCount() > 0) {
+                    c.moveToNext();
+                    String contactId = c.getString(c.getColumnIndex(
+                            ContactsContract.PhoneLookup.CONTACT_ID));
+                    if (VDBG) {
+                        Log.d(TAG, "onPullComplete: ID " + contactId + " key : " + key);
+                    }
+                    String where = ContactsContract.RawContacts.CONTACT_ID + "=" + contactId;
+                    mContext.getContentResolver().update(
+                            ContactsContract.RawContacts.CONTENT_URI, values, where, null);
                 }
-                String where = ContactsContract.RawContacts.CONTACT_ID + "=" + contactId;
-                mContext.getContentResolver().update(
-                        ContactsContract.RawContacts.CONTENT_URI, values, where, null);
             }
         }
         if (DBG) {
