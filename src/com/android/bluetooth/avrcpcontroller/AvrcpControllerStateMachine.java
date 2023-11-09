@@ -460,6 +460,12 @@ class AvrcpControllerStateMachine extends StateMachine {
                                           " label: " + msg.arg1 + " mPreviousPercentageVol: " +
                                           mPreviousPercentageVol);
                                 }
+                                if (mIsSplitSink) {
+                                    int currIndex = mAudioManager.getStreamVolume(
+                                                            AudioManager.STREAM_MUSIC);
+                                    String volume_param  = "btsink_volume=" + currIndex;
+                                    mAudioManager.setParameters(volume_param);
+                                }
                                 AvrcpControllerService.sendRegisterAbsVolRspNative(
                                         mRemoteDevice.getBluetoothAddress(),
                                         NOTIFICATION_RSP_TYPE_CHANGED, percentageVol,
