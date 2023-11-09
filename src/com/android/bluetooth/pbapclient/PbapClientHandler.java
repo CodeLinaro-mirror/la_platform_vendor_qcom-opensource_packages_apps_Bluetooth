@@ -42,9 +42,9 @@ import com.android.bluetooth.R;
 
 import java.io.IOException;
 
-import javax.obex.ClientSession;
-import javax.obex.HeaderSet;
-import javax.obex.ResponseCodes;
+import com.android.obex.ClientSession;
+import com.android.obex.HeaderSet;
+import com.android.obex.ResponseCodes;
 
 /* Bluetooth/pbapclient/PbapClientHandler is responsible
  * for connecting, disconnecting and downloading contacts from the
@@ -58,6 +58,9 @@ class PbapClientHandler extends Handler {
 
     public static final String PBAP_CLIENT_ENABLE_PTS_PROPERTY =
         "bt.pbapclient.enable_pts";
+
+    public static final String BLUETOOTH_ADMIN_PERM = android.Manifest.permission.BLUETOOTH_ADMIN;
+    public static final String BLUETOOTH_PERM = android.Manifest.permission.BLUETOOTH;
 
     // +++ Custom action definition for PBAP client
 

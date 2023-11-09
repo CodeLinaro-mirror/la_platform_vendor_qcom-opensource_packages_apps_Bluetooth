@@ -28,7 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 
-import javax.obex.HeaderSet;
+import com.android.obex.HeaderSet;
 
 final class BluetoothPbapRequestPullVcardListingSize extends BluetoothPbapRequest {
 
