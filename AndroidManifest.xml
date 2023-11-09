@@ -124,6 +124,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.READ_COMPAT_CHANGE_CONFIG" />
     <uses-sdk android:minSdkVersion="14"/>
+	
+	<protected-broadcast android:name="android.bluetooth.pbapclient.action.CUSTOM_ACTION" />
+    <protected-broadcast android:name="android.bluetooth.pbapclient.action.CUSTOM_ACTION_RESULT" />
+	
     <!-- For PBAP Owner Vcard Info -->
     <uses-permission android:name="android.permission.READ_PROFILE"/>
     <application android:name="com.android.bluetooth.btservice.AdapterApp"
