@@ -280,6 +280,10 @@ public class AdapterService extends Service {
     private static final int MIN_OFFLOADED_FILTERS = 10;
     private static final int MIN_OFFLOADED_SCAN_STORAGE_BYTES = 1024;
     private static final Duration PENDING_SOCKET_HANDOFF_TIMEOUT = Duration.ofMinutes(1);
+    private static final int BT_TRANSPORT_BR_EDR = 1;
+    private static final int BT_TRANSPORT_LE = 2;
+    private static final int HCI_BTLE_AFH_CHANNEL_MAP_LEN = 5;
+    private static final int HCI_AFH_CHANNEL_MAP_LEN = 10;
 
     private final Object mEnergyInfoLock = new Object();
     private int mStackReportedState;
@@ -410,7 +414,7 @@ public class AdapterService extends Service {
 
     private VendorSocket mVendorSocket;
     private BluetoothSocketManagerBinder mBluetoothSocketManagerBinder;
-    private BluetoothKeystoreService mBluetoothKeystoreService;
+    //private BluetoothKeystoreService mBluetoothKeystoreService;
     private A2dpService mA2dpService;
     private A2dpSinkService mA2dpSinkService;
     private HeadsetService mHeadsetService;
@@ -724,9 +728,9 @@ public class AdapterService extends Service {
         mAdapterStateMachine =  AdapterState.make(this);
         mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
         mVendorSocket = new VendorSocket(this);
-        mBluetoothKeystoreService = new BluetoothKeystoreService(isCommonCriteriaMode());
-        mBluetoothKeystoreService.start();
-        int configCompareResult = mBluetoothKeystoreService.getCompareResult();
+        //mBluetoothKeystoreService = new BluetoothKeystoreService(isCommonCriteriaMode());
+        //mBluetoothKeystoreService.start();
+        int configCompareResult = 0b00;//mBluetoothKeystoreService.getCompareResult();
 
         // Android TV doesn't show consent dialogs for just works and encryption only le pairing
         boolean isAtvDevice = getApplicationContext().getPackageManager().hasSystemFeature(
@@ -749,7 +753,7 @@ public class AdapterService extends Service {
         mBatteryStats = IBatteryStats.Stub.asInterface(
                 ServiceManager.getService(BatteryStats.SERVICE_NAME));
         mCompanionDeviceManager = getSystemService(CompanionDeviceManager.class);
-        mBluetoothKeystoreService.initJni();
+        //mBluetoothKeystoreService.initJni();
 
         mSdpManager = SdpManager.init(this);
         registerReceiver(mAlarmBroadcastReceiver, new IntentFilter(ACTION_ALARM_WAKEUP));
@@ -1256,10 +1260,10 @@ public class AdapterService extends Service {
             mJniCallbacks.cleanup();
         }
 
-        if (mBluetoothKeystoreService != null) {
+        /*if (mBluetoothKeystoreService != null) {
             debugLog("cleanup(): mBluetoothKeystoreService.cleanup()");
             mBluetoothKeystoreService.cleanup();
-        }
+        }*/
 
         if (mPhonePolicy != null) {
             mPhonePolicy.cleanup();
@@ -2536,6 +2540,7 @@ public class AdapterService extends Service {
                 receiver.propagateException(e);
             }
         }
+
         @VisibleForTesting
         int getScanMode(AttributionSource attributionSource) {
             AdapterService service = getService();
@@ -2546,6 +2551,36 @@ public class AdapterService extends Service {
             }
 
             return service.mAdapterProperties.getScanMode();
+        }
+
+        @Override
+        public boolean setAfhChannelMap(int transport, int len, byte [] afhMap,
+                AttributionSource source) {
+            AdapterService service = getService();
+            if (service == null
+                    || !Utils.checkConnectPermissionForDataDelivery(service, source,
+                        "setAfhChannelMap")) {
+                return false;
+            }
+            if ((transport == BT_TRANSPORT_BR_EDR && len == HCI_AFH_CHANNEL_MAP_LEN)
+                ||(transport == BT_TRANSPORT_LE && len == HCI_BTLE_AFH_CHANNEL_MAP_LEN)) {
+                return service.setAfhChannelMap(transport, len, afhMap);
+            } else {
+                Log.d(TAG, "Invalid Transport or length");
+                return false;
+            }
+        }
+
+        @Override
+        public boolean getAfhChannelMap(BluetoothDevice device, int transport,
+                AttributionSource source) {
+            AdapterService service = getService();
+            if (service == null
+                    || !Utils.checkConnectPermissionForDataDelivery(service, source,
+                        "getAfhChannelMap")) {
+                return false;
+            }
+            return service.getAfhChannelMap(device, transport);
         }
 
         @Override
@@ -3799,6 +3834,27 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public int setLeHighPriorityMode(BluetoothDevice device, boolean enable,
+                                         AttributionSource attributionSource) {
+            AdapterService service = getService();
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                    service, attributionSource, "setLeHighPriorityMode")) {
+                return BluetoothDevice.LE_HIGH_PRIOTY_MODE_FAIL;
+            }
+            return service.setLeHighPriorityMode(device, enable);
+        }
+
+        @Override
+        public boolean isLeHighPriorityModeSet(BluetoothDevice device,
+                AttributionSource attributionSource) {
+            AdapterService service = getService();
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                    service, attributionSource, "isLeHighPriorityModeSet")) {
+                return false;
+            }
+            return service.isLeHighPriorityModeSet(device);
+       }
+        @Override
         public void getMaxConnectedAudioDevices(AttributionSource source,
                 SynchronousResultReceiver receiver) {
             try {
@@ -3852,9 +3908,9 @@ public class AdapterService extends Service {
             if (service.mDatabaseManager != null) {
                 service.mDatabaseManager.factoryReset();
             }
-            if (service.mBluetoothKeystoreService != null) {
+            /*if (service.mBluetoothKeystoreService != null) {
                 service.mBluetoothKeystoreService.factoryReset();
-            }
+            }*/
             if (service.mBtCompanionManager != null) {
                 service.mBtCompanionManager.factoryReset();
             }
@@ -5034,6 +5090,25 @@ public class AdapterService extends Service {
         return Utils.getAddressStringFromByte(address);
     }
 
+    public int setLeHighPriorityMode(BluetoothDevice device, boolean enable) {
+        return mVendor.setLeHighPriorityMode(device.toString(), enable);
+    }
+
+    public boolean isLeHighPriorityModeSet(BluetoothDevice device) {
+        return mVendor.isLeHighPriorityModeSet(device.toString());
+    }
+
+
+    public boolean setAfhChannelMap(int transport, int len, byte [] afhMap) {
+        Log.d(TAG,"setAfhChannelMap for transport : "+transport);
+        return mVendor.setAfhChannelMap(transport, len, afhMap);
+    }
+
+    public boolean getAfhChannelMap(BluetoothDevice device, int transport) {
+        Log.d(TAG,"getAfhChannelMap for transport : "+transport);
+        return mVendor.getAfhChannelMap(device.toString(), transport);
+    }
+
     public BluetoothDevice getTwsPlusPeerDevice(BluetoothDevice device) {
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null) {
@@ -5251,8 +5326,14 @@ public class AdapterService extends Service {
     }
 
     int getConnectionState(BluetoothDevice device) {
-        byte[] addr = Utils.getBytesFromAddress(device.getAddress());
-        return getConnectionStateNative(addr);
+        Log.e(TAG,"getConnectionState device is :: "+device);
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        if (deviceProp == null) {
+            return 0;
+        }
+        return deviceProp.getIsConnected();
+        //byte[] addr = Utils.getBytesFromAddress(device.getAddress());
+        //return getConnectionStateNative(addr);
     }
 
     int getConnectionHandle(BluetoothDevice device, int transport) {

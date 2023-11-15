@@ -67,7 +67,7 @@
     <bool name="profile_supported_avrcp_controller">true</bool>
     <bool name="profile_supported_bac">false</bool>
     <bool name="profile_supported_sap">false</bool>
-    <bool name="profile_supported_pbapclient">false</bool>
+    <bool name="profile_supported_pbapclient">true</bool>
     <bool name="profile_supported_mapmce">false</bool>
     <bool name="profile_supported_broadcast">false</bool>
     <bool name="profile_supported_hid_device">false</bool>
@@ -159,7 +159,7 @@
     <integer name="subrate_mode_balanced_cont_number">2</integer>
     <integer name="subrate_mode_low_power_cont_number">2</integer>
 
-    <bool name="headset_client_initial_audio_route_allowed">true</bool>
+    <bool name="headset_client_initial_audio_route_allowed">false</bool>
 
     <!-- @deprecated: use a2dp_absolute_volume_initial_threshold_percent
          instead. -->
@@ -218,7 +218,7 @@
     <string name="pairing_ui_package">com.android.settings</string>
 
     <!-- Flag whether or not to keep polling AG with CLCC for call information every 2 seconds -->
-    <bool name="hfp_clcc_poll_during_call">true</bool>
+    <bool name="hfp_clcc_poll_during_call">false</bool>
 
      <!-- Reload supported Bluetooth Profiles while BLE is turning ON -->
      <bool name="reload_supported_profiles_when_enabled">true</bool>
@@ -249,7 +249,7 @@
     <bool name="config_bluetooth_reload_supported_profiles_when_enabled">false</bool>
 
     <!-- Max number of connected audio devices supported by Bluetooth stack -->
-    <integer name="config_bluetooth_max_connected_audio_devices">5</integer>
+    <integer name="config_bluetooth_max_connected_audio_devices">1</integer>
 
     <bool name="config_supportBluetoothPersistedState">true</bool>
 

@@ -311,6 +311,7 @@ final class RemoteDevices {
         private byte[] peerEbAddress;
         private boolean autoConnect;
         private boolean mSdpProgress;
+        private int mIsConnected;
         public final ParcelUuid BR_TRANSPORT_UUID =
             ParcelUuid.fromString("87564312-0000-1000-8000-00805F9B34FB");
         public final ParcelUuid LE_TRANSPORT_UUID =
@@ -331,6 +332,7 @@ final class RemoteDevices {
             mTwsPlusDevType = AbstractionLayer.TWS_PLUS_DEV_TYPE_NONE;
             autoConnect = true;
             mSdpProgress = true;
+            mIsConnected = AbstractionLayer.BT_PROPERTY_STATE_DISCONNECTED;
             peerEbAddress = null;
             mBdAddrValid = 1;
             mAdvAudioUuids = new ArrayList<ParcelUuid>();
@@ -408,6 +410,15 @@ final class RemoteDevices {
         String getAlias() {
             synchronized (mObject) {
                 return mAlias;
+            }
+        }
+
+        /**
+        * @return the mIsConnected
+        */
+        int getIsConnected() {
+            synchronized (mObject) {
+                return mIsConnected;
             }
         }
 
@@ -621,6 +632,15 @@ final class RemoteDevices {
             this.mAdvAudioUpdateProp = true;
             debugLog("Default AdvAudioProp for uuid " +this.mAdvAudioUpdateProp);
           }
+        }
+
+        /**
+         * @param isConnected the mIsConnected to set
+         */
+        void setIsConnected(int isConnected) {
+            synchronized (mObject) {
+                this.mIsConnected = isConnected;
+            }
         }
 
     }
@@ -1069,9 +1089,25 @@ final class RemoteDevices {
     void aclStateChangeCallback(int status, byte[] address, int newState,
                                 int transportLinkType, int hciReason) {
         BluetoothDevice device = getDevice(address);
+        DeviceProperties deviceProperties = null;
+        if(device != null){
+            deviceProperties = getDeviceProperties(device);
+        }
         if (device == null) {
             errorLog("aclStateChangeCallback: device is NULL, address="
                     + Utils.getAddressStringFromByte(address) + ", newState=" + newState);
+            deviceProperties = addDeviceProperties(address);
+            device = getDevice(address);
+            if(device != null){
+                deviceProperties = getDeviceProperties(device);
+            }
+            if (deviceProperties != null) {
+                if (newState == AbstractionLayer.BT_ACL_STATE_CONNECTED) {
+                    deviceProperties.setIsConnected(AbstractionLayer.BT_PROPERTY_STATE_CONNECTED);
+                }else{
+                    deviceProperties.setIsConnected(AbstractionLayer.BT_PROPERTY_STATE_DISCONNECTED);
+                }
+            }
             return;
         }
         int state = sAdapterService.getState();
@@ -1084,6 +1120,9 @@ final class RemoteDevices {
             } else if (state == BluetoothAdapter.STATE_BLE_ON
                     || state == BluetoothAdapter.STATE_BLE_TURNING_ON) {
                 intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_CONNECTED);
+            }
+            if (deviceProperties != null) {
+                deviceProperties.setIsConnected(AbstractionLayer.BT_PROPERTY_STATE_CONNECTED);
             }
             debugLog(
                     "aclStateChangeCallback: Adapter State: " + BluetoothAdapter.nameForState(state)
@@ -1099,6 +1138,9 @@ final class RemoteDevices {
             // Reset battery level on complete disconnection
             if (sAdapterService.getConnectionState(device) == 0) {
                 resetBatteryLevel(device);
+            }
+            if (deviceProperties != null) {
+                deviceProperties.setIsConnected(AbstractionLayer.BT_PROPERTY_STATE_DISCONNECTED);
             }
             debugLog(
                     "aclStateChangeCallback: Adapter State: " + BluetoothAdapter.nameForState(state)

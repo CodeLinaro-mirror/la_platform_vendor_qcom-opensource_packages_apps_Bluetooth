@@ -75,7 +75,6 @@ public class HeadsetClientService extends ProfileService {
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
     private static final int MAX_HFP_CLIENTS_SUPPORTED = 1;
-    private static final int CONNECT_AUDIO_DELAY = 5000;
     private static final String AG_CALL_DISCONNECTED = "22";
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
 
@@ -981,7 +980,7 @@ public class HeadsetClientService extends ProfileService {
          * initiated by AG, In case its not done till 5 sec, DUT
          * ( HFP-Client ) will send SCO request from here
          */
-        sm.sendMessageDelayed(HeadsetClientStateMachine.CONNECT_AUDIO, CONNECT_AUDIO_DELAY);
+        sm.sendMessage(HeadsetClientStateMachine.CONNECT_AUDIO_WITH_DELAY);
         return true;
     }
 

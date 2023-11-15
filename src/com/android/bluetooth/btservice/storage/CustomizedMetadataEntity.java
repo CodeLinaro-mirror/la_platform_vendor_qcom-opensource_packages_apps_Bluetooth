@@ -37,4 +37,13 @@ class CustomizedMetadataEntity {
     public byte[] untethered_right_charging;
     public byte[] untethered_case_charging;
     public byte[] enhanced_settings_ui_uri;
+    public byte[] device_type;
+    public byte[] main_battery;
+    public byte[] main_charging;
+    public byte[] main_low_battery_threshold;
+    public byte[] untethered_left_low_battery_threshold;
+    public byte[] untethered_right_low_battery_threshold;
+    public byte[] untethered_case_low_battery_threshold;
+    public byte[] spatial_audio;
+    public byte[] fastpair_customized;
 }
