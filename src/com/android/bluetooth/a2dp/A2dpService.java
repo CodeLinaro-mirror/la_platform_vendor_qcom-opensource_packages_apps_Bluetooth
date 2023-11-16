@@ -331,8 +331,15 @@ public class A2dpService extends ProfileService {
             return true;
         }
 
-        // Step 9: Clear active device and stop playing audio
+        // Step 10: Clear active device and stop playing audio
         removeActiveDevice(true);
+
+        // step 9: Reset A2DP suspend flag if bluetooth is turned off
+        if (mAudioManager != null) {
+            Log.d(TAG,"setting A2dpSuspended=false during BT off");
+            mAudioManager.setParameters("A2dpSuspended=false");
+        }
+
         if (ApmConstIntf.getQtiLeAudioEnabled()) {
             synchronized (mBtA2dpLock) {
                 updateAndBroadcastActiveDevice(null);
