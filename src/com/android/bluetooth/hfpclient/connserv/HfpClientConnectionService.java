@@ -240,6 +240,10 @@ public class HfpClientConnectionService extends ConnectionService {
         BluetoothHeadsetClientCall call =
                 request.getExtras().getParcelable(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS);
         HfpClientConnection connection = block.onCreateUnknownConnection(call);
+        if(connection == null) {
+            Log.w(TAG, "connection null");
+            return null;
+        }
         connection.setHfpClientConnectionService(this);
         return connection;
     }
