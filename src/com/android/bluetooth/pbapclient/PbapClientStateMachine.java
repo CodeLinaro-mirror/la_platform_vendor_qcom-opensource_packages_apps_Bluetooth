@@ -49,6 +49,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.os.ParcelUuid;
@@ -75,6 +76,13 @@ final class PbapClientStateMachine extends StateMachine {
     // Messages for handling connect/disconnect requests.
     private static final int MSG_DISCONNECT = 2;
     private static final int MSG_SDP_COMPLETE = 9;
+
+    // Message from PbapClientHandler (vendor extension).
+    static final int MSG_PULL_PHONEBOOK = 0xF0;
+    static final int MSG_PULL_VCARD_LISTING = 0xF1;
+    static final int MSG_PULL_VCARD_ENTRY = 0xF2;
+    static final int MSG_SET_PHONEBOOK = 0xF3;
+    static final int MSG_ABORT = 0xF4;
 
     // Messages for handling error conditions.
     private static final int MSG_CONNECT_TIMEOUT = 3;
@@ -299,7 +307,7 @@ final class PbapClientStateMachine extends StateMachine {
             onConnectionStateChanged(mCurrentDevice, mMostRecentState,
                     BluetoothProfile.STATE_CONNECTED);
             mMostRecentState = BluetoothProfile.STATE_CONNECTED;
-            if (mUserManager.isUserUnlocked()) {
+            if (mUserManager.isUserUnlocked() && !mService.isPtsEnabled()) {
                 mConnectionHandler.obtainMessage(PbapClientConnectionHandler.MSG_DOWNLOAD)
                         .sendToTarget();
             }
@@ -321,6 +329,26 @@ final class PbapClientStateMachine extends StateMachine {
                 case MSG_RESUME_DOWNLOAD:
                     mConnectionHandler.obtainMessage(PbapClientConnectionHandler.MSG_DOWNLOAD)
                             .sendToTarget();
+                    break;
+
+                    case MSG_PULL_PHONEBOOK:
+                    handlePullPhonebook((Bundle) message.obj);
+                    break;
+
+                case MSG_PULL_VCARD_LISTING:
+                    handlePullVcardListing((Bundle) message.obj);
+                    break;
+
+                case MSG_PULL_VCARD_ENTRY:
+                    handlePullVcardEntry((Bundle) message.obj);
+                    break;
+
+                case MSG_SET_PHONEBOOK:
+                    handleSetPhonebook((Bundle) message.obj);
+                    break;
+
+                case MSG_ABORT:
+                    handleAbort();
                     break;
 
                 default:
@@ -355,6 +383,31 @@ final class PbapClientStateMachine extends StateMachine {
 
     public void resumeDownload() {
         sendMessage(MSG_RESUME_DOWNLOAD);
+    }
+
+    public void pullPhonebook(Bundle extras) {
+        Log.d(TAG, "pullPhonebook extras=" + extras);
+        sendMessage(MSG_PULL_PHONEBOOK, extras);
+    }
+
+    public void pullVcardListing(Bundle extras) {
+        Log.d(TAG, "pullVcardListing extras=" + extras);
+        sendMessage(MSG_PULL_VCARD_LISTING, extras);
+    }
+
+    public void pullVcardEntry(Bundle extras) {
+        Log.d(TAG, "pullVcardEntry extras=" + extras);
+        sendMessage(MSG_PULL_VCARD_ENTRY, extras);
+    }
+
+    public void setPhonebook(Bundle extras) {
+        Log.d(TAG, "setPhonebook extras=" + extras);
+        sendMessage(MSG_SET_PHONEBOOK, extras);
+    }
+
+    public void abort() {
+        Log.d(TAG, "abort");
+        sendMessage(MSG_ABORT);
     }
 
     void doQuit() {
@@ -430,6 +483,35 @@ final class PbapClientStateMachine extends StateMachine {
 
     Context getContext() {
         return mService;
+    }
+
+    private void handlePullPhonebook(Bundle extras) {
+        if (DBG) Log.d(TAG, "handlePullPhonebook");
+        mConnectionHandler.obtainMessage(
+            PbapClientConnectionHandler.MSG_DOWNLOAD_EXT, extras).sendToTarget();
+    }
+
+    private void handlePullVcardListing(Bundle extras) {
+        if (DBG) Log.d(TAG, "handlePullVcardListing");
+        mConnectionHandler.obtainMessage(
+            PbapClientConnectionHandler.MSG_PULL_VCARD_LISTING, extras).sendToTarget();
+    }
+
+    private void handlePullVcardEntry(Bundle extras) {
+        if (DBG) Log.d(TAG, "handlePullVcardEntry");
+        mConnectionHandler.obtainMessage(
+            PbapClientConnectionHandler.MSG_PULL_VCARD_ENTRY, extras).sendToTarget();
+    }
+
+    private void handleSetPhonebook(Bundle extras) {
+        if (DBG) Log.d(TAG, "handleSetPhonebook");
+        mConnectionHandler.obtainMessage(
+            PbapClientConnectionHandler.MSG_SET_PHONEBOOK, extras).sendToTarget();
+    }
+
+    private void handleAbort() {
+        if (DBG) Log.d(TAG, "handleAbort");
+        mConnectionHandler.abortRequest();
     }
 
     public void dump(StringBuilder sb) {
