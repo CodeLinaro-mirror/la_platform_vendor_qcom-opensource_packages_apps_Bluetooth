@@ -360,6 +360,46 @@ public class MediaAudioIntf {
         }
     }
 
+    public void enableGamingMode(BluetoothDevice device, int context) {
+        if(MediaAudio == null)
+            return;
+
+        Class[] arg = new Class[2];
+        arg[0] = BluetoothDevice.class;
+        arg[1] = Integer.class;
+
+        try {
+            Method enableGamingMode = MediaAudio.getDeclaredMethod("enableGamingMode", arg);
+            enableGamingMode.invoke(mMediaAudio, device, context);
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+    }
+
+    public void disableGamingMode(BluetoothDevice device, int context) {
+        if(MediaAudio == null)
+            return;
+
+        Class[] arg = new Class[2];
+        arg[0] = BluetoothDevice.class;
+        arg[1] = Integer.class;
+
+        try {
+            Method disableGamingMode = MediaAudio.getDeclaredMethod("disableGamingMode", arg);
+            disableGamingMode.invoke(mMediaAudio, device, context);
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+    }
+
     public void setLeAudioCodecConfigPreference(int groupId,
                              BluetoothLeAudioCodecConfig inputCodecConfig,
                              BluetoothLeAudioCodecConfig outputCodecConfig) {

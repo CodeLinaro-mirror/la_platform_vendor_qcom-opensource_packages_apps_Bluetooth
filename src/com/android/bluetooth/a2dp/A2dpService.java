@@ -1034,8 +1034,6 @@ public class A2dpService extends ProfileService {
 
     public int setActiveDevice(BluetoothDevice device, boolean playReq) {
         HeadsetService headsetService = HeadsetService.getHeadsetService();
-        boolean isInCall = headsetService != null && headsetService.isScoOrCallActive();
-        boolean isFMActive = mAudioManager.getParameters("fm_status").contains("1");
 
         Log.w(TAG, "setActiveDevice(" + device +")");
         synchronized (mBtA2dpLock) {
@@ -1046,8 +1044,12 @@ public class A2dpService extends ProfileService {
         }
 
         if (setActiveDeviceA2dp(device)) {
-            if(playReq && !(isInCall || isFMActive)) {
-                mShoActive = true;
+            if(playReq) {
+                boolean isInCall = headsetService != null && headsetService.isScoOrCallActive();
+                boolean isFMActive = mAudioManager.getParameters("fm_status").contains("1");
+                if (!(isInCall || isFMActive)) {
+                    mShoActive = true;
+                }
             }
 
             if(mShoActive) {
@@ -1740,6 +1742,28 @@ public class A2dpService extends ProfileService {
                 default:
                   Log.e(TAG, cs4 + " is not a aptX profile mode feedback");
             }
+        }
+
+        if (cs4 > 0 && Utils.isDualModeAudioEnabled()) {
+            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+            if(mMediaAudio == null) {
+                return;
+            }
+
+            switch((int)(cs4 & APTX_MODE_MASK)) {
+                case APTX_HQ:
+                  Log.d(TAG, "setCodecConfigPreference: disable Gaming from ALS");
+                  mMediaAudio.disableGamingMode(device, 0);
+                  break;
+
+                case APTX_LL:
+                  Log.d(TAG, "setCodecConfigPreference: enable Gaming from ALS");
+                  mMediaAudio.enableGamingMode(device, 0);
+                  break;
+                default:
+                  break;
+            }
+            return;
         }
 
         if (codecConfig == null) {

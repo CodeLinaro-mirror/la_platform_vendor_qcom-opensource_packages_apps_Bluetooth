@@ -121,6 +121,19 @@ public class CsipWrapper {
         return setid;
     }
 
+    public boolean checkIncludingServiceForDeviceGroup(BluetoothDevice device, ParcelUuid uuid) {
+        boolean ret = false;
+        if (getGroupService() != null) {
+            ret = mGroupService.checkIncludingServiceForDevice(device, uuid);
+        } else if (getCsipSetCoordinatorService() != null) {
+            ret = mCsipSetCoordinatorService.checkIncludingServiceForDevice(device, uuid);
+        } else {
+            if (DBG)
+                Log.d(TAG, "checkIncludingServiceForDeviceGroup not called");
+        }
+        return ret;
+    }
+
     public void registerGroupClientModule(BluetoothGroupCallback callbacks) {
         if (getGroupService() != null) {
             mGroupService.registerGroupClientModule(callbacks);

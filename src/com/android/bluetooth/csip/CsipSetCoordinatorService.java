@@ -890,6 +890,41 @@ public class CsipSetCoordinatorService extends ProfileService {
         return INVALID_SET_ID;
     }
 
+    /* Checks if given device is part of any Coordinated Set with mentioned
+       including service UUID*/
+    public boolean checkIncludingServiceForDevice (BluetoothDevice device,
+                                                   ParcelUuid uuid) {
+        if (DBG) {
+            Log.d(TAG, "checkIncludingServiceForDevice: device = " + device +
+                       " uuid = " + uuid);
+        }
+
+        if (mAdapterService == null) {
+            Log.e(TAG, "AdapterService instance is NULL. Return.");
+            return false;
+        }
+
+        BluetoothDevice setDevice = null;
+        if (mAdapterService.isIgnoreDevice(device)) {
+            setDevice = mAdapterService.getIdentityAddress(device);
+        }
+
+        if (uuid == null) {
+            uuid = new ParcelUuid(EMPTY_UUID);
+        }
+
+        for (DeviceGroup cSet: mCoordinatedSets) {
+            if ((cSet.getDeviceGroupMembers().contains(device) ||
+                    cSet.getDeviceGroupMembers().contains(setDevice)) &&
+                    cSet.getIncludingServiceUUID().equals(uuid)) {
+                Log.i(TAG, "Set " + cSet.getDeviceGroupId() + " has " + uuid);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /* This API is called when pairing with LE Audio capable set member fails or
      * when set member is unpaired. Removing the set member from list gives option
      * to user to rediscover it */

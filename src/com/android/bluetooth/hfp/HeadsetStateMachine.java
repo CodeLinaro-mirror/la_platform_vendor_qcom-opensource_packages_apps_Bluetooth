@@ -145,6 +145,10 @@ public class HeadsetStateMachine extends StateMachine {
     private static final String HEADSET_SWB_DISABLE = "65535";
     private static final String HEADSET_AUDIO_FEATURE_ON = "on";
     private static final String HEADSET_AUDIO_FEATURE_OFF = "off";
+    private static final String EXTRA_ROAMING_STATE = "android.bluetooth.extra.roaming.STATE";
+
+    /* Telephone URI scheme */
+    private static final String SCHEME_TEL = "tel";
 
     static final int CONNECT = 1;
     static final int DISCONNECT = 2;
@@ -177,6 +181,7 @@ public class HeadsetStateMachine extends StateMachine {
     static final int AUDIO_SERVER_UP = 27;
     static final int SCO_RETRIAL_NOT_REQ = 28;
     static final int SEND_CLCC_RESP_AFTER_VOIP_CALL = 29;
+    static final int UPDATE_ROAMING_STATE = 30;
 
     static final int STACK_EVENT = 101;
     private static final int CLCC_RSP_TIMEOUT = 104;
@@ -1311,6 +1316,17 @@ public class HeadsetStateMachine extends StateMachine {
                     }
                 }
                 break;
+                case UPDATE_ROAMING_STATE: {
+                    final HeadsetPhoneState phoneState = mSystemInterface.getHeadsetPhoneState();
+                    Intent intent1 = (Intent) message.obj;
+                    int roaming_status = intent1.getIntExtra(EXTRA_ROAMING_STATE, 0);
+                    //code to send the roaming state to remote
+                    stateLogE("UPDATE_ROAMING_STATE received " + roaming_status);
+                    HeadsetDeviceState deviceState = new HeadsetDeviceState(phoneState.getCindService(),
+                          roaming_status, phoneState.getCindSignal(), phoneState.getCindBatteryCharge());
+                    mNativeInterface.notifyDeviceStatus(mDevice, deviceState);
+                    break;
+                }
                 case INTENT_CONNECTION_ACCESS_REPLY:
                     handleAccessPermissionResult((Intent) message.obj);
                     break;
