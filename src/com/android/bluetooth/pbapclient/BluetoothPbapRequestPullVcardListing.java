@@ -29,7 +29,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import javax.obex.HeaderSet;
+import com.android.obex.HeaderSet;
 
 final class BluetoothPbapRequestPullVcardListing extends BluetoothPbapRequest {
 
