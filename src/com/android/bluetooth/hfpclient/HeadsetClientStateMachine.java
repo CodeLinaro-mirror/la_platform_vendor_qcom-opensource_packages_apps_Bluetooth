@@ -1128,6 +1128,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                                 BluetoothProfile.STATE_DISCONNECTED);
                     }
                     break;
+                case HeadsetClientHalConstants.CONNECTION_STATE_SLC_CONNECTED:
+                    Log.i(TAG, "Disconnected: Unexpected statet: " + state);
+                    mNativeInterface.disconnect(getByteAddress(device));
+                    break;
                 case HeadsetClientHalConstants.CONNECTION_STATE_CONNECTING:
                 case HeadsetClientHalConstants.CONNECTION_STATE_DISCONNECTED:
                 case HeadsetClientHalConstants.CONNECTION_STATE_DISCONNECTING:
