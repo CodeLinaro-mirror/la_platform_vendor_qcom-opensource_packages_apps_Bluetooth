@@ -519,6 +519,7 @@ public class HeadsetStateMachine extends StateMachine {
 
         // Should not be called from enter() method
         void broadcastAudioState(BluetoothDevice device, int fromState, int toState) {
+            mHeadsetService.notifyHeadsetScoStateChanged(toState);
             stateLogD("broadcastAudioState: " + device + ": " + fromState + "->" + toState);
             if(mHeadsetService == null) {
                 Log.e(TAG, "HeadsetService is null");

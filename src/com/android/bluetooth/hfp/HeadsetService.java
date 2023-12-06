@@ -70,6 +70,7 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothStatusCodes;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.IBluetoothHeadset;
+import android.bluetooth.IBluetoothHeadsetScoCallback;
 import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -86,6 +87,7 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
 import android.os.UserHandle;
+import android.os.RemoteCallbackList;
 import android.telecom.PhoneAccount;
 import android.util.Log;
 
@@ -190,6 +192,8 @@ public class HeadsetService extends ProfileService {
     private vendorhfservice  mVendorHf;
     private Context mContext = null;
     private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
+    private RemoteCallbackList<IBluetoothHeadsetScoCallback> mHeadsetScoCallbacks;
+    private final Object mCallbackNotifyLock = new Object();
     private static final int AUDIO_CONNECTION_DELAY_DEFAULT = 100;
    private static final String ACTION_ROAMING_STATE_CHANGED = "android.bluetooth.action.ROAMING_STATE_CHANGED";
     @Override
@@ -294,7 +298,7 @@ public class HeadsetService extends ProfileService {
         mContext = getApplicationContext();
         Executor exec = mContext.getMainExecutor();
         mSystemInterface.getAudioManager().setAudioServerStateCallback(exec, mServerStateCallback);
-
+        mHeadsetScoCallbacks = new RemoteCallbackList<IBluetoothHeadsetScoCallback>();
         Log.i(TAG, " HeadsetService Started ");
         return true;
     }
@@ -1286,6 +1290,57 @@ public class HeadsetService extends ProfileService {
                 return;
             }
             mService.clccResponse(index, direction, status, mode, mpty, number, type);
+        }
+
+        @Override
+        public void registerHeadsetScoCallback(IBluetoothHeadsetScoCallback callback, AttributionSource source,
+                SynchronousResultReceiver receiver) {
+            try {
+                HeadsetService service = getService(source);
+                if ((service == null)) {
+                 receiver.propagateException(new IllegalStateException("Service is unavailable"));
+                 return;
+                }
+                service.registerHeadsetScoCallback(callback);
+                receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+        @Override
+        public void unregisterHeadsetScoCallback(IBluetoothHeadsetScoCallback callback, AttributionSource source,
+                SynchronousResultReceiver receiver) {
+            try {
+                HeadsetService service = getService(source);
+                if ((service == null)) {
+                 receiver.propagateException(new IllegalStateException("Service is unavailable"));
+                 return;
+                }
+                service.unregisterHeadsetScoCallback(callback);
+                receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+    }
+
+    public void notifyHeadsetScoStateChanged(int sco_state) {
+        if (mHeadsetScoCallbacks != null) {
+            synchronized (mCallbackNotifyLock) {
+                final int n = mHeadsetScoCallbacks.beginBroadcast();
+                for (int i = 0; i < n; i++) {
+                    final IBluetoothHeadsetScoCallback callback =
+                            mHeadsetScoCallbacks.getBroadcastItem(i);
+                    try {
+                        Log.d(TAG, "Calling onHeadsetScoStateChanged: " + i);
+                        Log.d(TAG, "onHeadsetScoStateChanged sco_state: " + sco_state);
+                        callback.onHeadsetScoStateChanged(sco_state);
+                    } catch (RemoteException e) {
+                        Log.e(TAG, "Stack:" + Log.getStackTraceString(e));
+                    }
+                }
+                mHeadsetScoCallbacks.finishBroadcast();
+            }
         }
     }
 
@@ -2835,6 +2890,18 @@ public class HeadsetService extends ProfileService {
                 DISABLE_INBAND_RINGING_PROPERTY, true) && !mInbandRingingRuntimeDisable;
         Log.d(TAG, "isInbandRingingEnabled returning: " + returnVal);
         return returnVal;
+    }
+
+    public void registerHeadsetScoCallback(IBluetoothHeadsetScoCallback callback) {
+        if (mHeadsetScoCallbacks != null) {
+            mHeadsetScoCallbacks.register(callback);
+        }
+    }
+
+    public void unregisterHeadsetScoCallback(IBluetoothHeadsetScoCallback callback) {
+        if (mHeadsetScoCallbacks != null) {
+            mHeadsetScoCallbacks.unregister(callback);
+        }
     }
 
     /**
