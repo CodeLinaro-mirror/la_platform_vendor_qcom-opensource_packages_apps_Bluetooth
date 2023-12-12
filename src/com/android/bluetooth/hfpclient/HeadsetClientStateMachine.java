@@ -112,6 +112,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     private static final int QUERY_OPERATOR_NAME = 51;
     private static final int SUBSCRIBER_INFO = 52;
     private static final int CONNECTING_TIMEOUT = 53;
+    private static final int AUDIO_CONNECTING_TIMEOUT = 54;
 
     // special action to handle terminating specific call from multiparty call
     static final int TERMINATE_SPECIFIC_CALL = 53;
@@ -120,6 +121,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     @VisibleForTesting
     static final int CONNECTING_TIMEOUT_MS = 10000;  // 10s
     private static final int ROUTING_DELAY_MS = 250;
+    static final int AUDIO_CONNECTING_TIMEOUT_MS = 3000;  // 3s
 
     private static final int MAX_HFP_SCO_VOICE_CALL_VOLUME = 15; // HFP 1.5 spec.
     private static final int MIN_HFP_SCO_VOICE_CALL_VOLUME = 1; // HFP 1.5 spec.
@@ -283,6 +285,11 @@ public class HeadsetClientStateMachine extends StateMachine {
         mNativeInterface.queryCurrentCalls(getByteAddress(mCurrentDevice));
         addQueuedAction(QUERY_CURRENT_CALLS, 0);
         return true;
+    }
+
+    public boolean getIsHFPDisableInProgress() {
+        return  (sAudioIsRouted == true &&
+            mAudioState == BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED);
     }
 
     private void queryCallsDone() {
@@ -1188,11 +1195,13 @@ public class HeadsetClientStateMachine extends StateMachine {
                                 BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED,
                                 BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED);
                     } else { // We have successfully sent a connect request!
+                        sendMessageDelayed(AUDIO_CONNECTING_TIMEOUT, AUDIO_CONNECTING_TIMEOUT_MS);
                         mAudioState = BluetoothHeadsetClient.STATE_AUDIO_CONNECTING;
                     }
                     break;
 
                 case DISCONNECT_AUDIO:
+                    removeMessages(AUDIO_CONNECTING_TIMEOUT);
                     if (!mNativeInterface.disconnectAudio(getByteAddress(mCurrentDevice))) {
                         Log.e(TAG, "ERROR: Couldn't disconnect Audio for device " + mCurrentDevice);
                     }
@@ -1511,6 +1520,12 @@ public class HeadsetClientStateMachine extends StateMachine {
                     }
 
                     break;
+                case AUDIO_CONNECTING_TIMEOUT:
+                    Log.w(TAG, "Audio Connection timeout for " + mCurrentDevice);
+                    broadcastAudioState(mCurrentDevice,
+                            BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED, mAudioState);
+                    mAudioState = BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
+                    break;
                 default:
                     return NOT_HANDLED;
             }
@@ -1567,6 +1582,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                         break;
                     }
 
+                    removeMessages(AUDIO_CONNECTING_TIMEOUT);
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_CONNECTED;
 
                     // We need to set the volume after switching into HFP mode as some Audio HALs
@@ -1606,6 +1622,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
                 case HeadsetClientHalConstants.AUDIO_STATE_DISCONNECTED:
                     // No state transition is involved, fire broadcast immediately
+                    removeMessages(AUDIO_CONNECTING_TIMEOUT);
                     broadcastAudioState(device, BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED,
                             mAudioState);
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
@@ -1742,6 +1759,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // (such as Telecom) and hence this will still keep the call around, there
                     // is not much we can do here since dropping the call without user consent
                     // even if the audio connection snapped may not be a good idea.
+                    queryCallsStart();
                     routeHfpAudio(false);
                     returnAudioFocusIfNecessary();
                     transitionTo(mConnected);

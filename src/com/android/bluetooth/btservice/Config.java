@@ -69,6 +69,7 @@ public class Config {
     private static ArrayList<Class> profiles = new ArrayList<>();
     private static boolean mIsA2dpSink, mIsSplitSink, mIsBAEnabled, mIsSplitA2dpEnabled;
     private static boolean mIsHfpClient;
+    private static boolean mIsPbapClient;
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -219,6 +220,12 @@ public class Config {
                 // ignore adding map client service for targets where map client is disabled
                 if ((config.mClass.getSimpleName().equals("MapClientService")) &&
                     (!mIsSplitSink)) {
+                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
+                    continue;
+                }
+                // ignore adding pbap client service for targets where pbap client is disabled
+                if ((config.mClass.getSimpleName().equals("PbapClientService")) &&
+                    (!mIsPbapClient)) {
                     Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
                     continue;
                 }
@@ -468,6 +475,7 @@ public class Config {
         mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", false);
         mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
         mIsHfpClient = SystemProperties.getBoolean("persist.vendor.bluetooth.hfp_client", false);
+        mIsPbapClient = SystemProperties.getBoolean("persist.vendor.bluetooth.pbap_client", false);
         // Split A2dp will be enabled by default
         mIsSplitA2dpEnabled = true;
         AdapterService adapterService = AdapterService.getAdapterService();
@@ -480,6 +488,6 @@ public class Config {
             Log.d(TAG, "getAudioProperties mIsA2dpSink " + mIsA2dpSink + " mIsBAEnabled "
                 + mIsBAEnabled + " mIsSplitA2dpEnabled " + mIsSplitA2dpEnabled);
         }
-        Log.d(TAG, "getAudioProperties mIsHfpClient" + mIsHfpClient);
+        Log.d(TAG, "getAudioProperties mIsHfpClient" + mIsHfpClient + " mIsPbapClient " + mIsPbapClient);
     }
 }

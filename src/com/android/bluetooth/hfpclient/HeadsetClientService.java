@@ -852,6 +852,15 @@ public class HeadsetClientService extends ProfileService {
         return false;
     }
 
+    public boolean IsHFPDisableInProgress(BluetoothDevice device) {
+        HeadsetClientStateMachine sm = getStateMachine(device);
+        if (sm == null) {
+            return false;
+        }
+        return sm.getIsHFPDisableInProgress();
+
+     }
+
     public boolean sendDTMF(BluetoothDevice device, byte code) {
 
         HeadsetClientStateMachine sm = getStateMachine(device);
@@ -880,12 +889,12 @@ public class HeadsetClientService extends ProfileService {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
-            return null;
+            return  new ArrayList<BluetoothHeadsetClientCall>();
         }
 
         int connectionState = sm.getConnectionState(device);
         if (connectionState != BluetoothProfile.STATE_CONNECTED) {
-            return null;
+            return  new ArrayList<BluetoothHeadsetClientCall>();
         }
         return sm.getCurrentCalls();
     }
