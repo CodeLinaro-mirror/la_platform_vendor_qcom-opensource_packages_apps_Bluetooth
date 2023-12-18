@@ -499,7 +499,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         if (DBG) {
             Log.d(TAG, "queryCallsUpdate: " + id);
         }
-        mCallsUpdate.put(id,
+        mCallsUpdate.put((id + number.hashCode()),
                 new BluetoothHeadsetClientCall(mCurrentDevice, id, state, number, multiParty,
                         outgoing, getInBandRing()));
     }
