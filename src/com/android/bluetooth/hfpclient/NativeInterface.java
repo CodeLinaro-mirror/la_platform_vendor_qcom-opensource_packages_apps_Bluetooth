@@ -633,7 +633,19 @@ public class NativeInterface {
     }
 
     private void onLastVoiceTagNumber(String number, byte[] address) {
-        Log.w(TAG, "onLastVoiceTagNumber not supported");
+        StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_LAST_VOICE_TAG_NUMBER);
+        event.valueString = number;
+        event.device = getDevice(address);
+        if (DBG) {
+            Log.d(TAG, "onLastVoiceTagNumber: number " + number + ", device " + event.device);
+        }
+
+        HeadsetClientService service = HeadsetClientService.getHeadsetClientService();
+        if (service != null) {
+            service.messageFromNative(event);
+        } else {
+            Log.w(TAG, "onLastVoiceTagNumber: Ignoring message because service not available: " + event);
+        }
     }
 
     private void onRingIndication(byte[] address) {
