@@ -276,15 +276,15 @@ public class LeAudioService extends ProfileService {
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         mBondStateChangedReceiver = new BondStateChangedReceiver();
-        registerReceiver(mBondStateChangedReceiver, filter);
+        registerReceiver(mBondStateChangedReceiver, filter, Context.RECEIVER_EXPORTED);
         filter = new IntentFilter();
         filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
         mConnectionStateChangedReceiver = new ConnectionStateChangedReceiver();
-        registerReceiver(mConnectionStateChangedReceiver, filter);
+        registerReceiver(mConnectionStateChangedReceiver, filter, Context.RECEIVER_EXPORTED);
         filter = new IntentFilter();
         filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_ACTIVE_DEVICE_CHANGED);
         mActiveDeviceChangedReceiver = new ActiveDeviceChangedReceiver();
-        registerReceiver(mActiveDeviceChangedReceiver, filter);
+        registerReceiver(mActiveDeviceChangedReceiver, filter, Context.RECEIVER_EXPORTED);
         mLeAudioCallbacks = new RemoteCallbackList<IBluetoothLeAudioCallback>();
 
         // Initialize Broadcast native interface
@@ -322,7 +322,7 @@ public class LeAudioService extends ProfileService {
         if (mPtsMediaAndVoice == 2 && mPtsTmapConfBandC) {
             filter = new IntentFilter();
             filter.addAction(ACTION_LE_AUDIO_CONNECTION_TRIGGER);
-            registerReceiver(mLeAudioServiceReceiver, filter);
+            registerReceiver(mLeAudioServiceReceiver, filter, Context.RECEIVER_EXPORTED);
         }
 
         return true;

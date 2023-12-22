@@ -903,7 +903,7 @@ public class ActiveDeviceManager {
             filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
         }
         filter.addAction(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
-        mAdapterService.registerReceiver(mReceiver, filter);
+        mAdapterService.registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
 
         mAudioManager.registerAudioDeviceCallback(mAudioManagerAudioDeviceCallback, mHandler);
     }

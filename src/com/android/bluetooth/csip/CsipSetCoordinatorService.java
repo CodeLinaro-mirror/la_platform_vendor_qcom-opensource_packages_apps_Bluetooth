@@ -190,11 +190,14 @@ public class CsipSetCoordinatorService extends ProfileService {
                     int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE,
                         BluetoothDevice.ERROR);
                     if (bondState == BluetoothDevice.BOND_NONE) {
-                        int setId = getRemoteDeviceGroupId(device, null);
-                        if (setId < BluetoothDeviceGroup.INVALID_GROUP_ID) {
-                            Log.i(TAG, " Group Device "+ device +
-                                    " unpaired. Group ID: " + setId);
-                            removeSetMemberFromCSet(setId, device);
+                        List<DeviceGroup> cSets = getRemoteDeviceCSets(device);
+                        for (DeviceGroup set: cSets) {
+                          int setId = set.getDeviceGroupId();
+                          Log.i(TAG, "Device: " + device +
+                                     " Set ID: " + setId);
+                          if (setId < BluetoothDeviceGroup.INVALID_GROUP_ID) {
+                              removeSetMemberFromCSet(setId, device);
+                          }
                         }
                         synchronized (mStateMachines) {
                             CsipSetCoordinatorStateMachine sm = mStateMachines.get(device);
@@ -917,12 +920,41 @@ public class CsipSetCoordinatorService extends ProfileService {
             if ((cSet.getDeviceGroupMembers().contains(device) ||
                     cSet.getDeviceGroupMembers().contains(setDevice)) &&
                     cSet.getIncludingServiceUUID().equals(uuid)) {
-                Log.i(TAG, "Set " + cSet.getDeviceGroupId() + " has " + uuid);
+                if (VDBG) Log.i(TAG, "Set " + cSet.getDeviceGroupId() + " has " + uuid);
                 return true;
             }
         }
 
         return false;
+    }
+
+    /* Get List of Coordinated Set's a give device is part of */
+    public List<DeviceGroup> getRemoteDeviceCSets (BluetoothDevice device) {
+        if (DBG) {
+            Log.d(TAG, "getRemoteDeviceCSets: device = " + device);
+        }
+
+        List<DeviceGroup> coordinatedSets = new ArrayList<DeviceGroup>();
+
+        if (mAdapterService == null) {
+            Log.e(TAG, "AdapterService instance is NULL. Return.");
+            return coordinatedSets;
+        }
+
+        BluetoothDevice setDevice = null;
+        if (mAdapterService.isIgnoreDevice(device)) {
+            setDevice = mAdapterService.getIdentityAddress(device);
+        }
+
+        for (DeviceGroup cSet: mCoordinatedSets) {
+            if (cSet.getDeviceGroupMembers().contains(device) ||
+                    cSet.getDeviceGroupMembers().contains(setDevice)) {
+                Log.i(TAG, "device present in set " + cSet.getDeviceGroupId());
+                coordinatedSets.add(cSet);
+            }
+        }
+
+        return coordinatedSets;
     }
 
     /* This API is called when pairing with LE Audio capable set member fails or
