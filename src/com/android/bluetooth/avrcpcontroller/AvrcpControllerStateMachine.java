@@ -33,6 +33,7 @@ import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 import android.util.SparseArray;
 
@@ -55,6 +56,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final String TAG = "AvrcpControllerStateMachine";
     static final boolean DBG = true;
 
+    private static boolean mIsSplitSink = false;
     //0->99 Events from Outside
     public static final int CONNECT = 1;
     public static final int DISCONNECT = 2;
@@ -176,6 +178,8 @@ class AvrcpControllerStateMachine extends StateMachine {
         mService.registerReceiver(mBroadcastReceiver, filter);
         mCoveArtUtils = new CoverArtUtils();
         mBipStateMachine = AvrcpControllerBipStateMachine.make(this, getHandler(), service);
+        mIsSplitSink = SystemProperties.
+          getBoolean("persist.vendor.bluetooth.split_a2dp_sink", false);
 
         Log.d(TAG, "Setting initial state: Disconnected: " + mDevice);
         setInitialState(mDisconnected);
@@ -475,6 +479,12 @@ class AvrcpControllerStateMachine extends StateMachine {
                                     Log.d(TAG, " Sending Changed Response = " + percentageVol +
                                           " label: " + msg.arg1 + " mPreviousPercentageVol: " +
                                           mPreviousPercentageVol);
+                                }
+                                if (mIsSplitSink) {
+                                    int currIndex = mAudioManager.getStreamVolume(
+                                                            AudioManager.STREAM_MUSIC);
+                                    String volume_param  = "btsink_volume=" + currIndex;
+                                    mAudioManager.setParameters(volume_param);
                                 }
                                 AvrcpControllerService.sendRegisterAbsVolRspNative(
                                         mRemoteDevice.getBluetoothAddress(),
@@ -930,6 +940,11 @@ class AvrcpControllerStateMachine extends StateMachine {
         if (newIndex != currIndex) {
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newIndex,
                     AudioManager.FLAG_SHOW_UI);
+            if (mIsSplitSink) {
+                String volume_param  = "btsink_volume="+newIndex;
+                Log.d(TAG,"setAbsVolume : "+volume_param);
+                mAudioManager.setParameters(volume_param);
+            }
         }
         AvrcpControllerService.sendAbsVolRspNative(mDeviceAddress, absVol, label);
     }

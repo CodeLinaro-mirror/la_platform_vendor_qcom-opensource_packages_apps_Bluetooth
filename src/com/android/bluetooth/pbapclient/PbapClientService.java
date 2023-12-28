@@ -20,10 +20,12 @@ import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothPbapClient;
 import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -36,6 +38,7 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
+import com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService;
 import com.android.bluetooth.sdp.SdpManager;
 
 import java.util.ArrayList;
@@ -89,6 +92,9 @@ public class PbapClientService extends ProfileService {
             if (DBG) Log.d(TAG, "register custom action");
             filter.addAction(PbapClientHandler.ACTION_CUSTOM_ACTION);
         }
+        // To remove call logs when PBAP was never connected while calls were made,
+        // we also listen for HFP to become disconnected.
+        filter.addAction(BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED);
         try {
             registerReceiver(mPbapBroadcastReceiver, filter);
         } catch (Exception e) {
@@ -146,6 +152,21 @@ public class PbapClientService extends ProfileService {
         }
     }
 
+    private void removeHfpCallLog(String accountName, Context context) {
+        if (DBG) Log.d(TAG, "Removing call logs from " + accountName);
+        // Delete call logs belonging to accountName==BD_ADDR that also match
+        // component name "hfpclient".
+        ComponentName componentName = new ComponentName(context, HfpClientConnectionService.class);
+        String selectionFilter = CallLog.Calls.PHONE_ACCOUNT_ID + "=? AND "
+                + CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + "=?";
+        String[] selectionArgs = new String[]{accountName, componentName.flattenToString()};
+        try {
+            getContentResolver().delete(CallLog.Calls.CONTENT_URI, selectionFilter, selectionArgs);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, "Call Logs could not be deleted, they may not exist yet.");
+        }
+    }
+
     private void registerSdpRecord() {
         SdpManager sdpManager = SdpManager.getDefaultManager();
         if (sdpManager == null) {
@@ -194,6 +215,21 @@ public class PbapClientService extends ProfileService {
             } else if (action.equals(PbapClientHandler.ACTION_CUSTOM_ACTION)) {
                 Bundle extras = (Bundle) intent.getExtra(PbapClientHandler.EXTRA_CUSTOM_ACTION);
                 handleCustomAction(extras);
+            } else if (action.equals(BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED)) {
+                // PbapClientConnectionHandler has code to remove calllogs when PBAP disconnects.
+                // However, if PBAP was never connected/enabled in the first place, and calls are
+                // made over HFP, these calllogs will not be removed when the device disconnects.
+                // This code ensures callogs are still removed in this case.
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                int newState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
+
+                if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    if (DBG) {
+                        Log.d(TAG, "Received intent to disconnect HFP with " + device);
+                    }
+                    // HFP client stores entries in calllog.db by BD_ADDR and component name
+                    removeHfpCallLog(device.getAddress(), context);
+                }
             }
         }
     }

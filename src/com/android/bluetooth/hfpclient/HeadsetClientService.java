@@ -853,6 +853,15 @@ public class HeadsetClientService extends ProfileService {
         return false;
     }
 
+    public boolean IsHFPDisableInProgress(BluetoothDevice device) {
+        HeadsetClientStateMachine sm = getStateMachine(device);
+        if (sm == null) {
+            return false;
+        }
+        return sm.getIsHFPDisableInProgress();
+
+     }
+
     public boolean sendDTMF(BluetoothDevice device, byte code) {
 
         HeadsetClientStateMachine sm = getStateMachine(device);
