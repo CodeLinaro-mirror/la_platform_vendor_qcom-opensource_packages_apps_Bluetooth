@@ -398,6 +398,23 @@ class PbapClientConnectionHandler extends Handler {
         }
     }
 
+    void downloadCallLog(String path, byte format, int maxListCount, int listStartOffset, HashMap<String, Integer> callCounter) {
+        try {
+            BluetoothPbapRequestPullPhoneBook request =
+                    new BluetoothPbapRequestPullPhoneBook(path, mAccount, 0, format, maxListCount, listStartOffset);
+            request.execute(mObexSession);
+            CallLogPullRequest processor =
+                    new CallLogPullRequest(mPbapClientStateMachine.getContext(), path,
+                        callCounter, mAccount);
+            processor.setResults(request.getList());
+            processor.onPullComplete();
+
+            processPullPhonebookResp(request);
+        } catch (IOException e) {
+            Log.w(TAG, "Download call log failure");
+        }
+    }
+
     void downloadCallLog(String path, HashMap<String, Integer> callCounter) {
         try {
             BluetoothPbapRequestPullPhoneBook request =
@@ -421,6 +438,11 @@ class PbapClientConnectionHandler extends Handler {
             return true;
         }
         return false;
+    }
+
+    void downloadCallLog(String path, byte format, int maxListCount, int listStartOffset) {
+        HashMap<String, Integer> callCounter = new HashMap<>();
+        downloadCallLog(path, format, maxListCount, listStartOffset, callCounter);
     }
 
     void downloadCallLog(String path) {
@@ -528,7 +550,7 @@ class PbapClientConnectionHandler extends Handler {
             // Delete old call log
             removeCallLog(mAccount);
             // Download new call log
-            downloadCallLog(pbName);
+            downloadCallLog(pbName, format, maxListCount, listStartOffset);
             return;
         }
 
