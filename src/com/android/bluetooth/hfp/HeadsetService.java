@@ -106,6 +106,8 @@ import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 import com.android.modules.utils.SynchronousResultReceiver;
 import com.android.bluetooth.cc.CCService;
 import com.android.bluetooth.acm.AcmService;
+import com.android.bluetooth.apm.StreamAudioService;
+
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -162,6 +164,7 @@ public class HeadsetService extends ProfileService {
     private int mSetMaxConfig;
     private BluetoothDevice mActiveDevice;
     private BluetoothDevice mTempActiveDevice;
+    private BluetoothDevice mTempDualModeActiveDevice;
     private boolean mSHOStatus = false;
     private AdapterService mAdapterService;
     private DatabaseManager mDatabaseManager;
@@ -191,8 +194,12 @@ public class HeadsetService extends ProfileService {
     private boolean mIsTwsPlusShoEnabled = false;
     private vendorhfservice  mVendorHf;
     private Context mContext = null;
+    private static final int BAP_CALL  = 0x10;
     private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
     private static final int AUDIO_CONNECTION_DELAY_DEFAULT = 100;
+    private static final String ACTION_BATTERY_STATE_CHANGED = "android.bluetooth.action.BATTERY_STATE_CHANGED";
+    private static final String EXTRA_BATTERY_STATE = "android.bluetooth.extra.battery.STATE";
+    private static final String ACTION_ROAMING_STATE_CHANGED = "android.bluetooth.action.ROAMING_STATE_CHANGED";
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -279,7 +286,9 @@ public class HeadsetService extends ProfileService {
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
-        registerReceiver(mHeadsetReceiver, filter);
+        filter.addAction(ACTION_BATTERY_STATE_CHANGED);
+        filter.addAction(ACTION_ROAMING_STATE_CHANGED);
+        registerReceiver(mHeadsetReceiver, filter, Context.RECEIVER_EXPORTED);
         // Step 7: Mark service as started
 
         setHeadsetService(this);
@@ -555,6 +564,12 @@ public class HeadsetService extends ProfileService {
                     mSystemInterface.getHeadsetPhoneState().setCindBatteryCharge(cindBatteryLevel);
                     break;
                 }
+                case ACTION_ROAMING_STATE_CHANGED: {
+                    logD(" Received ACtion_Roaming_STATE_CHANGED ");
+                    doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessage(
+                            HeadsetStateMachine.UPDATE_ROAMING_STATE, intent));
+                    break;
+                }
                 case AudioManager.VOLUME_CHANGED_ACTION: {
                     int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
                     if (streamType == AudioManager.STREAM_BLUETOOTH_SCO) {
@@ -617,6 +632,12 @@ public class HeadsetService extends ProfileService {
                     logD("Received BluetoothA2dp Connection State changed");
                     mHfpA2dpSyncInterface.updateA2DPConnectionState(intent);
                     break;
+                }
+                case ACTION_BATTERY_STATE_CHANGED: {
+                     logD("Received ACTION_BATTERY_STATE_CHANGED");
+                     int cindBatteryLevel = intent.getIntExtra(EXTRA_BATTERY_STATE, 0);
+                     mSystemInterface.getHeadsetPhoneState().setCindBatteryCharge(cindBatteryLevel);
+                     break;
                 }
                 default:
                     Log.w(TAG, "Unknown action " + action);
@@ -2343,7 +2364,39 @@ public class HeadsetService extends ProfileService {
             }
             if (mActiveDevice == null) {
                 Log.w(TAG, "startScoUsingVirtualVoiceCall: no active device");
-                return false;
+                if (Utils.isDualModeAudioEnabled()) {
+                    Log.i(TAG, "Dual mode is enabled");
+                    ActiveDeviceManagerServiceIntf mActiveDeviceManager =
+                            ActiveDeviceManagerServiceIntf.get();
+                    StreamAudioService mStreamAudioService =
+                            StreamAudioService.getStreamAudioService();
+                    if (mActiveDeviceManager != null) {
+                       mTempDualModeActiveDevice =
+                             mActiveDeviceManager.getActiveAbsoluteDevice(ApmConstIntf.AudioFeatures.CALL_AUDIO);
+                    }
+                    if (mStreamAudioService != null) {
+                       Log.i(TAG, "Setting ACM null device");
+                       int ret =
+                             mStreamAudioService.setActiveDevice(null,
+                                                                 BAP_CALL,
+                                                                 false);
+			           mHfpA2dpSyncInterface.suspendLeAudio(HeadsetA2dpSync.
+                                                       A2DP_SUSPENDED_BY_CS_CALL);
+                    }
+                    if (mTempDualModeActiveDevice != null) {
+                        int ret  = setActiveDeviceHF(mTempDualModeActiveDevice);
+                        if (ret == ActiveDeviceManagerServiceIntf.SHO_SUCCESS) {
+                            //Active device is set. Initiate SCO.
+                            Log.i(TAG, "active device is set. Initiate SCO");
+                        } else {
+                            return false;
+                        }
+                    } else {
+                       return false;
+                    }
+                } else {
+                  return false;
+                }
             }
             mVirtualCallStarted = true;
             mSystemInterface.getHeadsetPhoneState().setIsCsCall(false);
@@ -2368,6 +2421,21 @@ public class HeadsetService extends ProfileService {
             mVirtualCallStarted = false;
             // 2. Send virtual phone state changed to close SCO
             phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, "", true);
+        }
+        if (Utils.isDualModeAudioEnabled()) {
+           StreamAudioService mStreamAudioService =
+                       StreamAudioService.getStreamAudioService();
+           if (mTempDualModeActiveDevice != null) {
+               if (mStreamAudioService != null) {
+                   Log.i(TAG, "Setting ACM device after voip");
+                   int ret =
+                        mStreamAudioService.setActiveDevice(mTempDualModeActiveDevice,
+                                                            BAP_CALL,
+                                                            false);
+               }
+               setActiveDeviceHF(null);
+               mTempDualModeActiveDevice = null;
+           }
         }
         return true;
     }

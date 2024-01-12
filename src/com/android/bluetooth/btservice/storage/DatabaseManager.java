@@ -74,6 +74,7 @@ import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.bluetooth.apm.ApmConstIntf;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -981,6 +982,19 @@ public class DatabaseManager {
         return ret;
     }
 
+    public void resetActiveDevice(int profileId) {
+        boolean isAospLeAudioEnabled = ApmConstIntf.getAospLeaEnabled();
+        Log.w(TAG, "resetActiveDevice for profile " + profileId);
+        if (isAospLeAudioEnabled && (profileId == BluetoothProfile.LE_AUDIO)) {
+            resetActiveLeAudioDevice();
+        }
+        if (profileId == BluetoothProfile.A2DP) {
+            resetActiveA2dpDevice();
+        }
+        if (profileId == BluetoothProfile.HEADSET) {
+            resetActiveHfpDevice();
+        }
+    }
     /**
      * Remove a2dpActiveDevice from the current active device in the connection order table
      */

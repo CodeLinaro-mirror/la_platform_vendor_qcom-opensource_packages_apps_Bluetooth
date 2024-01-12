@@ -631,6 +631,10 @@ public class BluetoothInCallService extends InCallService {
 
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean queryPhoneState() {
+        if (mServiceCreated == false) {
+             Log.w(TAG, "queryPhoneState is called when service is not created");
+             return false;
+        }
         Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
         DsdaIntent.putExtra("state", QUERY_PHONE_STATE);
         DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);

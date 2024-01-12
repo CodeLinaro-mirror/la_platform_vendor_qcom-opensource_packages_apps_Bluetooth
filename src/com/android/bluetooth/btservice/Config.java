@@ -576,6 +576,8 @@ public class Config {
             return addAospAudioProfiles(serviceName);
         } if (serviceName.equals("VolumeControlService")) {
             return VolumeControlService.isEnabled();
+        } if (serviceName.equals("HapClientService")) {
+            return addAospAudioProfiles(serviceName);
         }
 
         // always return true for other profiles
@@ -597,6 +599,10 @@ public class Config {
         if (serviceName.equals("BassClientService") &&
                 adapterService.isLeAudioBroadcastAssistantSupported() ==
                 BluetoothStatusCodes.FEATURE_NOT_SUPPORTED) {
+            return false;
+        }
+        if (serviceName.equals("HapClientService") && (adapterService.isHapClientSupported() ==
+               BluetoothStatusCodes.FEATURE_NOT_SUPPORTED)) {
             return false;
         }
         return true;

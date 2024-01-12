@@ -102,11 +102,12 @@ public class BluetoothOppPreference {
     }
 
     public String getName(BluetoothDevice remoteDevice) {
-        if (remoteDevice.getIdentityAddress().equals("FF:FF:FF:00:00:00")) {
+        String address = remoteDevice.getIdentityAddress();
+        if (address != null && address.equals("FF:FF:FF:00:00:00")) {
             return "localhost";
         }
         if (!mNames.isEmpty()) {
-            String name = mNames.get(remoteDevice.getIdentityAddress());
+            String name = mNames.get(address);
             if (name != null) {
                 return name;
             }
