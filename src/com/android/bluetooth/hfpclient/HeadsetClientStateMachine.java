@@ -499,7 +499,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         if (DBG) {
             Log.d(TAG, "queryCallsUpdate: " + id);
         }
-        mCallsUpdate.put(id,
+        mCallsUpdate.put((id + number.hashCode()),
                 new BluetoothHeadsetClientCall(mCurrentDevice, id, state, number, multiParty,
                         outgoing, getInBandRing()));
     }
@@ -1413,7 +1413,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                                 HeadsetClientHalConstants.NETWORK_STATE_AVAILABLE) ?
                                 "mIndicatorNetworkState: NETWORK_STATE_AVAILABLE" :
                                 "mIndicatorNetworkState: NETWORK_STATE_NOT_AVAILABLE");
-                    if (mIndicatorNetworkState ==
+
+                    // Do not intiate MO call if companion is already in call set up
+                    if (!mCallIsInSetup && mIndicatorNetworkState ==
                                 HeadsetClientHalConstants.NETWORK_STATE_AVAILABLE
                                 && mNativeInterface.dial(getByteAddress(mCurrentDevice), c.getNumber())) {
                         addQueuedAction(DIAL_NUMBER, c.getNumber());
@@ -2093,6 +2095,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     private void broadcastAudioState(BluetoothDevice device, int newState, int prevState) {
+        mService.notifyHeadsetClientScoStateChanged(newState);
         BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_SCO_CONNECTION_STATE_CHANGED,
                 AdapterService.getAdapterService().obfuscateAddress(device),
                 getConnectionStateFromAudioState(newState), mAudioWbs
