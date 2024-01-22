@@ -362,8 +362,12 @@ public class A2dpSinkService extends ProfileService {
         return getDevicesMatchingConnectionStates(new int[]{BluetoothAdapter.STATE_CONNECTED});
     }
 
-    public void NotifyHFcallsChanged() {
-        Log.d(TAG ," NotifyHFcallsChanged ");
+    public void NotifyHFcallsChanged(BluetoothDevice device) {
+        Log.d(TAG ," NotifyHFcallsChanged from : " + device);
+        if ((mStreamingDevice == null) || ((mStreamingDevice != null) && (device.equals(mStreamingDevice)))) {
+            Log.d(TAG ," No streaming device or HFPclient and streaming device are the same.");
+            return;
+        }
         List <BluetoothHeadsetClientCall> callList =  new ArrayList<BluetoothHeadsetClientCall>();
         if(mHeadsetClientService == null)
             mHeadsetClientService = HeadsetClientService.getHeadsetClientService();
