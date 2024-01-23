@@ -69,6 +69,7 @@ public class A2dpSinkStateMachine extends StateMachine {
     protected int mMediaControlCommand = MEDIA_CONTROL_NONE;
     protected int mMostRecentState = BluetoothProfile.STATE_DISCONNECTED;
     protected BluetoothAudioConfig mAudioConfig = null;
+    protected boolean ShouldConnectA2dpNative = false;
 
     A2dpSinkStateMachine(BluetoothDevice device, A2dpSinkService service) {
         super(TAG);
@@ -184,6 +185,7 @@ public class A2dpSinkStateMachine extends StateMachine {
                     return true;
                 case CONNECT:
                     if (DBG) Log.d(TAG, "Connect");
+                    ShouldConnectA2dpNative = true;
                     transitionTo(mConnecting);
                     return true;
                 case CLEANUP:
@@ -227,9 +229,9 @@ public class A2dpSinkStateMachine extends StateMachine {
             if (DBG) Log.d(TAG, "Enter Connecting");
             onConnectionStateChanged(BluetoothProfile.STATE_CONNECTING);
             sendMessageDelayed(CONNECT_TIMEOUT, CONNECT_TIMEOUT_MS);
-
-            if (!mIncommingConnection) {
+            if (ShouldConnectA2dpNative) {
                 mService.connectA2dpNative(mDeviceAddress);
+                ShouldConnectA2dpNative = false;
             }
 
             super.enter();
