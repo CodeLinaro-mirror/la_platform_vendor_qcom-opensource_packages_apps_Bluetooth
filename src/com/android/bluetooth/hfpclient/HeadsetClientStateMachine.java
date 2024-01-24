@@ -1460,6 +1460,12 @@ public class HeadsetClientStateMachine extends StateMachine {
                         case StackEvent.EVENT_TYPE_CLIP:
                         case StackEvent.EVENT_TYPE_CALL_WAITING:
                             sendMessage(QUERY_CURRENT_CALLS);
+                            if ((event.type == StackEvent.EVENT_TYPE_CALLSETUP
+                                || event.type == StackEvent.EVENT_TYPE_CALL)
+                                && (event.valueInt == 0)) {
+                              Log.d(TAG, "No current call is in setup or active.");
+                              break;
+                            }
                             mA2dpService.NotifyHFcallsChanged(mCurrentDevice);
                             break;
                         case StackEvent.EVENT_TYPE_CURRENT_CALLS:
