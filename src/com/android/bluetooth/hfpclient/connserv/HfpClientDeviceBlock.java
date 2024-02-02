@@ -13,6 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 package com.android.bluetooth.hfpclient.connserv;
 
 import android.bluetooth.BluetoothDevice;
@@ -172,6 +179,18 @@ public class HfpClientDeviceBlock {
         }
 
         HfpClientConnection connection = findConnectionKey(call);
+
+        // We found this issue in a special test case. Supposing WeChat voice call is active
+        // and user dial another outgoing call from the application, some peer devices return
+        // with "CIEV:1,0" immediately after receiving ATD command. This can cause null object
+        // reference error of "mCurrentCall".
+        if ((connection == null) &&
+            (call.getState() == BluetoothHeadsetClientCall.CALL_STATE_TERMINATED)) {
+            if (DBG) {
+                Log.d(mTAG, "connection references to null object and call is terminated!");
+            }
+            return;
+        }
 
         // We need to have special handling for calls that mysteriously convert from
         // DISCONNECTING -> ACTIVE/INCOMING state. This can happen for PTS (b/31159015).

@@ -13,6 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 /**
  * Bluetooth Headset Client StateMachine
@@ -642,7 +648,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                 return;
         }
 
-        if (flag == BluetoothHeadsetClient.CALL_ACCEPT_HOLD) {
+        // It is meaningless to tell audio hal routing audio when eSCO/SCO is
+        // not in connected status.
+        if ((mAudioState == BluetoothHeadsetClient.STATE_AUDIO_CONNECTED) &&
+            (flag == BluetoothHeadsetClient.CALL_ACCEPT_HOLD)) {
             // When unholding a call over Bluetooth make sure to route audio.
             routeHfpAudio(true);
         }
@@ -1127,6 +1136,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                         broadcastConnectionState(device, BluetoothProfile.STATE_DISCONNECTED,
                                 BluetoothProfile.STATE_DISCONNECTED);
                     }
+                    break;
+                case HeadsetClientHalConstants.CONNECTION_STATE_SLC_CONNECTED:
+                    Log.i(TAG, "Disconnected: Unexpected statet: " + state);
+                    mNativeInterface.disconnect(getByteAddress(device));
                     break;
                 case HeadsetClientHalConstants.CONNECTION_STATE_CONNECTING:
                 case HeadsetClientHalConstants.CONNECTION_STATE_DISCONNECTED:
