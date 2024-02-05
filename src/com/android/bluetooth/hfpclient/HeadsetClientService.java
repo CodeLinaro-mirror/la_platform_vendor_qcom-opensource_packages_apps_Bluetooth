@@ -68,6 +68,7 @@ public class HeadsetClientService extends ProfileService {
     private static final String ACTION_AUDIO_CONN_DISCONN = "android.bluetooth.action.HFP_CLIENT_AUDIO_ACTION";
     private static final String EXTRA_AUDIO_STATE = "android.bluetooth.extra.audio.STATE";
     private static final String ACTION_QUERY_NETWORK = "android.bluetooth.action.HFP_CLIENT_NETWORK_NAME";
+    private static final String ACTION_ON_CLIENT_CALL = "android.bluetooth.action.ON_HFP_CLIENT_CALL";
     private HashMap<BluetoothDevice, HeadsetClientStateMachine> mStateMachineMap = new HashMap<>();
     private static HeadsetClientService sHeadsetClientService;
     private NativeInterface mNativeInterface = null;
@@ -118,6 +119,7 @@ public class HeadsetClientService extends ProfileService {
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         filter.addAction(ACTION_AUDIO_CONN_DISCONN);
         filter.addAction(ACTION_QUERY_NETWORK);
+        filter.addAction(ACTION_ON_CLIENT_CALL);
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(AG_CALL_DISCONNECTED);
@@ -230,6 +232,13 @@ public class HeadsetClientService extends ProfileService {
                       sm.sendMessage(
                               HeadsetClientStateMachine.QUERY_OPERATOR_NAME);
                   }
+             }
+           } else if (action.equals(ACTION_ON_CLIENT_CALL)) {
+              Log.d(TAG, "Received ACTION_ON_CLIENT_CALL action");
+              for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                  if (sm != null) {
+                      sm.sendMessage(HeadsetClientStateMachine.REJECT_CALL);
+                }
               }
            } else if (action.equals(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED)) {
               Log.d(TAG, "Received BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED");
