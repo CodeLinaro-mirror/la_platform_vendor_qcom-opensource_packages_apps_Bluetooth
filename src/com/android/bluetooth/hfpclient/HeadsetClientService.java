@@ -78,7 +78,6 @@ public class HeadsetClientService extends ProfileService {
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
     private static final int MAX_HFP_CLIENTS_SUPPORTED = 1;
-    private static final String AG_CALL_DISCONNECTED = "22";
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
     private RemoteCallbackList<IBluetoothHeadsetClientScoCallback> mHeadsetClientScoCallbacks;
     private final Object mCallbackNotifyLock = new Object();
@@ -120,8 +119,6 @@ public class HeadsetClientService extends ProfileService {
         filter.addAction(ACTION_QUERY_NETWORK);
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(AG_CALL_DISCONNECTED);
-        filter.addAction(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED);
         registerReceiver(mBroadcastReceiver, filter, Context.RECEIVER_EXPORTED);
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
@@ -251,41 +248,6 @@ public class HeadsetClientService extends ProfileService {
                               HeadsetClientStateMachine.ACTION_CONNECTION_STATE_CHANGED, currState);
                   }
               }
-           }
-           else if (action.equals(AG_CALL_DISCONNECTED)) {
-            Log.d(TAG, "Received AG_CALL_DISCONNECTED");
-            // If SCO is not present here with Headset, for eg, if AG call
-            // is on DUT speaker, we need to check if any active
-            // HFP Client call is present on companion after
-            // AG call is disconnected
-            if(HeadsetService.getHeadsetService().isAudioOn()) {
-                // Do not send CLCC if SCO is active
-                Log.d(TAG, "HeadsetService in AudioOn state, not sending CLCC");
-                return;
-            }
-            for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
-                if (sm != null) {
-                    sm.sendMessage(
-                            HeadsetClientStateMachine.SEND_CLCC);
-                }
-            }
-         }
-         else if (action.equals(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED)) {
-            Log.d(TAG, "Received BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED");
-            // Query HFP Client call information after AG SCO is disconnected
-            // CLCC response from Companion will be displayed on Dialer app
-            int currState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
-            if(currState != BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
-                // Do not send CLCC if Audio is not disconnected
-                Log.d(TAG, " Headset State is not BluetoothHeadset.STATE_AUDIO_DISCONNECTED");
-                return;
-            }
-            for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
-                if (sm != null) {
-                    sm.sendMessage(
-                            HeadsetClientStateMachine.SEND_CLCC);
-                }
-            }
          }
         }
     };
