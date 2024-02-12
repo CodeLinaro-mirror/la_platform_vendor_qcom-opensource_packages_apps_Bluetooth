@@ -2290,7 +2290,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                 misA2dpPlaying = mA2dpService.isA2dpPlaying(a2dpActivedevice);
         }
 
-        mAudioManager.setParameters("A2dpSuspended=true");
+        mAudioManager.setA2dpSuspended(true);
         if(!misA2dpPlaying) {
              Log.d(TAG," A2DP Connected,don't wait for suspend ");
              return true;
@@ -2313,7 +2313,7 @@ public class HeadsetClientStateMachine extends StateMachine {
            Log.d(TAG,"headsetService is in call, no need to releaseA2DP");
            return;
        }
-       mAudioManager.setParameters("A2dpSuspended=false");
+       mAudioManager.setA2dpSuspended(false);
    }
     public void setAudioRouteAllowed(boolean allowed) {
         mAudioRouteAllowed = allowed;
