@@ -249,6 +249,13 @@ public class BrowseTree {
             return mParent;
         }
 
+        synchronized BrowseNode getChild(int index) {
+          if (index < 0 || index >= mChildren.size()) {
+            return null;
+          }
+          return mChildren.get(index);
+        }
+
         synchronized List<MediaItem> getContents() {
             if (mChildren.size() > 0 || mCached) {
                 List<MediaItem> contents = new ArrayList<MediaItem>(mChildren.size());
