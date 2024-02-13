@@ -1146,6 +1146,11 @@ public class HeadsetService extends ProfileService {
                 mCallControl.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
             else
                 Log.w(TAG, "mCallControl is null");
+            if (mService == null || !mService.isAlive()) {
+                Log.w(TAG, "mService is unavailable: " + mService);
+                return;
+            }
+            mService.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
 
         }
 
@@ -1160,6 +1165,12 @@ public class HeadsetService extends ProfileService {
                  mCallControl.clccResponse(index, direction, status, mode, mpty, number, type);
               else
                   Log.w(TAG, "mCallControl is null");
+
+              if (mService == null || !mService.isAlive()) {
+                  Log.w(TAG, "mService is unavailable: " + mService);
+                  return;
+              }
+              mService.clccResponse(index, direction, status, mode, mpty, number, type);
               receiver.send(null);
             } catch (RuntimeException e) {
                 receiver.propagateException(e);
