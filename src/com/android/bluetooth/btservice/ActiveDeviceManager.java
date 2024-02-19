@@ -552,7 +552,9 @@ public class ActiveDeviceManager {
                         mHfpConnectedDevices.add(device);
                         if (mHearingAidActiveDevice == null) {
                             // New connected device: select it as active
-                            setHfpActiveDevice(device);
+                            if (mHfpConnectedDevices.size() <= 1) {
+                                setHfpActiveDevice(device);
+                            }
                             break;
                         } else {
                             if (!ApmConstIntf.getQtiLeAudioEnabled()) {
