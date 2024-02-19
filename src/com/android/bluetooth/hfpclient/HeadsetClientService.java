@@ -23,7 +23,7 @@ import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHeadsetClientCall;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothHeadsetClient;
-import android.bluetooth.IBluetoothHeadsetClientScoCallback;
+import android.bluetooth.IBluetoothHeadsetClientCallback;
 import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -46,6 +46,7 @@ import com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService;
 import com.android.modules.utils.SynchronousResultReceiver;
 import com.android.bluetooth.hfp.HeadsetService;
 import android.bluetooth.BluetoothA2dp;
+import android.bluetooth.BluetoothAdapter;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,6 +55,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /**
  * Provides Bluetooth Headset Client (HF Role) profile, as a service in the
@@ -76,11 +79,16 @@ public class HeadsetClientService extends ProfileService {
     private HeadsetClientStateMachineFactory mSmFactory = null;
     private DatabaseManager mDatabaseManager;
     private AudioManager mAudioManager = null;
+    private Executor mExecutor;
+    private BluetoothAdapter mAdapter;
+    private Context mContext;
+    private BluetoothHeadset mService;
+    private BluetoothDevice device;
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
     private static final int MAX_HFP_CLIENTS_SUPPORTED = 1;
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
-    private RemoteCallbackList<IBluetoothHeadsetClientScoCallback> mHeadsetClientScoCallbacks;
+    private RemoteCallbackList<IBluetoothHeadsetClientCallback> mHeadsetClientCallbacks;
     private final Object mCallbackNotifyLock = new Object();
     @Override
     public IProfileServiceBinder initBinder() {
@@ -133,7 +141,15 @@ public class HeadsetClientService extends ProfileService {
         mSmThread.start();
 
         setHeadsetClientService(this);
-        mHeadsetClientScoCallbacks = new RemoteCallbackList<IBluetoothHeadsetClientScoCallback>();
+        mHeadsetClientCallbacks = new RemoteCallbackList<IBluetoothHeadsetClientCallback>();
+
+        mExecutor = Executors.newSingleThreadExecutor();
+        mAdapter = BluetoothAdapter.getDefaultAdapter();
+        mContext = getApplicationContext();
+        if(mAdapter !=  null) {
+            mAdapter.getProfileProxy(mContext, mProfileListener,
+                    BluetoothProfile.HEADSET);
+        }
         return true;
     }
 
@@ -169,6 +185,60 @@ public class HeadsetClientService extends ProfileService {
 
         return true;
     }
+
+    private final BluetoothHeadset.Callback mCallback= new BluetoothHeadset.Callback() {
+        @Override
+        public void onHeadsetScoStateChanged(int sco_state) {
+            Log.d(TAG, "onHeadsetScoStateChanged " + sco_state);
+            List<BluetoothDevice> connectedDevices = getConnectedDevices();
+
+            /* Fetching the first device, maximum
+            one client profile will be supported */
+            if (connectedDevices.size() > 0) {
+                device  = connectedDevices.get(0);
+            }
+
+            HeadsetClientStateMachine sm = getStateMachine(device);
+            if (sm == null) {
+                Log.e(TAG, "SM not found/allocated for device " + device);
+                return;
+            }
+
+            if (sco_state == BluetoothHeadset.STATE_AUDIO_CONNECTING) {
+               sm.sendMessage(HeadsetClientStateMachine.AG_SCO_CONNECTING, device);
+            } else if (sco_state == BluetoothHeadset.STATE_AUDIO_CONNECTED) {
+               sm.sendMessage(HeadsetClientStateMachine.AG_SCO_CONNECTED, device);
+            } else if (sco_state == BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
+               sm.sendMessage(HeadsetClientStateMachine.AG_SCO_DISCONNECTED, device);
+            } else {
+               Log.e(TAG, "Unknown sco state");
+            }
+        }
+    };
+
+    private BluetoothProfile.ServiceListener mProfileListener =
+        new BluetoothProfile.ServiceListener() {
+        public void onServiceConnected(int profile, BluetoothProfile proxy) {
+            if (profile == BluetoothProfile.HEADSET) {
+                mService = (BluetoothHeadset) proxy;
+
+                if (mService != null) {
+                    mService.registerCallback(mExecutor, mCallback);
+                    Log.d(TAG,"Register Ag SCO State chnage callback");
+                } else {
+                    Log.e(TAG,"Bluetooth HeadsetService is NULL");
+                }
+            }
+        }
+
+        public void onServiceDisconnected(int profile) {
+            if (profile == BluetoothProfile.HEADSET && mService != null) {
+                Log.d(TAG,"Unregister Ag SCO State chnage callback");
+                mService.unregisterCallback(mCallback);
+                mService = null;
+            }
+        }
+    };
 
     private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -704,7 +774,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public void registerHeadsetClientScoCallback(IBluetoothHeadsetClientScoCallback callback, AttributionSource source,
+        public void registerHeadsetClientCallback(IBluetoothHeadsetClientCallback callback, AttributionSource source,
                 SynchronousResultReceiver receiver) {
             try {
                 HeadsetClientService service = getService(source);
@@ -712,14 +782,14 @@ public class HeadsetClientService extends ProfileService {
                  receiver.propagateException(new IllegalStateException("Service is unavailable"));
                  return;
                 }
-                service.registerHeadsetClientScoCallback(callback);
+                service.registerHeadsetClientCallback(callback);
                 receiver.send(null);
             } catch (RuntimeException e) {
                 receiver.propagateException(e);
             }
         }
         @Override
-        public void unregisterHeadsetClientScoCallback(IBluetoothHeadsetClientScoCallback callback, AttributionSource source,
+        public void unregisterHeadsetClientCallback(IBluetoothHeadsetClientCallback callback, AttributionSource source,
                 SynchronousResultReceiver receiver) {
             try {
                 HeadsetClientService service = getService(source);
@@ -727,24 +797,22 @@ public class HeadsetClientService extends ProfileService {
                  receiver.propagateException(new IllegalStateException("Service is unavailable"));
                  return;
                 }
-                service.unregisterHeadsetClientScoCallback(callback);
+                service.unregisterHeadsetClientCallback(callback);
                 receiver.send(null);
             } catch (RuntimeException e) {
                 receiver.propagateException(e);
             }
         }
 
-    }
-
-    ;
+    };
 
     public void notifyHeadsetClientScoStateChanged(int sco_state) {
-        if (mHeadsetClientScoCallbacks != null) {
+        if (mHeadsetClientCallbacks != null) {
             synchronized (mCallbackNotifyLock) {
-                final int n = mHeadsetClientScoCallbacks.beginBroadcast();
+                final int n = mHeadsetClientCallbacks.beginBroadcast();
                 for (int i = 0; i < n; i++) {
-                    final IBluetoothHeadsetClientScoCallback callback =
-                            mHeadsetClientScoCallbacks.getBroadcastItem(i);
+                    final IBluetoothHeadsetClientCallback callback =
+                            mHeadsetClientCallbacks.getBroadcastItem(i);
                     try {
                         Log.d(TAG, "Calling onHeadsetClientScoStateChanged: " + i);
                         Log.d(TAG, "onHeadsetClientScoStateChanged sco_state: " + sco_state);
@@ -753,11 +821,29 @@ public class HeadsetClientService extends ProfileService {
                         Log.e(TAG, "Stack:" + Log.getStackTraceString(e));
                     }
                 }
-                mHeadsetClientScoCallbacks.finishBroadcast();
+                mHeadsetClientCallbacks.finishBroadcast();
             }
         }
     }
 
+    public void notifyHeadsetClientCallStateChanged(BluetoothHeadsetClientCall call) {
+        if (mHeadsetClientCallbacks != null) {
+            synchronized (mCallbackNotifyLock) {
+                final int n = mHeadsetClientCallbacks.beginBroadcast();
+                for (int i = 0; i < n; i++) {
+                    final IBluetoothHeadsetClientCallback callback =
+                            mHeadsetClientCallbacks.getBroadcastItem(i);
+                    try {
+                        Log.d(TAG, "onHeadsetClientCallStateChanged");
+                        callback.onHeadsetClientCallStateChanged(call);
+                    } catch (RemoteException e) {
+                        Log.e(TAG, "Stack:" + Log.getStackTraceString(e));
+                    }
+                }
+                mHeadsetClientCallbacks.finishBroadcast();
+            }
+        }
+    }
     // API methods
     public static synchronized HeadsetClientService getHeadsetClientService() {
         if (sHeadsetClientService == null) {
@@ -1281,15 +1367,15 @@ public class HeadsetClientService extends ProfileService {
         return sm.getCurrentAgFeatures();
     }
 
-    public void registerHeadsetClientScoCallback(IBluetoothHeadsetClientScoCallback callback) {
-        if (mHeadsetClientScoCallbacks != null) {
-            mHeadsetClientScoCallbacks.register(callback);
+    public void registerHeadsetClientCallback(IBluetoothHeadsetClientCallback callback) {
+        if (mHeadsetClientCallbacks != null) {
+            mHeadsetClientCallbacks.register(callback);
         }
     }
 
-    public void unregisterHeadsetClientScoCallback(IBluetoothHeadsetClientScoCallback callback) {
-        if (mHeadsetClientScoCallbacks != null) {
-            mHeadsetClientScoCallbacks.unregister(callback);
+    public void unregisterHeadsetClientCallback(IBluetoothHeadsetClientCallback callback) {
+        if (mHeadsetClientCallbacks != null) {
+            mHeadsetClientCallbacks.unregister(callback);
         }
     }
 
