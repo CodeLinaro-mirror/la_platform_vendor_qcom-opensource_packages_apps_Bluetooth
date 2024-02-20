@@ -1865,6 +1865,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                     broadcastAudioState(device, BluetoothHeadsetClient.STATE_AUDIO_CONNECTING,
                             mAudioState);
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_CONNECTING;
+
+                    // Accepting the SCO request coming from the product software
+                    sendMessage(HeadsetClientStateMachine.CONNECT_AUDIO);
                     break;
 
                 case HeadsetClientHalConstants.AUDIO_STATE_DISCONNECTED:
