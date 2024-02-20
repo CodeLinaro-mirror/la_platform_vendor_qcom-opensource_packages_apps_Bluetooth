@@ -136,4 +136,10 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Веза са Bluetooth аудијом је прекинута"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth аудио"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Не могу да се преносе датотеке веће од 4 GB"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth је укључен у режиму рада у авиону"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Ако одлучите да не искључујете Bluetooth, уређај ће запамтити да га не искључује следећи пут када будете у режиму рада у авиону"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth се не искључује"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Уређај памти да не треба да искључује Bluetooth у режиму рада у авиону. Искључите Bluetooth ако не желите да остане укључен."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"WiFi и Bluetooth остају укључени"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Уређај памти да не треба да искључује WiFi и Bluetooth у режиму рада у авиону. Искључите WiFi и Bluetooth ако не желите да остану укључени."</string>
 </resources>

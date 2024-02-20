@@ -138,4 +138,10 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Аудіо Bluetooth від’єднано"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth Audio"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Не можна перенести файли, більші за 4 ГБ"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth увімкнено в режимі польоту"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Якщо ви не вимкнете Bluetooth на пристрої, ця функція залишатиметься ввімкненою під час наступного використання режиму польоту"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth не буде вимкнено"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"У режимі польоту функція Bluetooth на пристрої залишатиметься ввімкненою. За бажання її можна вимкнути."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi і Bluetooth залишаються ввімкненими"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"У режимі польоту функції Wi-Fi і Bluetooth на пристрої залишатимуться ввімкненими. За бажання їх можна вимкнути."</string>
 </resources>

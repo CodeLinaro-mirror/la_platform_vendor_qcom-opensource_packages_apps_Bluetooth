@@ -56,6 +56,7 @@ public class CompanionManager {
     private final int[] mGattConnHighDefault;
     private final int[] mGattConnBalanceDefault;
     private final int[] mGattConnLowDefault;
+    private final int[] mGattConnDckDefault;
 
     @VisibleForTesting static final int COMPANION_TYPE_NONE      = 0;
     @VisibleForTesting static final int COMPANION_TYPE_PRIMARY   = 1;
@@ -68,6 +69,10 @@ public class CompanionManager {
     @VisibleForTesting static final String COMPANION_INFO = "bluetooth_companion_info";
     @VisibleForTesting static final String COMPANION_DEVICE_KEY = "companion_device";
     @VisibleForTesting static final String COMPANION_TYPE_KEY = "companion_type";
+
+    static final String PROPERTY_DCK_MIN_INTERVAL = "bluetooth.gatt.dck_priority_min.interval";
+    static final String PROPERTY_DCK_MAX_INTERVAL = "bluetooth.gatt.dck_priority_max.interval";
+    static final String PROPERTY_DCK_LATENCY = "bluetooth.gatt.dck_priority.latency";
 
     private final AdapterService mAdapterService;
     private final BluetoothAdapter mAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -87,6 +92,10 @@ public class CompanionManager {
                 service.getResources().getInteger(R.integer.gatt_low_power_min_interval),
                 service.getResources().getInteger(R.integer.gatt_low_power_max_interval),
                 service.getResources().getInteger(R.integer.gatt_low_power_latency)};
+        mGattConnDckDefault = new int[] {
+                service.getResources().getInteger(R.integer.gatt_dck_priority_min_interval),
+                service.getResources().getInteger(R.integer.gatt_dck_priority_max_interval),
+                service.getResources().getInteger(R.integer.gatt_dck_priority_latency)};
 
         mGattConnHighPrimary = new int[] {
                 service.getResources().getInteger(
@@ -339,6 +348,8 @@ public class CompanionManager {
                 return mGattConnHighDefault[type];
             case BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER:
                 return mGattConnLowDefault[type];
+            case BluetoothGatt.CONNECTION_PRIORITY_DCK:
+                return mGattConnDckDefault[type];
         }
         return mGattConnBalanceDefault[type];
     }

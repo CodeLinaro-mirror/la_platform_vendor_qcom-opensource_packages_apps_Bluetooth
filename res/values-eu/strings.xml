@@ -134,4 +134,10 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Deskonektatu da Bluetooth bidezko audioa"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth bidezko audioa"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Ezin dira transferitu 4 GB baino gehiagoko fitxategiak"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetootha aktibatuta mantentzen da hegaldi moduan"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Bluetootha aktibatuta utziz gero, hura aktibatuta mantentzeaz gogoratuko da gailua hegaldi modua erabiltzen duzun hurrengoan"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetootha aktibatuta mantenduko da"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Hegaldi moduan, Bluetootha aktibatuta mantentzeaz gogoratzen da gailua. Halakorik nahi ez baduzu, desaktiba ezazu zuk zeuk."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wifia eta Bluetootha aktibatuta mantentzen dira"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Hegaldi moduan, wifia eta Bluetootha aktibatuta mantentzeaz gogoratzen da gailua. Halakorik nahi ez baduzu, desaktiba itzazu zuk zeuk."</string>
 </resources>

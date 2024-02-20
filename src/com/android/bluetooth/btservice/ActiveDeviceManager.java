@@ -259,6 +259,10 @@ public class ActiveDeviceManager {
                         }
                         if (mLeAudioActiveDevice != null) {
                             LeAudioService leAudioService = mFactory.getLeAudioService();
+                            if (leAudioService == null) {
+                                 Log.d(TAG, "LeAudioService is NULL");
+                                 break;
+                            }
                             int groupId = leAudioService.getGroupId(mLeAudioActiveDevice);
                             if (leAudioService.getGroupId(device) == groupId) {
                                 Log.d(TAG, "Lead device is already active");
@@ -282,7 +286,8 @@ public class ActiveDeviceManager {
                         }
                         int mMediaProfile =
                             getCurrentActiveProfile(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
-                        if (mMediaProfile == ApmConstIntf.AudioProfiles.A2DP) {
+                        if (mMediaProfile == ApmConstIntf.AudioProfiles.NONE ||
+                                    mMediaProfile == ApmConstIntf.AudioProfiles.A2DP) {
                             mLeAudioActiveDevice = null;
                            if (DBG) {
                               Log.d(TAG, "cuurent active profile is A2DP"
@@ -860,6 +865,8 @@ public class ActiveDeviceManager {
 
                 if (deviceInfo.getType() == AudioDeviceInfo.TYPE_BLE_HEADSET) {
                    Log.d(TAG, "BLE Device is removed");
+                   Log.d(TAG, "Setting mLeAudioActiveDevice Null");
+                   mLeAudioActiveDevice = null;
                    hasRemovedBleDevice = true;
                    bleDeviceInfo = deviceInfo;
                 }

@@ -134,4 +134,10 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth-audio ontkoppeld"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth-audio"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Bestanden groter dan 4 GB kunnen niet worden overgedragen"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth aan in de vliegtuigmodus"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Als je bluetooth laat aanstaan, onthoudt je apparaat dit en blijft bluetooth aanstaan als je de vliegtuigmodus weer aanzet"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth blijft aan"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Bluetooth op je apparaat blijft aan in de vliegtuigmodus. Zet bluetooth uit als je niet wilt dat dit aan blijft."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wifi en bluetooth blijven aan"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Wifi en bluetooth op je apparaat blijven aan in de vliegtuigmodus. Zet wifi en bluetooth uit als je niet wilt dat ze aan blijven."</string>
 </resources>

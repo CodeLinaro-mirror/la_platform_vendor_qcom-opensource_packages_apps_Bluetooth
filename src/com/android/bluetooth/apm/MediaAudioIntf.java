@@ -296,6 +296,27 @@ public class MediaAudioIntf {
         return false;
     }
 
+    public boolean isCsipDevice(BluetoothDevice device) {
+        if(MediaAudio == null)
+            return false;
+
+        Class[] arg = new Class[1];
+        arg[0] = BluetoothDevice.class;
+
+        try {
+            Method isCsipDevice = MediaAudio.getDeclaredMethod("isCsipDevice", arg);
+            boolean ret = (boolean)isCsipDevice.invoke(mMediaAudio, device);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+        return false;
+    }
+
     public BluetoothCodecStatus getCodecStatus(BluetoothDevice device) {
         if(MediaAudio == null)
             return null;

@@ -382,6 +382,27 @@ public class ActiveDeviceManagerServiceIntf {
         return -1;
     }
 
+        public void handleInactiveProfileUpdate(BluetoothDevice device) {
+        if(activeDeviceManagerService == null)
+            return;
+
+        Class[] arg = new Class[1];
+        arg[0] = BluetoothDevice.class;
+
+        try {
+            Method handleInactiveProfile =
+                        activeDeviceManagerService.getDeclaredMethod("handleInactiveProfileUpdate", arg);
+            handleInactiveProfile.invoke(mActiveDeviceManagerService, device);
+            return;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+    }
+
     public boolean onActiveDeviceChange(BluetoothDevice device, int mAudioType) {
         if(activeDeviceManagerService == null)
             return false;

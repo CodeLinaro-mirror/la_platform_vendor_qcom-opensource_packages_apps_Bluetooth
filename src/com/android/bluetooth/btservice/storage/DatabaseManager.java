@@ -1283,6 +1283,10 @@ public class DatabaseManager {
     void createMetadata(String address, boolean isActiveA2dpDevice) {
         Metadata data = new Metadata(address);
         data.is_active_a2dp_device = isActiveA2dpDevice;
+        Log.d(TAG, "createMetadata: set is_active_hfp_device and is_active_le_audio_device"
+                + " to false for device=" + address);
+        data.is_active_hfp_device = false;
+        data.is_active_le_audio_device = false;
         mMetadataCache.put(address, data);
         updateDatabase(data);
     }

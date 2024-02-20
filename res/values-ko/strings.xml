@@ -134,4 +134,10 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"블루투스 오디오가 연결 해제됨"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"블루투스 오디오"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB보다 큰 파일은 전송할 수 없습니다"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"비행기 모드에서 블루투스 사용 설정"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"블루투스를 켜진 상태로 유지하면 다음에 비행기 모드를 사용할 때도 블루투스 연결이 유지됩니다."</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"블루투스가 켜진 상태로 유지됨"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"비행기 모드에서 기기의 블루투스가 켜진 상태로 유지됩니다. 유지하지 않으려면 블루투스를 사용 중지하세요."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi 및 블루투스 계속 사용"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"비행기 모드에서 기기의 Wi-Fi 및 블루투스가 켜진 상태로 유지됩니다. 유지하지 않으려면 Wi-Fi와 블루투스를 사용 중지하세요."</string>
 </resources>

@@ -273,7 +273,8 @@ public class BluetoothCall {
     // helper functions
     public boolean isSilentRingingRequested() {
         return getDetails().getExtras() != null
-                && getDetails().getExtras().getBoolean(Call.EXTRA_SILENT_RINGING_REQUESTED);
+                && (getDetails().getExtras().getBoolean(Call.EXTRA_SILENT_RINGING_REQUESTED) ||
+                        getDetails().getExtras().getBoolean(Call.EXTRA_IS_SUPPRESSED_BY_DO_NOT_DISTURB));
     }
 
     public boolean isConference() {
