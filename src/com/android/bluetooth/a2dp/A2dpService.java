@@ -65,6 +65,7 @@ import com.android.bluetooth.btservice.ServiceFactory;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.ba.BATService;
+import com.android.bluetooth.le_audio.LeAudioService;
 import com.android.bluetooth.gatt.GattService;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
@@ -455,6 +456,19 @@ public class A2dpService extends ProfileService {
             Log.e(TAG, "Cannot connect to " + device + " : CONNECTION_POLICY_FORBIDDEN");
             return false;
         }
+
+        if(Utils.isDualModeAudioEnabled()) {
+            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+            if(mMediaAudio != null && mMediaAudio.isCsipDevice(device)) {
+                LeAudioService mLeAudio = LeAudioService.getLeAudioService();
+                if(mLeAudio != null) {
+                    int connPolicy = mLeAudio.getConnectionPolicy(device);
+                    if(connPolicy != BluetoothProfile.CONNECTION_POLICY_FORBIDDEN)
+                        return false;
+                }
+            }
+        }
+
         synchronized (mVariableLock) {
             if (mAdapterService == null)
                 return false;
@@ -2631,7 +2645,7 @@ public class A2dpService extends ProfileService {
                 if (ApmConstIntf.getQtiLeAudioEnabled()) {
                     List<BluetoothDevice> defaultValue = new ArrayList<>(0);
                     MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
-                    defaultValue = mMediaAudio.getDevicesMatchingConnectionStates(states); 
+                    defaultValue = mMediaAudio.getDevicesMatchingConnectionStates(states);
                     receiver.send(defaultValue);
                 } else {
                     A2dpService service = getService(source);

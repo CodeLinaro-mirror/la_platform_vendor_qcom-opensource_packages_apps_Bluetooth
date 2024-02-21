@@ -52,6 +52,8 @@
 
 package com.android.bluetooth.btservice;
 
+import static com.android.bluetooth.Utils.isDualModeAudioEnabled;
+
 import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothA2dpSink;
@@ -729,10 +731,25 @@ class PhonePolicy {
             }
         }
         if (device != null) {
-           if (profileId == BluetoothProfile.A2DP) {
-                Log.w(TAG, "processActiveDeviceChanged: received active device changed for A2dp " +
-                           " reset active status for LEA ");
-               mDatabaseManager.resetActiveDevice(BluetoothProfile.LE_AUDIO);
+            Boolean isDeviceLE = false;
+            Boolean isDeviceA2DP = false;
+            if (mDatabaseManager.getMostRecentlyConnectedLeAudioDevice() != null) {
+                isDeviceLE =
+                (device.getAddress().contains(mDatabaseManager.
+                        getMostRecentlyConnectedLeAudioDevice().toString())) ? true : false;
+            }
+            if (mDatabaseManager.getMostRecentlyConnectedA2dpDevice() != null) {
+                isDeviceA2DP =
+                (device.getAddress().contains(mDatabaseManager.
+                        getMostRecentlyConnectedA2dpDevice().toString())) ? true : false;
+            }
+            Log.w(TAG, "isDeviceLE: " + isDeviceLE + " isDeviceA2DP:" + isDeviceA2DP);
+            if (profileId == BluetoothProfile.A2DP) {
+                if (!(isDualModeAudioEnabled() && isDeviceLE)) {
+                    Log.w(TAG, "processActiveDeviceChanged: received active device changed " +
+                               " for A2dp reset active status for LEA ");
+                    mDatabaseManager.resetActiveDevice(BluetoothProfile.LE_AUDIO);
+                }
             }
             mDatabaseManager.setConnection(device, profileId == BluetoothProfile.A2DP);
 
@@ -748,10 +765,12 @@ class PhonePolicy {
             if (isAospLeAudioEnabled && (profileId == BluetoothProfile.LE_AUDIO)) {
                 Log.w(TAG, "processActiveDeviceChanged: Calling " +
                            " setConnectionForLeAudio for device " + device);
-                Log.w(TAG, "processActiveDeviceChanged: received active device changed for LEA " +
-                           " reset active status for A2dp and HFP ");
-                mDatabaseManager.resetActiveDevice(BluetoothProfile.A2DP);
-                mDatabaseManager.resetActiveDevice(BluetoothProfile.HEADSET);
+                if(!(isDualModeAudioEnabled() && isDeviceA2DP)) {
+                    Log.w(TAG, "processActiveDeviceChanged: received active device changed " +
+                               " for LEA reset active status for A2dp and HFP ");
+                    mDatabaseManager.resetActiveDevice(BluetoothProfile.A2DP);
+                    mDatabaseManager.resetActiveDevice(BluetoothProfile.HEADSET);
+                }
                 mDatabaseManager.setConnectionForLeAudio(device);
             }
 
@@ -807,14 +826,24 @@ class PhonePolicy {
         LeAudioService leAudioService = mFactory.getLeAudioService();
         CsipSetCoordinatorService csipSetCooridnatorService =
             mFactory.getCsipSetCoordinatorService();
+        CallAudioIntf mCallAudio = CallAudioIntf.get();
+        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
         boolean isQtiLeAudioEnabled = ApmConstIntf.getQtiLeAudioEnabled();
 
-        if (hsService != null) {
+        if (isQtiLeAudioEnabled && mCallAudio != null) {
+            List<BluetoothDevice> hsConnDevList = mCallAudio.getConnectedDevices();
+            allProfilesEmpty &= hsConnDevList.isEmpty();
+            atLeastOneProfileConnectedForDevice |= hsConnDevList.contains(device);
+        } else if (hsService != null) {
             List<BluetoothDevice> hsConnDevList = hsService.getConnectedDevices();
             allProfilesEmpty &= hsConnDevList.isEmpty();
             atLeastOneProfileConnectedForDevice |= hsConnDevList.contains(device);
         }
-        if (a2dpService != null) {
+        if (isQtiLeAudioEnabled && mMediaAudio != null) {
+            List<BluetoothDevice> a2dpConnDevList = mMediaAudio.getConnectedDevices();
+            allProfilesEmpty &= a2dpConnDevList.isEmpty();
+            atLeastOneProfileConnectedForDevice |= a2dpConnDevList.contains(device);
+        } else if (a2dpService != null) {
             List<BluetoothDevice> a2dpConnDevList = a2dpService.getConnectedDevices();
             allProfilesEmpty &= a2dpConnDevList.isEmpty();
             atLeastOneProfileConnectedForDevice |= a2dpConnDevList.contains(device);
@@ -1243,15 +1272,21 @@ class PhonePolicy {
         LeAudioService leAudioService = mFactory.getLeAudioService();
         CsipSetCoordinatorService csipSetCooridnatorService = mFactory.getCsipSetCoordinatorService();
         VolumeControlService volumeControlService = mFactory.getVolumeControlService();
+        CallAudioIntf mCallAudio = CallAudioIntf.get();
+        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
         boolean isQtiLeAudioEnabled = ApmConstIntf.getQtiLeAudioEnabled();
 
         List<BluetoothDevice> hsConnDevList = null;
         List<BluetoothDevice> a2dpConnDevList = null;
         List<BluetoothDevice> a2dpSinkConnDevList = null;
-        if (hsService != null) {
+        if (isQtiLeAudioEnabled && mCallAudio != null) {
+            hsConnDevList = mCallAudio.getConnectedDevices();
+        } else if (hsService != null) {
             hsConnDevList = hsService.getConnectedDevices();
         }
-        if (a2dpService != null) {
+        if (isQtiLeAudioEnabled && mMediaAudio != null) {
+            a2dpConnDevList = mMediaAudio.getConnectedDevices();
+        } else if (a2dpService != null) {
             a2dpConnDevList = a2dpService.getConnectedDevices();
         }
         if (a2dpSinkService != null) {
@@ -1309,7 +1344,6 @@ class PhonePolicy {
                     debugLog("Retrying connection to HS with device " + device);
                     mHeadsetRetrySet.add(device);
                     if (ApmConstIntf.getQtiLeAudioEnabled()) {
-                        CallAudioIntf mCallAudio = CallAudioIntf.get();
                         mCallAudio.connect(device);
                     } else {
                         hsService.connect(device);
@@ -1344,7 +1378,6 @@ class PhonePolicy {
                     debugLog("Retrying connection to A2DP with device " + device);
                     mA2dpRetrySet.add(device);
                     if (ApmConstIntf.getQtiLeAudioEnabled()) {
-                        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                         mMediaAudio.connect(device);
                     } else {
                         a2dpService.connect(device);

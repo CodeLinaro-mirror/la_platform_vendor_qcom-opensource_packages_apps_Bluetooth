@@ -134,4 +134,10 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Audio Bluetooth desconectado"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Audio Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"No se pueden transferir los archivos de más de 4 GB"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth activado en modo de avión"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Si mantienes el Bluetooth activado, el dispositivo recordará mantenerlo activado la próxima vez que habilites el modo de avión"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"El Bluetooth permanece activado"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"El dispositivo dejará activado el Bluetooth en el modo de avión. Desactiva el Bluetooth si no quieres que permanezca activado."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"El Wi-Fi y el Bluetooth permanecen activados"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"El dispositivo dejará activado el Wi-Fi y el Bluetooth en el modo de avión. Desactívalos si no quieres que permanezcan activados."</string>
 </resources>

@@ -154,9 +154,9 @@ public class HeadsetA2dpSync {
             mSystemInterface.getAudioManager().setA2dpSuspended(true);
           }
       } else {
-          if ((profile & BluetoothProfile.A2DP) == BluetoothProfile.A2DP)
+          if (profile == BluetoothProfile.A2DP)
               mSystemInterface.getAudioManager().setA2dpSuspended(true);
-          if ((profile & BluetoothProfile.LE_AUDIO) == BluetoothProfile.LE_AUDIO)
+          if (profile == BluetoothProfile.LE_AUDIO)
               mSystemInterface.getAudioManager().setLeAudioSuspended(true);
       }
     }

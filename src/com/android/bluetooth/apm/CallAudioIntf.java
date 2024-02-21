@@ -364,6 +364,27 @@ public class CallAudioIntf {
         return BluetoothHeadset.STATE_AUDIO_DISCONNECTED;
     }
 
+    public boolean isCsipDevice(BluetoothDevice device) {
+        if(CallAudio == null)
+            return false;
+
+        Class[] arg = new Class[1];
+        arg[0] = BluetoothDevice.class;
+
+        try {
+            Method isCsipDevice = CallAudio.getDeclaredMethod("isCsipDevice", arg);
+            boolean ret = (boolean)isCsipDevice.invoke(mCallAudio, device);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+        return false;
+    }
+
     public boolean isAudioOn() {
         if(CallAudio == null)
             return false;

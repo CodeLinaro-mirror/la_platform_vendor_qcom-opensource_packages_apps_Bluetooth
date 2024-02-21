@@ -138,4 +138,10 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Zvok prek Bluetootha ni povezan"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Zvok prek Bluetootha"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Datotek, večjih od 4 GB, ni mogoče prenesti"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Bluetooth je vklopljen v načinu za letalo"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Če pustite Bluetooth vklopljen, bo naprava ob naslednjem preklopu na način za letalo pustila Bluetooth vklopljen."</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth ostane vklopljen"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Naprava v načinu za letalo pusti Bluetooth vklopljen. Če ne želite, da Bluetooth ostane vklopljen, ga izklopite."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi in Bluetooth ostaneta vklopljena"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Naprava v načinu za letalo pusti Wi-Fi in Bluetooth vklopljena. Če ne želite, da Wi-Fi in Bluetooth ostaneta vklopljena, ju izklopite."</string>
 </resources>

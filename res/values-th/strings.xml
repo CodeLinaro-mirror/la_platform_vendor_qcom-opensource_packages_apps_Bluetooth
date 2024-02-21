@@ -134,4 +134,10 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ยกเลิกการเชื่อมต่อ Bluetooth Audio แล้ว"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth Audio"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"โอนไฟล์ที่มีขนาดใหญ่กว่า 4 GB ไม่ได้"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"บลูทูธเปิดอยู่ในโหมดบนเครื่องบิน"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"หากเปิดบลูทูธไว้ อุปกรณ์จะจำว่าต้องเปิดบลูทูธในครั้งถัดไปที่คุณอยู่ในโหมดบนเครื่องบิน"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"บลูทูธเปิดอยู่"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"อุปกรณ์จำว่าจะต้องเปิดบลูทูธไว้ในโหมดบนเครื่องบิน ปิดบลูทูธหากคุณไม่ต้องการให้เปิดไว้"</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi-Fi และบลูทูธยังเปิดอยู่"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"อุปกรณ์จำว่าจะต้องเปิด Wi-Fi และบลูทูธไว้ในโหมดบนเครื่องบิน ปิด Wi-Fi และบลูทูธหากคุณไม่ต้องการให้เปิดไว้"</string>
 </resources>

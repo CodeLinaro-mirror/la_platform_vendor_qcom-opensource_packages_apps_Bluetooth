@@ -261,4 +261,10 @@
     <string name="bluetooth_rc_feat_subtext">Re-pair from peer to enable it</string>
     <string name="broadcast_notification_name">Broadcast status</string>
     <string name="bluetooth_broadcast_status">Broadcast on</string>
+    <string name="bluetooth_enabled_apm_title">Bluetooth on in airplane mode</string>
+    <string name="bluetooth_enabled_apm_message">If you keep Bluetooth on, your device will remember to keep it on the next time you\'re in airplane mode</string>
+    <string name="bluetooth_stays_on_title">Bluetooth stays on</string>
+    <string name="bluetooth_stays_on_message">Your device remembers to keep Bluetooth on in airplane mode. Turn off Bluetooth if you don\'t want it to stay on.</string>
+    <string name="bluetooth_and_wifi_stays_on_title">Wi-Fi and Bluetooth stay on</string>
+    <string name="bluetooth_and_wifi_stays_on_message">Your device remembers to keep Wi-Fi and Bluetooth on in airplane mode. Turn off Wi-Fi and Bluetooth if you don\'t want them to stay on.</string>
 </resources>

@@ -138,4 +138,10 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"‏אודיו Bluetooth מנותק"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"‏אודיו Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"‏לא ניתן להעביר קבצים שגדולים מ-GB‏ 4"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"‏חיבור ה-Bluetooth מופעל במצב טיסה"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"‏אם חיבור ה-Bluetooth נשאר מופעל, המכשיר יזכור להשאיר אותו מופעל בפעם הבאה שהוא יועבר למצב טיסה"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"‏Bluetooth יישאר מופעל"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"‏חיבור ה-Bluetooth במכשיר יישאר מופעל במצב טיסה. אפשר להשבית את ה-Bluetooth אם לא רוצים שהוא יפעל."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"‏חיבורי ה-Wi‑Fi וה-Bluetooth יישארו מופעלים"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"‏חיבורי ה-Wi‑Fi וה-Bluetooth במכשיר יישארו מופעלים במצב טיסה. אפשר להשבית את ה-Wi-Fi וה-Bluetooth אם לא רוצים שהם יפעלו."</string>
 </resources>
