@@ -45,6 +45,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import android.content.ContextWrapper;
+
 public class HfpClientConnectionService extends ConnectionService {
     private static final String TAG = "HfpClientConnService";
     private static final boolean DBG = true;
@@ -52,6 +56,10 @@ public class HfpClientConnectionService extends ConnectionService {
     public static final String HFP_SCHEME = "hfpc";
 
     private BluetoothAdapter mAdapter;
+
+    private Executor mExecutor;
+    private Context  mContext;
+    private BluetoothHeadsetClient mHeadsetClientService;
 
     // BluetoothHeadset proxy.
     private BluetoothHeadsetClient mHeadsetProfile;
@@ -97,23 +105,56 @@ public class HfpClientConnectionService extends ConnectionService {
                         block = null;
                     }
                 }
-            } else if (BluetoothHeadsetClient.ACTION_CALL_CHANGED.equals(action)) {
-                BluetoothHeadsetClientCall call =
-                        intent.getParcelableExtra(BluetoothHeadsetClient.EXTRA_CALL);
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                HfpClientDeviceBlock block = findBlockForDevice(call.getDevice());
-                if (block == null) {
-                    Log.w(TAG, "Call changed but no block for device " + device);
-                    return;
-                }
-
-                // If we are not connected, then when we actually do get connected --
-                // the calls should
-                // be added (see ACTION_CONNECTION_STATE_CHANGED intent above).
-                block.handleCall(call);
             }
         }
     };
+
+    private final BluetoothHeadsetClient.Callback mCallback= new BluetoothHeadsetClient.Callback() {
+         @Override
+         public void onHeadsetClientScoStateChanged(int sco_state) {
+             Log.d(TAG, "onHeadsetClientScoStateChanged " + sco_state);
+         }
+
+         @Override
+         public void onHeadsetClientCallStateChanged(BluetoothHeadsetClientCall call) {
+             Log.d(TAG, "onHeadsetClientCallStateChanged");
+             BluetoothDevice device = call.getDevice();
+             HfpClientDeviceBlock block = findBlockForDevice(device);
+             if (block == null) {
+                 Log.e(TAG, "Call changed but no block for device " + device);
+                 return;
+             }
+             block.handleCall(call);
+         }
+      };
+
+    /*
+     *  Listener for Headset client profile.
+     *  Registering Sco and Call state change callbacks
+     */
+    private BluetoothProfile.ServiceListener mProfileListener =
+         new BluetoothProfile.ServiceListener() {
+        public void onServiceConnected(int profile, BluetoothProfile proxy) {
+             if (profile == BluetoothProfile.HEADSET_CLIENT) {
+                 mHeadsetClientService = (BluetoothHeadsetClient) proxy;
+                 if (mHeadsetClientService != null) {
+                     mHeadsetClientService.registerCallback(mExecutor, mCallback);
+                     Log.d(TAG,"Register Client SCO and Call State change callback");
+                 } else {
+                     Log.e(TAG,"Bluetooth HeadsetClientService is NULL");
+                 }
+             }
+         }
+         public void onServiceDisconnected(int profile) {
+             if (profile == BluetoothProfile.HEADSET_CLIENT && mHeadsetClientService != null) {
+                 Log.d(TAG,"Unregister Client SCO and Call State chnage callback");
+                 mHeadsetClientService.unregisterCallback(mCallback);
+                 mHeadsetClientService = null;
+             }
+         }
+    };
+
+
 
     @Override
     public void onCreate() {
@@ -125,6 +166,13 @@ public class HfpClientConnectionService extends ConnectionService {
         mTelecomManager = (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
         if (mTelecomManager != null) mTelecomManager.clearPhoneAccounts();
         mAdapter.getProfileProxy(this, mServiceListener, BluetoothProfile.HEADSET_CLIENT);
+
+        mExecutor = Executors.newSingleThreadExecutor();
+        mContext = getApplicationContext();
+        if (mAdapter !=  null) {
+            mAdapter.getProfileProxy(mContext, mProfileListener,
+                    BluetoothProfile.HEADSET_CLIENT);
+        }
     }
 
     @Override
@@ -173,7 +221,6 @@ public class HfpClientConnectionService extends ConnectionService {
         } else {
             IntentFilter filter = new IntentFilter();
             filter.addAction(BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED);
-            filter.addAction(BluetoothHeadsetClient.ACTION_CALL_CHANGED);
             registerReceiver(mBroadcastReceiver, filter);
             return START_STICKY;
         }

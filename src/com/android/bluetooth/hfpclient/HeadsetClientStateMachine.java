@@ -115,6 +115,9 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int SEND_VENDOR_AT_COMMAND = 21;
     public static final int SEND_CLCC = 22;
     public static final int SEND_ANDROID_AT_COMMAND = 23;
+    public static final int AG_SCO_CONNECTING = 24;
+    public static final int AG_SCO_CONNECTED = 25;
+    public static final int AG_SCO_DISCONNECTED = 26;
     public static final int CONNECT_AUDIO_WITH_DELAY = 30;
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
@@ -156,6 +159,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     private final Connecting mConnecting;
     private final Connected mConnected;
     private final AudioOn mAudioOn;
+    private final AgScoConnected mAgScoConnected;
     private State mPrevState;
     private long mClccTimer = 0;
 
@@ -338,15 +342,13 @@ public class HeadsetClientStateMachine extends StateMachine {
         *  yet to disconnet, this will ensure a2dp is released after HFP Client session ends.
         */
 
+        // Inform client connection service about call state changes
+        mService.notifyHeadsetClientCallStateChanged(c);
+
         if(getAudioState(mCurrentDevice) !=
               BluetoothHeadsetClient.STATE_AUDIO_CONNECTED && !IsInCall()) {
             releaseA2DP();
         }
-
-        Intent intent = new Intent(BluetoothHeadsetClient.ACTION_CALL_CHANGED);
-        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        intent.putExtra(BluetoothHeadsetClient.EXTRA_CALL, c);
-        mService.sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
     }
 
     private boolean queryCallsStart() {
@@ -814,11 +816,13 @@ public class HeadsetClientStateMachine extends StateMachine {
         mConnecting = new Connecting();
         mConnected = new Connected();
         mAudioOn = new AudioOn();
+        mAgScoConnected = new AgScoConnected();
 
         addState(mDisconnected);
         addState(mConnecting);
         addState(mConnected);
         addState(mAudioOn, mConnected);
+        addState(mAgScoConnected, mConnected);
 
         setInitialState(mDisconnected);
     }
@@ -985,7 +989,8 @@ public class HeadsetClientStateMachine extends StateMachine {
             if (mPrevState == mConnecting) {
                 broadcastConnectionState(mCurrentDevice, BluetoothProfile.STATE_DISCONNECTED,
                         BluetoothProfile.STATE_CONNECTING);
-            } else if (mPrevState == mConnected || mPrevState == mAudioOn) {
+            } else if (mPrevState == mConnected || mPrevState == mAudioOn ||
+                            mPrevState == mAgScoConnected) {
                 broadcastConnectionState(mCurrentDevice, BluetoothProfile.STATE_DISCONNECTED,
                         BluetoothProfile.STATE_CONNECTED);
             } else if (mPrevState != null) { // null is the default state before Disconnected
@@ -1297,10 +1302,17 @@ public class HeadsetClientStateMachine extends StateMachine {
                         BluetoothProfile.STATE_CONNECTING);
                 MetricsLogger.logProfileConnectionEvent(
                         BluetoothMetricsProto.ProfileId.HEADSET_CLIENT);
-            } else if (mPrevState != mAudioOn) {
+            } else if (mPrevState != mAudioOn || mPrevState != mAgScoConnected) {
                 String prevStateName = mPrevState == null ? "null" : mPrevState.getName();
                 Log.e(TAG, "Connected: Illegal state transition from " + prevStateName
                         + " to Connected, mCurrentDevice=" + mCurrentDevice);
+            }
+
+            //If SCO connectd for AG move client state machine to AG_SCO_CONNECTED state
+            HeadsetService headsetService = HeadsetService.getHeadsetService();
+            if (headsetService != null && headsetService.isAudioOn()) {
+                Log.d(TAG,"headsetService is in call, move to AgScoconnected state");
+                transitionTo(mAgScoConnected);
             }
         }
 
@@ -1357,6 +1369,16 @@ public class HeadsetClientStateMachine extends StateMachine {
 
                 case DISCONNECT_AUDIO:
                     Log.e(TAG, "ERROR: Connected: ignore DISCONNECT_AUDIO, device= " + mCurrentDevice);
+                    break;
+
+                case AG_SCO_CONNECTING:
+                case AG_SCO_CONNECTED:
+                    transitionTo(mAgScoConnected);
+                    break;
+
+                case AG_SCO_DISCONNECTED:
+                    // Client already in Connected state no action on AG_SCO_DISCONNECTED
+                    Log.d(TAG, "AG_SCO_DISCONNECTED");
                     break;
 
                 case VOICE_RECOGNITION_START:
@@ -1874,6 +1896,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                     broadcastAudioState(device, BluetoothHeadsetClient.STATE_AUDIO_CONNECTING,
                             mAudioState);
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_CONNECTING;
+
+                    // Accepting the SCO request coming from the product software
+                    sendMessage(HeadsetClientStateMachine.CONNECT_AUDIO);
                     break;
 
                 case HeadsetClientHalConstants.AUDIO_STATE_DISCONNECTED:
@@ -1898,6 +1923,103 @@ public class HeadsetClientStateMachine extends StateMachine {
         public void exit() {
             if (DBG) {
                 Log.d(TAG, "Exit Connected: " + getCurrentMessage().what);
+            }
+            mPrevState = this;
+        }
+    }
+
+    /*
+     * New State machine for Client to handle AgScoConnected Scenarios
+     * when there is a AG+Client Combination calls.
+     */
+    class AgScoConnected extends State {
+        @Override
+        public void enter() {
+            if (DBG) {
+                Log.d(TAG, "Enter AgScoConected: " + getCurrentMessage().what);
+            }
+        }
+
+        @Override
+        public synchronized boolean processMessage(Message message) {
+            if (DBG) {
+                Log.d(TAG, "AgScoConected process message: " + message.what);
+            }
+            if (DBG) {
+                if (mCurrentDevice == null) {
+                    Log.e(TAG, "ERROR: mCurrentDevice is null in Connected");
+                    return NOT_HANDLED;
+                }
+            }
+
+            switch (message.what) {
+                // Client already in AgScoConnected state, no action on AG_SCO_CONNECTING
+                case AG_SCO_CONNECTING:
+                    Log.d(TAG, "AG_SCO_CONNECTING");
+                    break;
+                case AG_SCO_CONNECTED:
+                // Client already in AgScoConnected state, no action on AG_SCO_CONNECTED
+                    Log.d(TAG, "AG_SCO_CONNECTED");
+                    break;
+                case AG_SCO_DISCONNECTED:
+                    Log.d(TAG, "processing AG_SCO_DISCONNECTED");
+                    // Start looping on calling current calls.
+                    sendMessage(QUERY_CURRENT_CALLS);
+                    transitionTo(mConnected);
+                    break;
+                case ACCEPT_CALL:
+                case CONNECT_AUDIO:
+                case CONNECT_AUDIO_WITH_DELAY:
+                case DISCONNECT_AUDIO:
+                    break;
+                case StackEvent.STACK_EVENT:
+                    StackEvent event = (StackEvent) message.obj;
+                    if (DBG) {
+                        Log.d(TAG, "Ag sco connected: event type: " + event.type);
+                    }
+                    switch (event.type) {
+                        case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
+                            if (DBG) {
+                                Log.d(TAG, "AG SCO connected connection state changed" + event.device + ": "
+                                        + event.valueInt);
+                            }
+                            processConnectionEvent(event.valueInt, event.device);
+                            break;
+                        case StackEvent.EVENT_TYPE_AUDIO_STATE_CHANGED:
+                            if (DBG) {
+                                Log.d(TAG, "AG SCO connected audio state changed" + event.device + ": "
+                                        + event.valueInt);
+                            }
+                            break;
+                        default:
+                            return NOT_HANDLED;
+                    }
+                    break;
+                default:
+                    return NOT_HANDLED;
+            }
+            return HANDLED;
+        }
+        // in Ag SCO connected state
+        private void processConnectionEvent(int state, BluetoothDevice device) {
+            switch (state) {
+                case HeadsetClientHalConstants.CONNECTION_STATE_DISCONNECTED:
+                    if (mCurrentDevice.equals(device)) {
+                        Log.e(TAG, "Disconnected from ag sco connected state: " + device);
+                        transitionTo(mDisconnected);
+                    } else {
+                        Log.e(TAG, "Disconnected from unknown device: " + device);
+                    }
+                    break;
+                default:
+                    Log.e(TAG, "Connection State Device: " + device + " bad state: " + state);
+                    break;
+            }
+        }
+        @Override
+        public void exit() {
+            if (DBG) {
+                Log.d(TAG, "Exit AgScoConected: " + getCurrentMessage().what);
             }
             mPrevState = this;
         }
@@ -2086,7 +2208,8 @@ public class HeadsetClientStateMachine extends StateMachine {
             return BluetoothProfile.STATE_CONNECTING;
         }
 
-        if (currentState == mConnected || currentState == mAudioOn) {
+        if (currentState == mConnected || currentState == mAudioOn ||
+                         currentState == mAgScoConnected) {
             return BluetoothProfile.STATE_CONNECTED;
         }
 
@@ -2180,7 +2303,8 @@ public class HeadsetClientStateMachine extends StateMachine {
 
     boolean isConnected() {
         IState currentState = getCurrentState();
-        return (currentState == mConnected || currentState == mAudioOn);
+        return (currentState == mConnected || currentState == mAudioOn ||
+                        currentState == mAgScoConnected);
     }
 
     List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
@@ -2290,7 +2414,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                 misA2dpPlaying = mA2dpService.isA2dpPlaying(a2dpActivedevice);
         }
 
-        mAudioManager.setParameters("A2dpSuspended=true");
+        mAudioManager.setA2dpSuspended(true);
         if(!misA2dpPlaying) {
              Log.d(TAG," A2DP Connected,don't wait for suspend ");
              return true;
@@ -2313,7 +2437,7 @@ public class HeadsetClientStateMachine extends StateMachine {
            Log.d(TAG,"headsetService is in call, no need to releaseA2DP");
            return;
        }
-       mAudioManager.setParameters("A2dpSuspended=false");
+       mAudioManager.setA2dpSuspended(false);
    }
     public void setAudioRouteAllowed(boolean allowed) {
         mAudioRouteAllowed = allowed;

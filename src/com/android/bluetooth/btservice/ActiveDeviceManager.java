@@ -386,7 +386,10 @@ public class ActiveDeviceManager {
                         mA2dpConnectedDevices.add(device);
                         if (mHearingAidActiveDevice == null) {
                             // New connected device: select it as active
-                            setA2dpActiveDevice(device);
+                            if (mA2dpConnectedDevices.size() <= 1) {
+                                setA2dpActiveDevice(device);
+                                Log.d(TAG, "Set active device for first device");
+                            }
                             break;
                         } else {
                             if (!ApmConstIntf.getQtiLeAudioEnabled()) {
@@ -549,7 +552,9 @@ public class ActiveDeviceManager {
                         mHfpConnectedDevices.add(device);
                         if (mHearingAidActiveDevice == null) {
                             // New connected device: select it as active
-                            setHfpActiveDevice(device);
+                            if (mHfpConnectedDevices.size() <= 1) {
+                                setHfpActiveDevice(device);
+                            }
                             break;
                         } else {
                             if (!ApmConstIntf.getQtiLeAudioEnabled()) {
