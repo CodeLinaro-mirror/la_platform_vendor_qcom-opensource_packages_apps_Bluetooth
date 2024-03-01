@@ -109,7 +109,7 @@ class AdapterProperties {
 
     private volatile int mConnectionState = BluetoothAdapter.STATE_DISCONNECTED;
     private volatile int mState = BluetoothAdapter.STATE_OFF;
-    private int mMaxConnectedAudioDevices = 1;
+    private int mMaxConnectedAudioDevices = 2;
     private boolean mA2dpOffloadEnabled = false;
 
     private AdapterService mService;

@@ -266,7 +266,7 @@ public class HeadsetService extends ProfileService {
 
         mNativeInterface = HeadsetObjectsFactory.getInstance().getNativeInterface();
         // Add 1 to allow a pending device to be connecting or disconnecting
-        mNativeInterface.init(mMaxHeadsetConnections + 1, isInbandRingingEnabled());
+        mNativeInterface.init(mMaxHeadsetConnections, isInbandRingingEnabled());
         // Step 5: Check if state machine table is empty, crash if not
         if (mStateMachines.size() > 0) {
             throw new IllegalStateException(

@@ -121,8 +121,8 @@ public class A2dpService extends ProfileService {
     // Upper limit of all A2DP devices: Bonded or Connected
     private static final int MAX_A2DP_STATE_MACHINES = 50;
     // Upper limit of all A2DP devices that are Connected or Connecting
-    private int mMaxConnectedAudioDevices = 1;
-    private int mSetMaxConnectedAudioDevices = 1;
+    private int mMaxConnectedAudioDevices = 2;
+    private int mSetMaxConnectedAudioDevices = 2;
     // A2DP Offload Enabled in platform
     boolean mA2dpOffloadEnabled = false;
     private boolean disconnectExisting = false;
@@ -1071,6 +1071,12 @@ public class A2dpService extends ProfileService {
         BluetoothDevice previousActiveDevice = mActiveDevice;
         boolean isBAActive = false;
         boolean tws_switch = false;
+
+        if (Objects.equals(device, previousActiveDevice)) {
+            Log.e(TAG, "Same active device set request. Bail out");
+            return true;
+        }
+
         Log.w(TAG, "setActiveDeviceInternal(" + device +
                    "): previous is " + previousActiveDevice);
 
