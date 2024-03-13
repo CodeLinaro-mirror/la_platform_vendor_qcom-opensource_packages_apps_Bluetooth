@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth.mapclient;
@@ -431,6 +435,14 @@ public class MapClientService extends ProfileService {
         return mapStateMachine.setMessageStatus(handle, status);
     }
 
+    public synchronized boolean abort(BluetoothDevice device) {
+        MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
+        if (mapStateMachine == null) {
+            return false;
+        }
+        return mapStateMachine.abort();
+    }
+
     @Override
     public void dump(StringBuilder sb) {
         super.dump(sb);
@@ -458,7 +470,7 @@ public class MapClientService extends ProfileService {
         @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
         private MapClientService getService(AttributionSource source) {
             if (!Utils.checkServiceAvailable(mService, TAG)
-                    || Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)
+                    || !Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)
                     || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }
@@ -696,6 +708,15 @@ public class MapClientService extends ProfileService {
                 receiver.propagateException(e);
             }
         }
+
+        /*@Override
+        public boolean abort(BluetoothDevice device, AttributionSource source) {
+            MapClientService service = getService(source);
+            if (service == null) {
+                return false;
+            }
+            return service.abort(device);
+        }*/
     }
 
     private class MapBroadcastReceiver extends BroadcastReceiver {

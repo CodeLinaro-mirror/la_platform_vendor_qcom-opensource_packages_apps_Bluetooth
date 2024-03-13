@@ -51,49 +51,9 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
-/*
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 package com.android.bluetooth.btservice;
@@ -1455,8 +1415,7 @@ public class AdapterService extends Service {
             return true;
         }
         if (profile == BluetoothProfile.PBAP_CLIENT) {
-            return ArrayUtils.contains(localDeviceUuids, BluetoothUuid.PBAP_PCE)
-                    && ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.PBAP_PSE);
+            return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.PBAP_PSE);
         }
         if (profile == BluetoothProfile.HEARING_AID) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HEARING_AID);
@@ -1652,23 +1611,21 @@ public class AdapterService extends Service {
         }
 
         if (mA2dpSinkService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
-                BluetoothProfile.A2DP_SINK, device) && mA2dpSinkService.getConnectionPolicy(device)
-                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+                BluetoothProfile.A2DP_SINK, device)) {
             Log.i(TAG, "connectEnabledProfiles: Connecting A2dp Sink");
+            mA2dpSinkService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             mA2dpSinkService.connect(device);
         }
         if (mHeadsetClientService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
-                BluetoothProfile.HEADSET_CLIENT, device)
-                && mHeadsetClientService.getConnectionPolicy(device)
-                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+                BluetoothProfile.HEADSET_CLIENT, device)) {
             Log.i(TAG, "connectEnabledProfiles: Connecting HFP");
+            mHeadsetClientService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             mHeadsetClientService.connect(device);
         }
         if (mMapClientService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
-                BluetoothProfile.MAP_CLIENT, device)
-                && mMapClientService.getConnectionPolicy(device)
-                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+                BluetoothProfile.MAP_CLIENT, device)) {
             Log.i(TAG, "connectEnabledProfiles: Connecting MAP");
+            mMapClientService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             mMapClientService.connect(device);
         }
         if (mHidHostService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
@@ -1684,10 +1641,9 @@ public class AdapterService extends Service {
             mPanService.connect(device);
         }
         if (mPbapClientService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
-                BluetoothProfile.PBAP_CLIENT, device)
-                && mPbapClientService.getConnectionPolicy(device)
-                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+                BluetoothProfile.PBAP_CLIENT, device)) {
             Log.i(TAG, "connectEnabledProfiles: Connecting Pbap");
+            mPbapClientService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             mPbapClientService.connect(device);
         }
         if (mHearingAidService != null && isSupported(localDeviceUuids, remoteDeviceUuids,

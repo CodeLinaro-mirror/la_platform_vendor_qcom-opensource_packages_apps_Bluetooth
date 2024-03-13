@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth.mapclient;
@@ -25,6 +29,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
+import android.os.SystemProperties;
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.internal.util.StateMachine;
 
@@ -34,6 +39,7 @@ import java.lang.ref.WeakReference;
 import com.android.obex.ClientSession;
 import com.android.obex.HeaderSet;
 import com.android.obex.ResponseCodes;
+import com.android.obex.ObexHelper;
 
 /* MasClient is a one time use connection to a server defined by the SDP record passed in at
  * construction.  After use shutdown() must be called to properly clean up.
@@ -42,6 +48,7 @@ public class MasClient {
     private static final int CONNECT = 0;
     private static final int DISCONNECT = 1;
     private static final int REQUEST = 2;
+    private static final int ABORT = 3;
     private static final String TAG = "MasClient";
     private static final boolean DBG = MapClientService.DBG;
     private static final boolean VDBG = MapClientService.VDBG;
@@ -66,8 +73,14 @@ public class MasClient {
     private static final byte OAP_TAGID_MAP_SUPPORTED_FEATURES = 0x29;
     private static final int MAP_FEATURE_NOTIFICATION_REGISTRATION = 0x00000001;
     private static final int MAP_FEATURE_NOTIFICATION = 0x00000002;
+    private static final int MAP_FEATURE_BROWSING = 0x00000004;
+    private static final int MAP_FEATURE_UPLOADING = 0x00000008;
+    private static final int MAP_FEATURE_DELETE_BIT = 0x00000010;
+    private static final int MAP_FEATURE_EXTENDED_EVENT_REPORT_1_1 = 0x00000040;
     static final int MAP_SUPPORTED_FEATURES =
-            MAP_FEATURE_NOTIFICATION_REGISTRATION | MAP_FEATURE_NOTIFICATION;
+            MAP_FEATURE_NOTIFICATION_REGISTRATION | MAP_FEATURE_NOTIFICATION
+            | MAP_FEATURE_BROWSING | MAP_FEATURE_UPLOADING
+            | MAP_FEATURE_EXTENDED_EVENT_REPORT_1_1 | MAP_FEATURE_DELETE_BIT;
 
     private final StateMachine mCallback;
     private Handler mHandler;
@@ -77,6 +90,7 @@ public class MasClient {
     private ClientSession mSession;
     private HandlerThread mThread;
     private boolean mConnected = false;
+    private boolean mAborting = false;
     SdpMasRecord mSdpMasRecord;
 
     public MasClient(BluetoothDevice remoteDevice, StateMachine callback,
@@ -99,13 +113,13 @@ public class MasClient {
 
     private void connect() {
         try {
-            if (DBG) {
-                Log.d(TAG, "Connecting to OBEX on RFCOM channel "
-                        + mSdpMasRecord.getRfcommCannelNumber());
+            if (!connectSocket()) {
+                // Fail to connect socket for RFCOMM
+                mCallback.sendMessage(MceStateMachine.MSG_MAS_DISCONNECTED);
+                // Release resource otherwise there is fd leakage
+                mThread.quitSafely();
+                return;
             }
-            mSocket = mRemoteDevice.createRfcommSocket(mSdpMasRecord.getRfcommCannelNumber());
-            if (DBG) Log.d(TAG, mRemoteDevice.toString() + "Socket: " + mSocket.toString());
-            mSocket.connect();
             mTransport = new BluetoothObexTransport(mSocket);
 
             mSession = new ClientSession(mTransport);
@@ -117,22 +131,25 @@ public class MasClient {
 
             oap.addToHeaderSet(headerset);
 
+            if (DBG) Log.d(TAG, "Connecting to OBEX session");
             headerset = mSession.connect(headerset);
-            if (DBG) Log.d(TAG, "Connection results" + headerset.getResponseCode());
 
-            if (headerset.getResponseCode() == ResponseCodes.OBEX_HTTP_OK) {
-                if (DBG) {
-                    Log.d(TAG, "Connection Successful");
-                }
+            int responseCode = headerset.getResponseCode();
+            if (responseCode == ResponseCodes.OBEX_HTTP_OK) {
+                if (DBG) Log.d(TAG, "Connection Successful");
                 mConnected = true;
                 mCallback.sendMessage(MceStateMachine.MSG_MAS_CONNECTED);
             } else {
-                disconnect();
+                Log.e(TAG, "Fail to connect OBEX, result: " + responseCode);
             }
-
         } catch (IOException e) {
             Log.e(TAG, "Caught an exception " + e.toString());
+        }
+
+        if (!mConnected) {
             disconnect();
+            // Release resource otherwise there is fd leakage
+            mThread.quitSafely();
         }
     }
 
@@ -149,8 +166,10 @@ public class MasClient {
             } catch (IOException e) {
                 Log.e(TAG, "Caught an exception while closing:" + e.toString());
             }
+            mSession = null;
         }
 
+        closeSocket();
         mConnected = false;
         mCallback.sendMessage(MceStateMachine.MSG_MAS_DISCONNECTED);
     }
@@ -181,6 +200,90 @@ public class MasClient {
         return true;
     }
 
+    public void abort() {
+        // Perform forced cleanup, it is ok if the handler throws an exception this will free the
+        // handler to complete what it is doing and finish with cleanup.
+        mAborting = true;
+        if (mSession != null) {
+            if (DBG) {
+                Log.d(TAG, "abort");
+            }
+            mHandler.obtainMessage(ABORT).sendToTarget();
+        }
+    }
+
+    private synchronized boolean connectSocket() {
+        try {
+            int l2capSocket = mSdpMasRecord.getL2capPsm();
+            if (l2capSocket != -1) {
+                if (DBG) {
+                    Log.d(TAG, "Connecting to OBEX on L2CAP channel " + l2capSocket);
+                }
+                mSocket = mRemoteDevice.createL2capSocket(l2capSocket);
+            } else {
+               int rfcommChannel = mSdpMasRecord.getRfcommCannelNumber();
+               mSocket = mRemoteDevice.createRfcommSocket(rfcommChannel);
+               if (DBG) {
+                Log.d(TAG, "Connect device: " + mRemoteDevice +
+                         ", RFCOMM channel: " + rfcommChannel +
+                         ", socket: " + mSocket.toString());
+               }
+            }
+            if (mSocket != null) {
+                mSocket.connect();
+                return true;
+            } else {
+                Log.e(TAG, "Could not create socket");
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error while connecting socket ", e);
+        }
+        return false;
+    }
+
+    private synchronized void closeSocket() {
+        try {
+            if (mSocket != null) {
+                if (DBG) Log.d(TAG, "Closing socket " + mSocket);
+                mSocket.close();
+                mSocket = null;
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error when closing socket ", e);
+            mSocket = null;
+        }
+    }
+
+    public void sendAbort() {
+        /* Send obex abort here to abort the REQUEST commands in MasClientHandler
+         * If there is a ongoing REQUEST command, all the following REQUEST commands will
+         * be cleared after response for the ongoing REQUEST received, and then obex abort is sent.
+         */
+        HeaderSet replyHeader = new HeaderSet();
+        try {
+            mSession.sendRequest(ObexHelper.OBEX_OPCODE_ABORT, null, replyHeader, null, false);
+        } catch (IOException e) {
+            Log.e(TAG, "Send abort request failed " + e);
+            return;
+        }
+        if (replyHeader.responseCode != ResponseCodes.OBEX_HTTP_OK) {
+            Log.e(TAG, "Invalid response code from server");
+        }
+        mCallback.sendMessage(MceStateMachine.MSG_ABORTED);
+        clearAbort();
+    }
+
+    public boolean isAborting() {
+        return mAborting;
+    }
+
+    public void clearAbort() {
+        if (DBG) {
+            Log.d(TAG, "clearAbort");
+        }
+        mAborting = false;
+    }
+
     public void shutdown() {
         mHandler.obtainMessage(DISCONNECT).sendToTarget();
         mThread.quitSafely();
@@ -205,6 +308,9 @@ public class MasClient {
         @Override
         public void handleMessage(Message msg) {
             MasClient inst = mInst.get();
+            if (DBG) {
+                Log.d(TAG, "message " + msg.what);
+            }
             switch (msg.what) {
                 case CONNECT:
                     if (!inst.mConnected) {
@@ -219,8 +325,24 @@ public class MasClient {
                     break;
 
                 case REQUEST:
-                    if (inst.mConnected) {
+                    if (inst.mConnected && !inst.isAborting()) {
                         inst.executeRequest((Request) msg.obj);
+                    }
+
+                    /* mAborting may be set during executeRequest, clear it when excute finished */
+                    if (inst.isAborting()) {
+                        /* Remove all REQUEST messages */
+                        if (DBG) {
+                            Log.d(TAG, "Remove all REQUEST messages");
+                        }
+                        removeMessages(REQUEST);
+                    }
+                    break;
+
+                case ABORT:
+                    if (inst.mConnected) {
+                        /* Abort operation has been done and there is no more REQUEST */
+                        inst.sendAbort();
                     }
                     break;
             }

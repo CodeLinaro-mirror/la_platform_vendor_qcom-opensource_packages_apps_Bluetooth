@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth.mapclient;
@@ -91,6 +95,21 @@ public class Bmessage {
 
     public Type getType() {
         return mBmsgType;
+    }
+
+    public String getTypeString() {
+        switch (mBmsgType) {
+            case EMAIL:
+                return "EMAIL";
+            case SMS_GSM:
+                return "SMS_GSM";
+            case SMS_CDMA:
+                return "SMS_CDMA";
+            case MMS:
+                return "MMS";
+            default:
+                return "";
+        }
     }
 
     public Bmessage setType(Type type) {
