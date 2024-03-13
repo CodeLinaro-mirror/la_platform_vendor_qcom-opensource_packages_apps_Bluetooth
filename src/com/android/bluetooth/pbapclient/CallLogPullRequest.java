@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 package com.android.bluetooth.pbapclient;
 
@@ -141,21 +145,23 @@ public class CallLogPullRequest extends PullRequest {
 
     private void updateTimesContacted() {
         for (String key : mCallCounter.keySet()) {
-            ContentValues values = new ContentValues();
-            values.put(ContactsContract.RawContacts.TIMES_CONTACTED, mCallCounter.get(key));
-            Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-                    Uri.encode(key));
-            Cursor c = mContext.getContentResolver().query(uri, null, null, null);
-            if (c != null && c.getCount() > 0) {
-                c.moveToNext();
-                String contactId = c.getString(c.getColumnIndex(
-                        ContactsContract.PhoneLookup.CONTACT_ID));
-                if (VDBG) {
-                    Log.d(TAG, "onPullComplete: ID " + contactId + " key : " + key);
+            if (key != null && key.length() > 0) {
+                ContentValues values = new ContentValues();
+                values.put(ContactsContract.RawContacts.TIMES_CONTACTED, mCallCounter.get(key));
+                Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                        Uri.encode(key));
+                Cursor c = mContext.getContentResolver().query(uri, null, null, null);
+                if (c != null && c.getCount() > 0) {
+                    c.moveToNext();
+                    String contactId = c.getString(c.getColumnIndex(
+                            ContactsContract.PhoneLookup.CONTACT_ID));
+                    if (VDBG) {
+                        Log.d(TAG, "onPullComplete: ID " + contactId + " key : " + key);
+                    }
+                    String where = ContactsContract.RawContacts.CONTACT_ID + "=" + contactId;
+                    mContext.getContentResolver().update(
+                            ContactsContract.RawContacts.CONTENT_URI, values, where, null);
                 }
-                String where = ContactsContract.RawContacts.CONTACT_ID + "=" + contactId;
-                mContext.getContentResolver().update(
-                        ContactsContract.RawContacts.CONTENT_URI, values, where, null);
             }
         }
         if (DBG) {
