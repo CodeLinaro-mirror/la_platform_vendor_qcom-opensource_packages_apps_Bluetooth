@@ -1071,6 +1071,12 @@ public class A2dpService extends ProfileService {
         BluetoothDevice previousActiveDevice = mActiveDevice;
         boolean isBAActive = false;
         boolean tws_switch = false;
+
+        if (Objects.equals(device, previousActiveDevice)) {
+            Log.e(TAG, "Same active device set request. Bail out");
+            return true;
+        }
+
         Log.w(TAG, "setActiveDeviceInternal(" + device +
                    "): previous is " + previousActiveDevice);
 
