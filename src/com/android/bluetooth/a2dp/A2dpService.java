@@ -337,7 +337,7 @@ public class A2dpService extends ProfileService {
         // step 9: Reset A2DP suspend flag if bluetooth is turned off
         if (mAudioManager != null) {
             Log.d(TAG,"setting A2dpSuspended=false during BT off");
-            mAudioManager.setParameters("A2dpSuspended=false");
+            mAudioManager.setA2dpSuspended(false);
         }
 
         if (ApmConstIntf.getQtiLeAudioEnabled()) {
