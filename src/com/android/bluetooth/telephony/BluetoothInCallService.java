@@ -427,14 +427,14 @@ public class BluetoothInCallService extends InCallService {
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean answerCall(int profile) {
         Log.d(TAG, "answer received");
-        if (ApmConstIntf.AudioProfiles.HFP == profile) {
+        /* if (ApmConstIntf.AudioProfiles.HFP == profile) {
             Log.d(TAG, "answercall: hfp");
             Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
             DsdaIntent.putExtra("state", ANSWER_CALL);
             DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
             sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
             return true;
-        }
+        } */
         synchronized (LOCK) {
             enforceModifyPermission();
             Log.i(TAG, "BT - answering call");
@@ -455,14 +455,14 @@ public class BluetoothInCallService extends InCallService {
 
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean hangupCall(int profile) {
-        if (ApmConstIntf.AudioProfiles.HFP == profile) {
+        /* if (ApmConstIntf.AudioProfiles.HFP == profile) {
             Log.d(TAG, "hangup call: hfp");
             Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
             DsdaIntent.putExtra("state", HANGUP_CALL);
             DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
             sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
             return true;
-        }
+        } */
         synchronized (LOCK) {
             enforceModifyPermission();
             Log.i(TAG, "BT - hanging up call");
@@ -615,14 +615,14 @@ public class BluetoothInCallService extends InCallService {
             Log.w(TAG, "listCurrentCalls called when service is not created");
             return false;
         }
-        if (ApmConstIntf.AudioProfiles.HFP == profile) {
+        /* if (ApmConstIntf.AudioProfiles.HFP == profile) {
             Log.d(TAG, "listCurrentCalls: hfp");
             Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
             DsdaIntent.putExtra("state", LIST_CLCC);
             DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
             sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
             return true;
-        }
+        } */
 
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -728,7 +728,7 @@ public class BluetoothInCallService extends InCallService {
 
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean processChld(int chld, int profile) {
-        if (ApmConstIntf.AudioProfiles.HFP == profile) {
+        /* if (ApmConstIntf.AudioProfiles.HFP == profile) {
             Log.d(TAG, "processChld: hfp");
             Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
             DsdaIntent.putExtra("state", PROCESS_CHLD);
@@ -736,7 +736,7 @@ public class BluetoothInCallService extends InCallService {
             DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
             sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
             return true;
-        }
+        } */
         synchronized (LOCK) {
             enforceModifyPermission();
             long token = Binder.clearCallingIdentity();
