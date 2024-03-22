@@ -349,6 +349,27 @@ public class AcmServIntf {
         return false;
     }
 
+    public boolean isAcmPlayingVoice(BluetoothDevice device) {
+        if(AcmService == null)
+            return false;
+
+        Class[] arg = new Class[1];
+        arg[0] = BluetoothDevice.class;
+
+        try {
+            Method isAcmPlayingVoice = AcmService.getDeclaredMethod("isAcmPlayingVoice", arg);
+            boolean ret = (boolean)isAcmPlayingVoice.invoke(mAcmService, device);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+        return false;
+    }
+
 /*
     public BluetoothCodecStatus getCodecStatus(BluetoothDevice device) {
         if(AcmService == null)
