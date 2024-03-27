@@ -319,22 +319,48 @@ public class AvrcpControllerService extends ProfileService {
         @Override
         public void sendGroupNavigationCmd(BluetoothDevice device, int keyCode, int keyState,
                 AttributionSource source, SynchronousResultReceiver receiver) {
-            Log.w(TAG, "sendGroupNavigationCmd not implemented");
-            return;
+            Log.w(TAG, "Binder sendGroupNavigationCmd");
+            try {
+                AvrcpControllerService service = getService(source);
+                if (service != null) {
+                    service.sendGroupNavigationCmd(device, keyCode, keyState);
+                }
+                receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
         }
 
         @Override
         public void setPlayerApplicationSetting(BluetoothAvrcpPlayerSettings settings,
                 AttributionSource source, SynchronousResultReceiver receiver) {
-            Log.w(TAG, "setPlayerApplicationSetting not implemented");
-            return;
+            Log.w(TAG, "Binder setPlayerApplicationSetting");
+            try {
+                AvrcpControllerService service = getService(source);
+                boolean defaultValue = false;
+                if (service != null) {
+                    defaultValue = service.setPlayerApplicationSetting(settings);
+                }
+                receiver.send(defaultValue);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
         }
 
         @Override
         public void getPlayerSettings(BluetoothDevice device,
                 AttributionSource source, SynchronousResultReceiver receiver) {
-            Log.w(TAG, "getPlayerSettings not implemented");
-            return;
+            Log.w(TAG, "Binder getPlayerSettings");
+            try {
+                AvrcpControllerService service = getService(source);
+                BluetoothAvrcpPlayerSettings defaultValue = new BluetoothAvrcpPlayerSettings(0);
+                if (service != null) {
+                    defaultValue = service.getPlayerSettings(device);
+                }
+                receiver.send(defaultValue);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
         }
     }
 
@@ -531,11 +557,10 @@ public class AvrcpControllerService extends ProfileService {
         BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
         AvrcpControllerStateMachine stateMachine = getStateMachine(device);
         if (stateMachine != null) {
-            PlayerApplicationSettings supportedSettings =
-                    PlayerApplicationSettings.makeSupportedSettings(playerAttribRsp);
+            Message msg = stateMachine.obtainMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_LIST_PAS, playerAttribRsp);
+            stateMachine.sendMessage(msg);
         }
-        /* Do nothing */
-
     }
 
     private synchronized void onPlayerAppSettingChanged(byte[] address, byte[] playerAttribRsp,
@@ -546,11 +571,10 @@ public class AvrcpControllerService extends ProfileService {
         BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
         AvrcpControllerStateMachine stateMachine = getStateMachine(device);
         if (stateMachine != null) {
-
-            PlayerApplicationSettings desiredSettings =
-                    PlayerApplicationSettings.makeSettings(playerAttribRsp);
+            Message msg = stateMachine.obtainMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_PAS_CHANGED, playerAttribRsp);
+            stateMachine.sendMessage(msg);
         }
-        /* Do nothing */
     }
 
     private void onAvailablePlayerChanged(byte[] address) {
@@ -866,6 +890,83 @@ public class AvrcpControllerService extends ProfileService {
             stateMachine.dump(sb);
         }
         sb.append("\n  sBrowseTree: " + sBrowseTree.toString());
+    }
+
+    public synchronized void sendGroupNavigationCmd(BluetoothDevice device, int keyCode, int keyState) {
+        Log.v(TAG, "sendGroupNavigationCmd keyCode: " + keyCode + " keyState: " + keyState);
+        if (device == null) {
+            Log.e(TAG, "sendGroupNavigationCmd device is null");
+        }
+
+        AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
+        if (stateMachine == null || stateMachine.getState() == BluetoothProfile.STATE_DISCONNECTED) {
+          Log.e(TAG, "sendGroupNavigationCmd device not connected");
+          return;
+        }
+        stateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_SEND_GROUP_NAVIGATION_CMD,
+            keyCode, keyState, device);
+    }
+
+    public boolean setPlayerApplicationSetting(BluetoothAvrcpPlayerSettings plAppSetting) {
+        if (DBG) {
+            Log.d(TAG, "setPlayerApplicationSetting");
+        }
+        AvrcpControllerStateMachine stateMachine = null;
+        for (Map.Entry<BluetoothDevice, AvrcpControllerStateMachine> mSMMap : mDeviceStateMap.entrySet()) {
+            stateMachine = mSMMap.getValue();
+            if (mSMMap.getValue().getState() == BluetoothProfile.STATE_CONNECTED) {
+              stateMachine = mSMMap.getValue();
+              break;
+            }
+        }
+        if (stateMachine == null) {
+          Log.e(TAG, "No device connected");
+          return false;
+        }
+
+        AvrcpPlayer addressedPlayer = stateMachine.getAddressedPlayer();
+
+        if (addressedPlayer == null) {
+            Log.e(TAG, "stateMachine.mAddressedPlayer is null");
+            return false;
+        }
+
+        ArrayList<Byte> settings = addressedPlayer.getNativeSettings();
+        Log.d(TAG, "getPlayerFeatures " + settings);
+
+        boolean isSettingSupported = addressedPlayer.supportsSettings(plAppSetting);
+        if (isSettingSupported) {
+            Message msg = stateMachine.obtainMessage(
+                AvrcpControllerStateMachine.MESSAGE_SET_CURRENT_PAS, 0, 0, plAppSetting);
+            stateMachine.sendMessage(msg);
+        }
+        return isSettingSupported;
+    }
+
+    public synchronized BluetoothAvrcpPlayerSettings getPlayerSettings(BluetoothDevice device) {
+        if (DBG) {
+            Log.d(TAG, "getPlayerApplicationSetting ");
+        }
+
+        if (device == null) {
+            Log.e(TAG, "getPlayerSettings device is null");
+            return null;
+        }
+
+        AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
+        if (stateMachine == null || stateMachine.getState() == BluetoothProfile.STATE_DISCONNECTED) {
+          Log.e(TAG, "getPlayerSettings device not connected");
+          return null;
+        }
+
+        AvrcpPlayer addressedPlayer = stateMachine.getAddressedPlayer();
+
+        if (addressedPlayer == null) {
+            Log.e(TAG, "addressedPlayer is null");
+            return null;
+        }
+
+        return addressedPlayer.getAvrcpSettings();
     }
 
     /*JNI*/

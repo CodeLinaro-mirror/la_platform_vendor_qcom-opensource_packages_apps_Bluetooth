@@ -24,6 +24,7 @@ import static android.Manifest.permission.BLUETOOTH_CONNECT;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAvrcpController;
+import android.bluetooth.BluetoothAvrcpPlayerSettings;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
@@ -97,6 +98,10 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_UIDS_CHANGED = 221;
     static final int MESSAGE_PROCESS_ADD_TO_NOW_PLAYING = 222;
     static final int MESSAGE_PROCESS_SEARCH_RESP = 224;
+    static final int MESSAGE_SEND_GROUP_NAVIGATION_CMD = 226;
+    static final int MESSAGE_SET_CURRENT_PAS = 227;
+    static final int MESSAGE_PROCESS_PAS_CHANGED = 228;
+    static final int MESSAGE_PROCESS_LIST_PAS = 229;
 
     //300->399 Events for Browsing
     //Internal
@@ -148,6 +153,9 @@ class AvrcpControllerStateMachine extends StateMachine {
     protected final Disconnecting mDisconnecting;
     private A2dpSinkService mA2dpSinkService;
 
+    protected final Search mSearch;
+    private final SetCurrentPas mSetCurrentPas;
+
     protected int mMostRecentState = BluetoothProfile.STATE_DISCONNECTED;
 
     boolean mRemoteControlConnected = false;
@@ -162,10 +170,10 @@ class AvrcpControllerStateMachine extends StateMachine {
     // Only accessed from State Machine processMessage
     private int mVolumeChangedNotificationsToIgnore = 0;
 
-     public static final String CUSTOM_ACTION_SEND_PASS_THRU_CMD =
-         "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_SEND_PASS_THRU_CMD";
-     public static final String KEY_CMD = "cmd";
-     public static final String KEY_STATE = "state";
+    public static final String CUSTOM_ACTION_SEND_PASS_THRU_CMD =
+      "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_SEND_PASS_THRU_CMD";
+    public static final String KEY_CMD = "cmd";
+    public static final String KEY_STATE = "state";
 
     // assume that TG is database unaware player, set default value as zero
     // refresh this value once we receive UIDS_CHANGED_EVENT interim/resp_changed from TG
@@ -355,6 +363,9 @@ class AvrcpControllerStateMachine extends StateMachine {
         mSearch = new Search();
         addState(mSearch, mConnected);
 
+        mSetCurrentPas = new SetCurrentPas();
+        addState(mSetCurrentPas, mConnected);
+
         mRemoteDevice = new RemoteDevice(device);
 
         mAudioManager = (AudioManager) service.getSystemService(Context.AUDIO_SERVICE);
@@ -362,7 +373,6 @@ class AvrcpControllerStateMachine extends StateMachine {
           getBoolean("persist.vendor.bluetooth.split_a2dp_sink", false);
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         mService.registerReceiver(mBroadcastReceiver, filter);
-
         Log.d(TAG, "Setting initial state: Disconnected: " + mDevice);
         setInitialState(mDisconnected);
     }
@@ -492,6 +502,10 @@ class AvrcpControllerStateMachine extends StateMachine {
         } else {
             Log.d(TAG, "currBrPlayer is NULL");
         }
+    }
+
+    public AvrcpPlayer getAddressedPlayer() {
+        return mAddressedPlayer;
     }
 
     protected class Disconnected extends State {
@@ -749,6 +763,41 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                 case MESSAGE_PROCESS_RC_FEATURES:
                     mRemoteDevice.setRemoteFeatures(msg.arg1);
+                    return true;
+                case MESSAGE_SEND_GROUP_NAVIGATION_CMD: {
+                    AvrcpControllerService.sendGroupNavigationCommandNative(
+                        mRemoteDevice.getBluetoothAddress(), msg.arg1, msg.arg2);
+                    return true;
+                }
+                case MESSAGE_SET_CURRENT_PAS: {
+                    BluetoothAvrcpPlayerSettings plAppSetting = (BluetoothAvrcpPlayerSettings) msg.obj;
+                    int settings = plAppSetting.getSettings();
+                    Log.d(TAG, "settings " + settings);
+                    byte numAttributes = 0;
+                    /* calculate number of attributes in request */
+                    while (settings > 0) {
+                      numAttributes += ((settings & 0x01)!= 0)?1: 0;
+                      settings = settings >> 1;
+                    }
+                    Log.d(TAG, "numAttributes " + numAttributes);
+                    settings = plAppSetting.getSettings();
+                    byte[] attributeIds = new byte [numAttributes];
+                    byte[] attributeVals = new byte [numAttributes];
+
+                    PlayerApplicationSettings.getNativeSettingsFromAvrcpPlayerSettings(
+                        plAppSetting, attributeIds, attributeVals);
+
+                    AvrcpControllerService.setPlayerApplicationSettingValuesNative(
+                        mRemoteDevice.getBluetoothAddress(),
+                        numAttributes, attributeIds, attributeVals);
+                    transitionTo(mSetCurrentPas);
+                    return true;
+                }
+                case MESSAGE_PROCESS_PAS_CHANGED:
+                    processPasChanged((byte[])msg.obj);
+                    return true;
+                case MESSAGE_PROCESS_LIST_PAS:
+                    processListPas((byte[])msg.obj);
                     return true;
 
                 default:
@@ -1341,6 +1390,50 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
     }
 
+    class SetCurrentPas extends State {
+        private String STATE_TAG = "AVRCPSM.SetCurrentPas";
+
+        @Override
+        public void enter() {
+            super.enter();
+            sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
+        }
+
+        @Override
+        public boolean processMessage(Message msg) {
+            Log.d(STATE_TAG, "processMessage " + msg);
+            switch (msg.what) {
+                case MESSAGE_PROCESS_PAS_CHANGED:
+                    mAddressedPlayer.makePlayerAppSetting((byte[])msg.obj);
+                    broadcastPlayerAppSettingChanged(mAddressedPlayer.getAvrcpSettings());
+                    // Transition to connected state here.
+                    transitionTo(mConnected);
+                    break;
+
+                case MESSAGE_INTERNAL_CMD_TIMEOUT:
+                    transitionTo(mConnected);
+                    break;
+
+                case MSG_AVRCP_PASSTHRU:
+                case MESSAGE_SEND_GROUP_NAVIGATION_CMD:
+                case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
+                case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
+                case MESSAGE_PROCESS_TRACK_CHANGED:
+                case MESSAGE_PROCESS_PLAY_POS_CHANGED:
+                case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
+                case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION:
+                case MESSAGE_SET_CURRENT_PAS:
+                    // All of these messages should be handled by parent state immediately.
+                    return false;
+
+                default:
+                    Log.d(STATE_TAG, "deferring message " + msg + " to connected!");
+                    deferMessage(msg);
+            }
+            return true;
+        }
+    }
+
     class AddToNowPlaying extends State {
         private String STATE_TAG = "Avrcp.AddToNowPlaying";
         private String mMediaId = null;
@@ -1807,4 +1900,49 @@ class AvrcpControllerStateMachine extends StateMachine {
       sendMessage(MSG_AVRCP_PLAY_ITEM_PTS, extras);
     }
 
+    private void processPasChanged(byte[] btAvrcpAttributeList) {
+        Log.d(TAG, "processPasChanged");
+        mAddressedPlayer.makePlayerAppSetting(btAvrcpAttributeList);
+        broadcastPlayerAppSettingChanged(mAddressedPlayer.getAvrcpSettings());
+    }
+
+    private void processListPas(byte[] btAvrcpAttributeList) {
+        Log.d(TAG, "processListPas");
+        mAddressedPlayer.setSupportedPlayerAppSetting(btAvrcpAttributeList);
+    }
+
+    private void broadcastPlayerAppSettingChanged(BluetoothAvrcpPlayerSettings mPlAppSetting) {
+        Intent intent = new Intent(BluetoothAvrcpController.ACTION_PLAYER_SETTING);
+        intent.putExtra(BluetoothAvrcpController.EXTRA_PLAYER_SETTING, mPlAppSetting);
+        if (DBG) Log.d(TAG," broadcastPlayerAppSettingChanged = " +
+                displayBluetoothAvrcpSettings(mPlAppSetting));
+        mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM, Utils.getTempAllowlistBroadcastOptions());
+    }
+
+    public static String displayBluetoothAvrcpSettings(BluetoothAvrcpPlayerSettings mSett) {
+        StringBuffer sb =  new StringBuffer();
+        int supportedSetting = mSett.getSettings();
+        if (DBG) Log.d(TAG," setting: " + supportedSetting);
+        if ((supportedSetting & BluetoothAvrcpPlayerSettings.SETTING_EQUALIZER) != 0) {
+            sb.append(" EQ : ");
+            sb.append(Integer.toString(mSett.getSettingValue(BluetoothAvrcpPlayerSettings.
+                                                             SETTING_EQUALIZER)));
+        }
+        if ((supportedSetting & BluetoothAvrcpPlayerSettings.SETTING_REPEAT) != 0) {
+            sb.append(" REPEAT : ");
+            sb.append(Integer.toString(mSett.getSettingValue(BluetoothAvrcpPlayerSettings.
+                                                             SETTING_REPEAT)));
+        }
+        if ((supportedSetting & BluetoothAvrcpPlayerSettings.SETTING_SHUFFLE) != 0) {
+            sb.append(" SHUFFLE : ");
+            sb.append(Integer.toString(mSett.getSettingValue(BluetoothAvrcpPlayerSettings.
+                                                             SETTING_SHUFFLE)));
+        }
+        if ((supportedSetting & BluetoothAvrcpPlayerSettings.SETTING_SCAN) != 0) {
+            sb.append(" SCAN : ");
+            sb.append(Integer.toString(mSett.getSettingValue(BluetoothAvrcpPlayerSettings.
+                                                             SETTING_SCAN)));
+        }
+        return sb.toString();
+    }
 }

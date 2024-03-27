@@ -98,6 +98,7 @@
     <protected-broadcast android:name="android.bluetooth.pbapclient.action.CUSTOM_ACTION" />
     <protected-broadcast android:name="android.bluetooth.pbapclient.action.CUSTOM_ACTION_RESULT" />
     <protected-broadcast android:name="android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_RESULT" />
+    <protected-broadcast android:name="android.bluetooth.avrcp-controller.profile.action.PLAYER_SETTING" />
 
     <!-- For PBAP Owner Vcard Info -->
     <uses-permission android:name="android.permission.READ_PROFILE"/>
