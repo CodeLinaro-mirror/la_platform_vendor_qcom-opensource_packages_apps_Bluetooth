@@ -102,6 +102,8 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_SET_CURRENT_PAS = 227;
     static final int MESSAGE_PROCESS_PAS_CHANGED = 228;
     static final int MESSAGE_PROCESS_LIST_PAS = 229;
+    static final int MSG_AVRCP_GET_TOTAL_NUM_OF_ITEMS = 230;
+    static final int MESSAGE_PROCESS_NUM_OF_ITEMS = 231;
 
     //300->399 Events for Browsing
     //Internal
@@ -155,6 +157,8 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     protected final Search mSearch;
     private final SetCurrentPas mSetCurrentPas;
+
+    private final GetTotalNumOfItems mGetTotalNumOfItems;
 
     protected int mMostRecentState = BluetoothProfile.STATE_DISCONNECTED;
 
@@ -326,6 +330,10 @@ class AvrcpControllerStateMachine extends StateMachine {
     public static final String CUSTOM_ACTION_PLAY_ITEM =
       "android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_PLAY_ITEM";
 
+    // Get total number of items
+    public static final String CUSTOM_ACTION_GET_TOTAL_NUM_OF_ITEMS =
+      "android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_GET_TOTAL_NUM_OF_ITEMS";
+
     GetFolderList mGetFolderList = null;
     AddToNowPlaying mAddToNowPlaying = null;
 
@@ -365,6 +373,9 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         mSetCurrentPas = new SetCurrentPas();
         addState(mSetCurrentPas, mConnected);
+
+        mGetTotalNumOfItems = new GetTotalNumOfItems();
+        addState(mGetTotalNumOfItems, mConnected);
 
         mRemoteDevice = new RemoteDevice(device);
 
@@ -799,7 +810,9 @@ class AvrcpControllerStateMachine extends StateMachine {
                 case MESSAGE_PROCESS_LIST_PAS:
                     processListPas((byte[])msg.obj);
                     return true;
-
+                case MSG_AVRCP_GET_TOTAL_NUM_OF_ITEMS:
+                    processGetNumOfItemsReq(msg.arg1);
+                    return true;
                 default:
                     return super.processMessage(msg);
             }
@@ -1519,6 +1532,59 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
     }
 
+    class GetTotalNumOfItems extends State {
+      private String STATE_TAG = "AVRCPSM.GetTotalNumOfItems";
+      int mScope = 0;
+
+      public void setScope(int scope) {
+        mScope = scope;
+      }
+
+      public boolean isNumberOfItemsSupported() {
+        boolean supported = false;
+        BrowseTree.BrowseNode currBrPlayer =
+          mBrowseTree.getCurrentBrowsedPlayer();
+        if (currBrPlayer != null) {
+          int playerId = (int)currBrPlayer.getBluetoothID();
+          if (DBG) {
+            Log.d(TAG, "current browsed playerId " + playerId);
+          }
+          for (int i = 0; i < mAvailablePlayerList.size(); i++) {
+            AvrcpPlayer player = mAvailablePlayerList.valueAt(i);
+            if (player.getId() == playerId) {
+              supported = player.isNumberOfItemsSupported();
+              Log.d(STATE_TAG, "Player isNumberOfItemsSupported "+supported);
+              break;
+            }
+          }
+        }
+        return supported;
+      }
+
+      @Override
+      public boolean processMessage(Message msg) {
+        Log.d(STATE_TAG, "processMessage " + msg);
+        switch (msg.what) {
+          case MESSAGE_PROCESS_NUM_OF_ITEMS:
+            broadcastNumOfItems(mScope, msg.arg1);
+            transitionTo(mConnected);
+            break;
+
+          case MESSAGE_INTERNAL_CMD_TIMEOUT:
+            transitionTo(mConnected);
+            break;
+
+          case MESSAGE_PROCESS_UIDS_CHANGED:
+            processUIDSChange(msg);
+            break;
+
+          default:
+            Log.d(STATE_TAG, "deferring message " + msg + " to connected!");
+            deferMessage(msg);
+        }
+        return true;
+      }
+    }
 
     protected class Disconnecting extends State {
         @Override
@@ -1726,8 +1792,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                 handleCustomActionGetFolderItems(extras);
             } else if (AvrcpControllerStateMachine.CUSTOM_ACTION_PLAY_ITEM.equals(action)) {
                 handleCustomActionPlaySelectedItem(extras);
+            } else if (CUSTOM_ACTION_GET_TOTAL_NUM_OF_ITEMS.equals(action)) {
+              handleCustomActionGetTotalNumOfItems(extras);
             } else {
-                 Log.w(TAG, "Custom action " + action + " not supported.");
+              Log.w(TAG, "Custom action " + action + " not supported.");
             }
         }
     };
@@ -1900,6 +1968,15 @@ class AvrcpControllerStateMachine extends StateMachine {
       sendMessage(MSG_AVRCP_PLAY_ITEM_PTS, extras);
     }
 
+    public void handleCustomActionGetTotalNumOfItems(Bundle extras) {
+      Log.d(TAG, "handleCustomActionGetTotalNumOfItems extras: " + extras);
+      if (extras == null) {
+        return;
+      }
+      int scope = extras.getInt(KEY_BROWSE_SCOPE, 0);
+      sendMessage(MSG_AVRCP_GET_TOTAL_NUM_OF_ITEMS, scope);
+    }
+
     private void processPasChanged(byte[] btAvrcpAttributeList) {
         Log.d(TAG, "processPasChanged");
         mAddressedPlayer.makePlayerAppSetting(btAvrcpAttributeList);
@@ -1909,6 +1986,27 @@ class AvrcpControllerStateMachine extends StateMachine {
     private void processListPas(byte[] btAvrcpAttributeList) {
         Log.d(TAG, "processListPas");
         mAddressedPlayer.setSupportedPlayerAppSetting(btAvrcpAttributeList);
+    }
+
+    private void processGetNumOfItemsReq(int scope) {
+      if (mGetTotalNumOfItems.isNumberOfItemsSupported()) {
+        Log.d(TAG, "Get total num of items, scope: " + scope);
+        mGetTotalNumOfItems.setScope(scope);
+
+        AvrcpControllerService.getTotalNumOfItemsNative(
+            mRemoteDevice.getBluetoothAddress(), (byte) scope);
+        transitionTo(mGetTotalNumOfItems);
+      } else {
+        Log.w(TAG, "Get total num of items not supported");
+        broadcastNumOfItems(scope, 0);
+      }
+    }
+
+    private void broadcastNumOfItems(int scope, int items) {
+      Intent intent = new Intent(AvrcpControllerService.ACTION_NUM_OF_ITEMS);
+      intent.putExtra(AvrcpControllerService.EXTRA_NUM_OF_ITEMS, items);
+      Log.d(TAG, "broadcastNumOfItems scope: " + scope + ", items: " + items);
+      mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
     }
 
     private void broadcastPlayerAppSettingChanged(BluetoothAvrcpPlayerSettings mPlAppSetting) {

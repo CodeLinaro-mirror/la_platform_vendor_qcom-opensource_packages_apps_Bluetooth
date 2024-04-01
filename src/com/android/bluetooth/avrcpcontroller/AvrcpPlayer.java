@@ -62,6 +62,12 @@ class AvrcpPlayer {
     // Bit value for Searching
     public static final int SEARCHING_BIT_VALUE = 1 << 4;
 
+    /* Octect value for NumberOfItems */
+    public static final int NUMBER_OF_ITEMS_OCTECT_VALUE = 8;
+
+    /* Bit value for NumberOfItems */
+    public static final int NUMBER_OF_ITEMS_BIT_VALUE = 1 << 3;
+
     private int mPlayStatus = PlaybackState.STATE_NONE;
     private long mPlayTime = PlaybackState.PLAYBACK_POSITION_UNKNOWN;
     //TODO: RAMESH
@@ -184,6 +190,11 @@ class AvrcpPlayer {
 
     public boolean isSearchingSupported() {
         return isFeatureSupported(SEARCHING_OCTECT_VALUE, SEARCHING_BIT_VALUE);
+    }
+
+    public boolean isNumberOfItemsSupported() {
+      return isFeatureSupported(NUMBER_OF_ITEMS_OCTECT_VALUE,
+          NUMBER_OF_ITEMS_BIT_VALUE);
     }
 
     private boolean isFeatureSupported(int octVal, int bitVal) {

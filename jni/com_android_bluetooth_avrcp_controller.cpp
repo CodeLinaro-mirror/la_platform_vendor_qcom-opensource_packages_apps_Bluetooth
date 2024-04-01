@@ -58,6 +58,7 @@ static jmethodID method_handleNowPlayingContentChanged;
 static jmethodID method_onAvailablePlayerChanged;
 static jmethodID method_handleSearchRsp;
 static jmethodID method_handleAddToNowPlayingRsp;
+static jmethodID method_handleNumOfItemsRsp;
 
 static jclass class_MediaBrowser_MediaItem;
 static jclass class_AvrcpPlayer;
@@ -904,6 +905,22 @@ static void  btavrcp_get_item_attr_rsp_callback(RawAddress* bd_addr, uint8_t num
     btavrcp_track_changed_callback(bd_addr, num_attr, p_attrs);
 }
 
+static void btavrcp_num_of_items_rsp_callback(RawAddress* bd_addr, uint8_t status,
+                                              uint16_t uid_counter, uint32_t num_items) {
+  ALOGI("%s: status: %d, uid_counter: %d, num_items: %d", __func__, status, uid_counter, num_items);
+
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jbyteArray> addr(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
+                                   (jbyte*)bd_addr);
+
+  sCallbackEnv->CallVoidMethod(sCallbacksObj, method_handleNumOfItemsRsp, addr.get(),
+                               (jint)status, (jint)uid_counter, (jint)num_items);
+}
+
 static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     sizeof(sBluetoothAvrcpCallbacks),
     btavrcp_passthrough_response_callback,
@@ -928,7 +945,8 @@ static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     btavrcp_search_response_callback,
     btavrcp_uids_changed_callback,
     btavrcp_add_to_now_playing_callback,
-    btavrcp_get_item_attr_rsp_callback};
+    btavrcp_get_item_attr_rsp_callback,
+    btavrcp_num_of_items_rsp_callback};
 
 static btrc_vendor_ctrl_callbacks_t  sBluetoothAvrcpVendorCallbacks = {
     sizeof(sBluetoothAvrcpVendorCallbacks),
@@ -1010,9 +1028,11 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "onAvailablePlayerChanged", "([B)V");
   method_handleSearchRsp =
       env->GetMethodID(clazz, "handleSearchRsp", "([BIII)V");
-  ALOGI("%s: succeeds", __func__);
   method_handleAddToNowPlayingRsp =
           env->GetMethodID(clazz, "handleAddToNowPlayingRsp", "([BI)V");
+  method_handleNumOfItemsRsp =
+      env->GetMethodID(clazz, "handleNumOfItemsRsp", "([BIII)V");
+  ALOGI("%s: succeeds", __func__);
 }
 
 static void initNative(JNIEnv* env, jobject object) {
@@ -1691,6 +1711,25 @@ static void getFolderItemsNative(JNIEnv* env, jobject object, jbyteArray address
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 
+static void getTotalNumOfItemsNative(JNIEnv* env, jobject object, jbyteArray address, jbyte scope) {
+  if (!sBluetoothAvrcpVendorInterface) return;
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (!addr) {
+    jniThrowIOException(env, EINVAL);
+    return;
+  }
+
+  ALOGI("%s: sBluetoothAvrcpVendorInterface: %p", __func__, sBluetoothAvrcpVendorInterface);
+  bt_status_t status = sBluetoothAvrcpInterface->get_num_of_items_cmd(
+      (RawAddress*)addr, (uint8_t)scope);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed sending getTotalNumOfItemsNative command, status: %d", status);
+  }
+
+  env->ReleaseByteArrayElements(address, addr, 0);
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void*)classInitNative},
     {"initNative", "()V", (void*)initNative},
@@ -1720,6 +1759,7 @@ static JNINativeMethod sMethods[] = {
     {"abortContinuingResponseNative", "([BB)V",(void *) abortContinuingResponseNative},
     {"getItemAttributesNative", "([BBJIB[I)V",(void *) getItemAttributesNative},
     {"getFolderItemsNative", "([BBBBB[I)V", (void *) getFolderItemsNative},
+    {"getTotalNumOfItemsNative", "([BB)V",(void *) getTotalNumOfItemsNative},
 };
 
 int register_com_android_bluetooth_avrcp_controller(JNIEnv* env) {

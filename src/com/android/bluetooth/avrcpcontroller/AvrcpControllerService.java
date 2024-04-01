@@ -139,6 +139,12 @@ public class AvrcpControllerService extends ProfileService {
     public static final String EXTRA_FOLDER_ID =
         "android.bluetooth.avrcp-controller.profile.extra.EXTRA_FOLDER_ID";
 
+    public static final String ACTION_NUM_OF_ITEMS =
+        "android.bluetooth.avrcp-controller.profile.action.NUM_OF_ITEMS";
+
+    public static final String EXTRA_NUM_OF_ITEMS =
+        "android.bluetooth.avrcp-controller.profile.extra.NUM_OF_ITEMS";
+
 
     static BrowseTree sBrowseTree;
     private static AvrcpControllerService sService;
@@ -786,6 +792,19 @@ public class AvrcpControllerService extends ProfileService {
         }
     }
 
+    private void handleNumOfItemsRsp(byte[] address, int status, int uid, int items) {
+      if (DBG) {
+        Log.d(TAG, "handleNumOfItemsRsp status: " + status + ", uid: " + uid + ", items: " + items);
+      }
+      BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
+
+      AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+      if (stateMachine != null) {
+        stateMachine.sendMessage(
+            AvrcpControllerStateMachine.MESSAGE_PROCESS_NUM_OF_ITEMS, items);
+        }
+    }
+
     /* Generic Profile Code */
 
     /**
@@ -1085,4 +1104,7 @@ public class AvrcpControllerService extends ProfileService {
      */
     native static void getFolderItemsNative(byte[] address, byte scope, byte start, byte end,
             byte numAttributes, int[] attribIds);
+
+    /* API used to get total number of items */
+    native static void getTotalNumOfItemsNative(byte[] address, byte scope);
 }
