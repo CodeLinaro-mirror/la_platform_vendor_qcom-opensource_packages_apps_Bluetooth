@@ -12,7 +12,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 package com.android.bluetooth.a2dpsink;
 
 import static android.Manifest.permission.BLUETOOTH_CONNECT;
@@ -294,7 +300,28 @@ public class A2dpSinkStateMachine extends StateMachine {
         public void enter() {
             if (DBG) Log.d(TAG, "Enter Disconnecting");
             onConnectionStateChanged(BluetoothProfile.STATE_DISCONNECTING);
-            transitionTo(mDisconnected);
+        }
+
+        @Override
+        public boolean processMessage(Message message) {
+            switch (message.what) {
+                case STACK_EVENT:
+                    processStackEvent((StackEvent) message.obj);
+                    return true;
+            }
+            return false;
+        }
+
+        void processStackEvent(StackEvent event) {
+            switch (event.mType) {
+                case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
+                    switch (event.mState) {
+                        case StackEvent.CONNECTION_STATE_DISCONNECTED:
+                            transitionTo(mDisconnected);
+                            break;
+                    }
+                    break;
+            }
         }
     }
 
