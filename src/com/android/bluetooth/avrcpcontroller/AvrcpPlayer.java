@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth.avrcpcontroller;
@@ -52,6 +56,8 @@ class AvrcpPlayer {
     private long mAvailableActions;
     private MediaMetadata mCurrentTrack;
     private PlaybackState mPlaybackState;
+
+    private TrackInfo mCurrentTrackInfo = new TrackInfo();
 
     AvrcpPlayer() {
         mId = INVALID_ID;
@@ -174,5 +180,13 @@ class AvrcpPlayer {
             mAvailableActions = mAvailableActions | PlaybackState.ACTION_SKIP_TO_PREVIOUS;
         }
         if (DBG) Log.d(TAG, "Supported Actions = " + mAvailableActions);
+    }
+
+    public synchronized void updateCurrentTrackInfo(TrackInfo update) {
+        mCurrentTrackInfo = update;
+    }
+
+    public synchronized TrackInfo getCurrentTrackInfo() {
+        return mCurrentTrackInfo;
     }
 }

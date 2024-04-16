@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth.avrcpcontroller;
@@ -27,6 +31,7 @@ import android.content.Intent;
 import android.media.MediaDescription;
 import android.media.browse.MediaBrowser.MediaItem;
 import android.media.session.PlaybackState;
+import android.os.Message;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -102,10 +107,26 @@ public class AvrcpControllerService extends ProfileService {
             "android.bluetooth.avrcp-controller.profile.extra.PLAYBACK";
 
 
+    /**
+     * Intent used to broadcast the change of folder list.
+     *
+     * <p>This intent will have the one extra:
+     * <ul>
+     *    <li> {@link #EXTRA_FOLDER_LIST} - array of {@link MediaBrowser#MediaItem}
+     *    containing the folder listing of currently selected folder.
+     * </ul>
+     */
+
+    public static final String EXTRA_METADATA =
+            "android.bluetooth.avrcp-controller.profile.extra.METADATA";
+
 
     static BrowseTree sBrowseTree;
     private static AvrcpControllerService sService;
     private final BluetoothAdapter mAdapter;
+
+    private int mFeatures;
+    private int mCaPsm;
 
     protected Map<BluetoothDevice, AvrcpControllerStateMachine> mDeviceStateMap =
             new ConcurrentHashMap<>(1);
@@ -187,7 +208,7 @@ public class AvrcpControllerService extends ProfileService {
 
         if (requestedNode == null) {
             if (DBG) Log.d(TAG, "Didn't find a node");
-            return null;
+            return new ArrayList(0);
         } else {
             if (!requestedNode.isCached()) {
                 if (DBG) Log.d(TAG, "node is not cached");
@@ -345,11 +366,23 @@ public class AvrcpControllerService extends ProfileService {
 
     // Called by JNI to notify Avrcp of features supported by the Remote device.
     private void getRcFeatures(byte[] address, int features, int caPsm) {
-        /*Log.i(TAG, " getRcFeatures caPsm :" + caPsm);
+        Log.i(TAG, " getRcFeatures caPsm :" + caPsm);
+        mFeatures = features;
+        mCaPsm = caPsm;
         BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
-        Message msg = mAvrcpCtSm.obtainMessage(
-            AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_FEATURES, features, caPsm, device);
-        mAvrcpCtSm.sendMessage(msg); */
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine == null) {
+            Log.e(TAG, "getRcFeatures: AvrcpControllerStateMachine is null for device: " + device);
+            return;
+        }
+
+        try {
+            stateMachine.sendMessage(
+                    AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_FEATURES, features, caPsm, device);
+        } catch(Exception ee) {
+            Log.i(TAG, "getRcFeatures exception occured.");
+            ee.printStackTrace();
+        }
     }
 
     // Called by JNI
@@ -394,8 +427,13 @@ public class AvrcpControllerService extends ProfileService {
         BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
         AvrcpControllerStateMachine stateMachine = getStateMachine(device);
         if (stateMachine != null) {
-            stateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_TRACK_CHANGED,
-                    TrackInfo.getMetadata(attributes, attribVals));
+            List<Integer> attrList = new ArrayList<>();
+            for (int attr : attributes) {
+                attrList.add(attr);
+            }
+            List<String> attrValList = Arrays.asList(attribVals);
+            TrackInfo trackInfo = new TrackInfo(attrList, attrValList);
+            stateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_TRACK_CHANGED, trackInfo);
         }
 
     }
