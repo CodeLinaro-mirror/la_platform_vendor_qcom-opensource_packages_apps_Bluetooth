@@ -1837,8 +1837,6 @@ public class HeadsetClientStateMachine extends StateMachine {
                     mAudioWbs = true;
                     // fall through
                 case HeadsetClientHalConstants.AUDIO_STATE_CONNECTED:
-                    //To fill dialer UI with in-progress calls from companion
-                    sendMessage(QUERY_CURRENT_CALLS);
                     // SCO connected for client, set the routing allowed to false for AG
                     setHeadsetAudioRouteAllowed(false);
                     Log.d(TAG, "mAudioRouteAllowed=" + mAudioRouteAllowed);
