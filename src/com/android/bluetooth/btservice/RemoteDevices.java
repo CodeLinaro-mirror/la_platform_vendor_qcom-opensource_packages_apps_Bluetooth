@@ -822,7 +822,7 @@ final class RemoteDevices {
                             break;
                         case AbstractionLayer.BT_PROPERTY_CLASS_OF_DEVICE:
                             final int newClass = Utils.byteArrayToInt(val);
-                            if (newClass == device.mBluetoothClass) {
+                            if (newClass == device.mBluetoothClass || newClass == 0) {
                               debugLog("Skip class update for " + bdDevice);
                               break;
                             }
