@@ -60,7 +60,7 @@ static jmethodID method_handleSearchRsp;
 static jmethodID method_handleAddToNowPlayingRsp;
 static jmethodID method_handleNumOfItemsRsp;
 
-static jclass class_MediaBrowser_MediaItem;
+static jclass class_AvrcpItem;
 static jclass class_AvrcpPlayer;
 
 static const btrc_ctrl_interface_t* sBluetoothAvrcpInterface = NULL;
@@ -572,7 +572,7 @@ static void btavrcp_get_folder_items_callback(
         sCallbackEnv->NewObjectArray((jint)count, class_AvrcpPlayer, 0));
   } else {
     itemArray.reset(sCallbackEnv->NewObjectArray(
-        (jint)count, class_MediaBrowser_MediaItem, 0));
+          (jint)count, class_AvrcpItem, 0));
   }
   if (!itemArray.get()) {
     ALOGE("%s itemArray allocation failed.", __func__);
@@ -625,9 +625,9 @@ static void btavrcp_get_folder_items_callback(
         ScopedLocalRef<jobject> mediaObj(
             sCallbackEnv.get(),
             (jobject)sCallbackEnv->CallObjectMethod(
-                sCallbacksObj, method_createFromNativeMediaItem, uid,
-                (jint)item->media.type, mediaName.get(), attrIdArray.get(),
-                attrValArray.get()));
+              sCallbacksObj, method_createFromNativeMediaItem, addr.get(), uid,
+              (jint)item->media.type, mediaName.get(), attrIdArray.get(),
+              attrValArray.get()));
         if (!mediaObj.get()) {
           ALOGE("%s failed to creae MediaItem for type ITEM_MEDIA", __func__);
           return;
@@ -650,9 +650,9 @@ static void btavrcp_get_folder_items_callback(
         ScopedLocalRef<jobject> folderObj(
             sCallbackEnv.get(),
             (jobject)sCallbackEnv->CallObjectMethod(
-                sCallbacksObj, method_createFromNativeFolderItem, uid,
-                (jint)item->folder.type, folderName.get(),
-                (jint)item->folder.playable));
+              sCallbacksObj, method_createFromNativeFolderItem, addr.get(), uid,
+              (jint)item->folder.type, folderName.get(),
+              (jint)item->folder.playable));
         if (!folderObj.get()) {
           ALOGE("%s failed to create MediaItem for type ITEM_FOLDER", __func__);
           return;
@@ -690,9 +690,9 @@ static void btavrcp_get_folder_items_callback(
         ScopedLocalRef<jobject> playerObj(
             sCallbackEnv.get(),
             (jobject)sCallbackEnv->CallObjectMethod(
-                sCallbacksObj, method_createFromNativePlayerItem, id,
-                playerName.get(), featureBitArray.get(), playStatus,
-                playerType));
+              sCallbacksObj, method_createFromNativePlayerItem, addr.get(), id,
+              playerName.get(), featureBitArray.get(), playStatus,
+              playerType));
         if (!playerObj.get()) {
           ALOGE("%s failed to create AvrcpPlayer from ITEM_PLAYER", __func__);
           return;
@@ -998,22 +998,23 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
   method_handleGetFolderItemsRsp =
       env->GetMethodID(clazz, "handleGetFolderItemsRsp",
-                       "([BI[Landroid/media/browse/MediaBrowser$MediaItem;)V");
+                       "([BI[Lcom/android/bluetooth/avrcpcontroller/AvrcpItem;)V");
   method_handleGetPlayerItemsRsp = env->GetMethodID(
       clazz, "handleGetPlayerItemsRsp",
       "([B[Lcom/android/bluetooth/avrcpcontroller/AvrcpPlayer;)V");
 
   method_createFromNativeMediaItem =
       env->GetMethodID(clazz, "createFromNativeMediaItem",
-                       "(JILjava/lang/String;[I[Ljava/lang/String;)Landroid/"
-                       "media/browse/MediaBrowser$MediaItem;");
+      "([BJILjava/lang/String;[I[Ljava/lang/String;)Lcom/"
+      "android/bluetooth/avrcpcontroller/AvrcpItem;");
   method_createFromNativeFolderItem = env->GetMethodID(
       clazz, "createFromNativeFolderItem",
-      "(JILjava/lang/String;I)Landroid/media/browse/MediaBrowser$MediaItem;");
+      "([BJILjava/lang/String;I)Lcom/android/bluetooth/avrcpcontroller/"
+      "AvrcpItem;");
   method_createFromNativePlayerItem =
       env->GetMethodID(clazz, "createFromNativePlayerItem",
-                       "(ILjava/lang/String;[BII)Lcom/android/bluetooth/"
-                       "avrcpcontroller/AvrcpPlayer;");
+      "([BILjava/lang/String;[BII)Lcom/android/bluetooth/"
+      "avrcpcontroller/AvrcpPlayer;");
   method_handleChangeFolderRsp =
       env->GetMethodID(clazz, "handleChangeFolderRsp", "([BI)V");
   method_handleSetBrowsedPlayerRsp =
@@ -1038,9 +1039,9 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 static void initNative(JNIEnv* env, jobject object) {
   std::unique_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
 
-  jclass tmpMediaItem =
-      env->FindClass("android/media/browse/MediaBrowser$MediaItem");
-  class_MediaBrowser_MediaItem = (jclass)env->NewGlobalRef(tmpMediaItem);
+  jclass tmpAvrcpItem =
+      env->FindClass("com/android/bluetooth/avrcpcontroller/AvrcpItem");
+  class_AvrcpItem = (jclass)env->NewGlobalRef(tmpAvrcpItem);
 
   jclass tmpBtPlayer =
       env->FindClass("com/android/bluetooth/avrcpcontroller/AvrcpPlayer");

@@ -21,9 +21,14 @@
 package com.android.bluetooth.avrcpcontroller;
 
 import android.bluetooth.BluetoothAvrcpPlayerSettings;
+import android.bluetooth.BluetoothDevice;
 import android.media.MediaMetadata;
+import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
+import android.net.Uri;
 import android.os.SystemClock;
+import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
 
 import java.util.Arrays;
@@ -35,6 +40,18 @@ import java.util.ArrayList;
 class AvrcpPlayer {
     private static final String TAG = "AvrcpPlayer";
     private static final boolean DBG = true;
+
+    public static final int DEFAULT_ID = -1;
+
+    public static final int TYPE_UNKNOWN = -1;
+    public static final int TYPE_AUDIO = 0;
+    public static final int TYPE_VIDEO = 1;
+    public static final int TYPE_BROADCASTING_AUDIO = 2;
+    public static final int TYPE_BROADCASTING_VIDEO = 3;
+
+    public static final int SUB_TYPE_UNKNOWN = -1;
+    public static final int SUB_TYPE_AUDIO_BOOK = 0;
+    public static final int SUB_TYPE_PODCAST = 1;
 
     public static final int INVALID_ID = -1;
 
@@ -70,10 +87,8 @@ class AvrcpPlayer {
 
     private int mPlayStatus = PlaybackState.STATE_NONE;
     private long mPlayTime = PlaybackState.PLAYBACK_POSITION_UNKNOWN;
-    //TODO: RAMESH
-    //private int mPlayStatus = PlaybackStateCompat.STATE_NONE;
-    //private long mPlayTime = PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN;
 
+    private BluetoothDevice mDevice;
     private long mPlayTimeUpdate = 0;
     private float mPlaySpeed = 1;
     private int mId;
@@ -81,11 +96,12 @@ class AvrcpPlayer {
     private int mPlayerType;
     private byte[] mPlayerFeatures = new byte[FEATURE_BIT_MASK_SIZE];
     private long mAvailableActions;
-    private MediaMetadata mCurrentTrack;
+    private AvrcpItem mCurrentTrack;
     private PlaybackState mPlaybackState;
 
     private TrackInfo mCurrentTrackInfo = new TrackInfo();
     private PlayerApplicationSettings mPlayerAppSetting = new PlayerApplicationSettings();
+    private PlayerApplicationSettings mCurrentPlayerApplicationSettings;
 
     AvrcpPlayer() {
         mId = INVALID_ID;
@@ -98,7 +114,9 @@ class AvrcpPlayer {
         mPlaybackState = playbackStateBuilder.build();
     }
 
-    AvrcpPlayer(int id, String name, byte[] playerFeatures, int playStatus, int playerType) {
+    AvrcpPlayer(BluetoothDevice device, int id, int playerType, int playerSubType,
+            String name, byte[] playerFeatures, int playStatus) {
+        mDevice = device;
         mId = id;
         mName = name;
         mPlayStatus = playStatus;
@@ -113,6 +131,10 @@ class AvrcpPlayer {
         PlaybackState.Builder playbackStateBuilder = new PlaybackState.Builder()
                 .setActions(mAvailableActions);
         mPlaybackState = playbackStateBuilder.build();
+    }
+
+    public BluetoothDevice getDevice() {
+        return mDevice;
     }
 
     public void setId(int id) {
@@ -209,7 +231,8 @@ class AvrcpPlayer {
     public void setPlayTime(int playTime) {
         mPlayTime = playTime;
         mPlayTimeUpdate = SystemClock.elapsedRealtime();
-        mPlaybackState = new PlaybackState.Builder(mPlaybackState).setState(mPlayStatus, mPlayTime,
+        mPlaybackState = new PlaybackState.Builder(mPlaybackState).setState(
+                mPlayStatus, mPlayTime,
                 mPlaySpeed).build();
     }
 
@@ -218,8 +241,10 @@ class AvrcpPlayer {
     }
 
     public void setPlayStatus(int playStatus) {
-        mPlayTime += mPlaySpeed * (SystemClock.elapsedRealtime()
-                - mPlaybackState.getLastPositionUpdateTime());
+        if (mPlayTime != PlaybackState.PLAYBACK_POSITION_UNKNOWN) {
+            mPlayTime += mPlaySpeed * (SystemClock.elapsedRealtime()
+                    - mPlaybackState.getLastPositionUpdateTime());
+        }
         mPlayStatus = playStatus;
         switch (mPlayStatus) {
             case PlaybackState.STATE_STOPPED:
@@ -239,8 +264,26 @@ class AvrcpPlayer {
                 break;
         }
 
-        mPlaybackState = new PlaybackState.Builder(mPlaybackState).setState(mPlayStatus, mPlayTime,
+        mPlaybackState = new PlaybackState.Builder(mPlaybackState).setState(
+                mPlayStatus, mPlayTime,
                 mPlaySpeed).build();
+    }
+
+    public synchronized boolean notifyImageDownload(String uuid, Uri imageUri) {
+        if (DBG) Log.d(TAG, "Got an image download -- uuid=" + uuid + ", uri=" + imageUri);
+        if (uuid == null || imageUri == null || mCurrentTrack == null) return false;
+        if (uuid.equals(mCurrentTrack.getCoverArtUuid())) {
+            mCurrentTrack.setCoverArtLocation(imageUri);
+            if (DBG) Log.d(TAG, "Image UUID '" + uuid + "' was added to current track.");
+            return true;
+        }
+        return false;
+    }
+
+    public void setSupportedPlayerApplicationSettings(
+            PlayerApplicationSettings playerApplicationSettings) {
+        mPlayerAppSetting = playerApplicationSettings;
+        updateAvailableActions();
     }
 
     public int getPlayStatus() {
@@ -264,16 +307,17 @@ class AvrcpPlayer {
         return mPlaybackState;
     }
 
-    public synchronized void updateCurrentTrack(MediaMetadata update) {
+    public synchronized void updateCurrentTrack(AvrcpItem update) {
         if (update != null) {
-            long trackNumber = update.getLong(MediaMetadata.METADATA_KEY_TRACK_NUMBER);
-            mPlaybackState = new PlaybackState.Builder(mPlaybackState).setActiveQueueItemId(
+            long trackNumber = update.getTrackNumber();
+            mPlaybackState = new PlaybackState.Builder(
+                    mPlaybackState).setActiveQueueItemId(
                     trackNumber - 1).build();
         }
         mCurrentTrack = update;
     }
 
-    public synchronized MediaMetadata getCurrentTrack() {
+    public synchronized AvrcpItem getCurrentTrack() {
         return mCurrentTrack;
     }
 
@@ -300,6 +344,8 @@ class AvrcpPlayer {
             mAvailableActions = mAvailableActions | PlaybackState.ACTION_SKIP_TO_PREVIOUS;
         }
         if (DBG) Log.d(TAG, "Supported Actions = " + mAvailableActions);
+        mPlaybackState = new PlaybackState.Builder(mPlaybackState)
+                .setActions(mAvailableActions).build();
     }
 
     public synchronized void updateCurrentTrackInfo(TrackInfo update) {
@@ -308,5 +354,135 @@ class AvrcpPlayer {
 
     public synchronized TrackInfo getCurrentTrackInfo() {
         return mCurrentTrackInfo;
+    }
+
+    /**
+     * A Builder object for an AvrcpPlayer
+     */
+    public static class Builder {
+        private static final String TAG = "AvrcpPlayer.Builder";
+        private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
+
+        private BluetoothDevice mDevice = null;
+        private int mPlayerId = AvrcpPlayer.DEFAULT_ID;
+        private int mPlayerType = AvrcpPlayer.TYPE_UNKNOWN;
+        private int mPlayerSubType = AvrcpPlayer.SUB_TYPE_UNKNOWN;
+        private String mPlayerName = null;
+        private byte[] mSupportedFeatures = new byte[16];
+
+        private int mPlayStatus = PlaybackState.STATE_NONE;
+        private long mPlayTime = PlaybackState.PLAYBACK_POSITION_UNKNOWN;
+        private float mPlaySpeed = 1;
+        private long mPlayTimeUpdate = 0;
+
+        private AvrcpItem mTrack = null;
+
+        /**
+         * Set the device that this Player came from
+         *
+         * @param device The BleutoothDevice representing the remote device
+         * @return This object, so you can continue building
+         */
+        public Builder setDevice(BluetoothDevice device) {
+            mDevice = device;
+            return this;
+        }
+
+        /**
+         * Set the Player ID for this Player
+         *
+         * @param playerId The ID for this player, defined in AVRCP 6.10.2.1
+         * @return This object, so you can continue building
+         */
+        public Builder setPlayerId(int playerId) {
+            mPlayerId = playerId;
+            return this;
+        }
+
+        /**
+         * Set the Player Type for this Player
+         *
+         * @param playerType The type for this player, defined in AVRCP 6.10.2.1
+         * @return This object, so you can continue building
+         */
+        public Builder setPlayerType(int playerType) {
+            mPlayerType = playerType;
+            return this;
+        }
+
+        /**
+         * Set the Player Sub-type for this Player
+         *
+         * @param playerSubType The sub-type for this player, defined in AVRCP 6.10.2.1
+         * @return This object, so you can continue building
+         */
+        public Builder setPlayerSubType(int playerSubType) {
+            mPlayerSubType = playerSubType;
+            return this;
+        }
+
+        /**
+         * Set the name for this Player. This is what users will see when browsing.
+         *
+         * @param name The name for this player, defined in AVRCP 6.10.2.1
+         * @return This object, so you can continue building
+         */
+        public Builder setName(String name) {
+            mPlayerName = name;
+            return this;
+        }
+
+        /**
+         * Set the entire set of supported features for this Player.
+         *
+         * @param features The feature set for this player, defined in AVRCP 6.10.2.1
+         * @return This object, so you can continue building
+         */
+        public Builder setSupportedFeatures(byte[] supportedFeatures) {
+            mSupportedFeatures = supportedFeatures;
+            return this;
+        }
+
+        /**
+         * Set a single features as supported for this Player.
+         *
+         * @param feature The feature for this player, defined in AVRCP 6.10.2.1
+         * @return This object, so you can continue building
+         */
+        public Builder setSupportedFeature(int feature) {
+            int byteNumber = feature / 8;
+            byte bitMask = (byte) (1 << (feature % 8));
+            mSupportedFeatures[byteNumber] = (byte) (mSupportedFeatures[byteNumber] | bitMask);
+            return this;
+        }
+
+        /**
+         * Set the initial play status of the Player.
+         *
+         * @param playStatus The play state for this player as a PlaybackState.STATE_* value
+         * @return This object, so you can continue building
+         */
+        public Builder setPlayStatus(int playStatus) {
+            mPlayStatus = playStatus;
+            return this;
+        }
+
+        /**
+         * Set the initial play status of the Player.
+         *
+         * @param track The initial track for this player
+         * @return This object, so you can continue building
+         */
+        public Builder setCurrentTrack(AvrcpItem track) {
+            mTrack = track;
+            return this;
+        }
+
+        public AvrcpPlayer build() {
+            AvrcpPlayer player = new AvrcpPlayer(mDevice, mPlayerId, mPlayerType, mPlayerSubType,
+                    mPlayerName, mSupportedFeatures, mPlayStatus);
+            player.updateCurrentTrack(mTrack);
+            return player;
+        }
     }
 }

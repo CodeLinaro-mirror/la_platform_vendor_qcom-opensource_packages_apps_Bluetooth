@@ -36,10 +36,10 @@ class PlayerApplicationSettings {
     /*
      * Values for SetPlayerApplicationSettings from AVRCP Spec V1.6 Appendix F.
      */
-    private static final byte JNI_ATTRIB_EQUALIZER_STATUS = 0x01;
-    private static final byte JNI_ATTRIB_REPEAT_STATUS = 0x02;
-    private static final byte JNI_ATTRIB_SHUFFLE_STATUS = 0x03;
-    private static final byte JNI_ATTRIB_SCAN_STATUS = 0x04;
+    public static final byte JNI_ATTRIB_EQUALIZER_STATUS = 0x01;
+    public static final byte JNI_ATTRIB_REPEAT_STATUS = 0x02;
+    public static final byte JNI_ATTRIB_SHUFFLE_STATUS = 0x03;
+    public static final byte JNI_ATTRIB_SCAN_STATUS = 0x04;
 
     private static final byte JNI_EQUALIZER_STATUS_OFF = 0x01;
     private static final byte JNI_EQUALIZER_STATUS_ON = 0x02;
@@ -134,6 +134,11 @@ class PlayerApplicationSettings {
                 mSettings.put(i, updates.getSettingValue(i));
             }
         }
+    }
+
+    public int getSetting(int settingType) {
+        if (null == mSettings.get(settingType)) return -1;
+        return mSettings.get(settingType);
     }
 
     /*
