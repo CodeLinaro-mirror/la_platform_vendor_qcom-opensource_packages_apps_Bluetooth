@@ -33,6 +33,7 @@ import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 import android.util.SparseArray;
 
@@ -55,6 +56,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final String TAG = "AvrcpControllerStateMachine";
     static final boolean DBG = true;
 
+    private static boolean mIsSplitSink = false;
     //0->99 Events from Outside
     public static final int CONNECT = 1;
     public static final int DISCONNECT = 2;
@@ -162,6 +164,8 @@ class AvrcpControllerStateMachine extends StateMachine {
         mRemoteDevice = new RemoteDevice(device);
 
         mAudioManager = (AudioManager) service.getSystemService(Context.AUDIO_SERVICE);
+        mIsSplitSink = SystemProperties.
+          getBoolean("persist.vendor.bluetooth.split_a2dp_sink", false);
 
         Log.d(TAG, "Setting initial state: Disconnected: " + mDevice);
         setInitialState(mDisconnected);
@@ -456,6 +460,12 @@ class AvrcpControllerStateMachine extends StateMachine {
                                           " label: " + msg.arg1 + " mPreviousPercentageVol: " +
                                           mPreviousPercentageVol);
                                 }
+                                if (mIsSplitSink) {
+                                    int currIndex = mAudioManager.getStreamVolume(
+                                                            AudioManager.STREAM_MUSIC);
+                                    String volume_param  = "btsink_volume=" + currIndex;
+                                    mAudioManager.setParameters(volume_param);
+                                }
                                 AvrcpControllerService.sendRegisterAbsVolRspNative(
                                         mRemoteDevice.getBluetoothAddress(),
                                         NOTIFICATION_RSP_TYPE_CHANGED, percentageVol,
@@ -527,11 +537,13 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         private synchronized void msgDeviceUpdated(BluetoothDevice device) {
             if (device != null && device.equals(mA2dpDevice)) {
+                BluetoothMediaBrowserService.addressedPlayerChanged(mSessionCallbacks);
                 return;
             }
             Log.d(TAG, "msgDeviceUpdated. Previous: " + mA2dpDevice + " New: " + device);
             // We are connected to a new device via A2DP now.
             mA2dpDevice = device;
+            BluetoothMediaBrowserService.addressedPlayerChanged(mSessionCallbacks);
             Log.w(TAG, "mA2dpDevice: " + mA2dpDevice +
                                       " mBrowsingConnected: " + mBrowsingConnected);
             if (mBrowsingConnected) {
@@ -863,7 +875,8 @@ class AvrcpControllerStateMachine extends StateMachine {
          * at DUT (sink: rendering device) will be sent in changed response. */
         Log.d(TAG, "Streaming device: " + A2dpSinkService.getCurrentStreamingDevice()
                 + " Device: " + mDevice + " absVol: " + absVol + " label: " + label);
-        if (!mDevice.equals(A2dpSinkService.getCurrentStreamingDevice())) {
+        if ((A2dpSinkService.getCurrentStreamingDevice() != null)
+                && !mDevice.equals(A2dpSinkService.getCurrentStreamingDevice())) {
             Log.w(TAG, "Volume change request came from non-streaming device," +
                     "respond with accepted absVol: " + absVol + "at Sink");
             AvrcpControllerService.sendAbsVolRspNative(mRemoteDevice.getBluetoothAddress(), absVol,
@@ -885,6 +898,11 @@ class AvrcpControllerStateMachine extends StateMachine {
         if (newIndex != currIndex) {
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newIndex,
                     AudioManager.FLAG_SHOW_UI);
+            if (mIsSplitSink) {
+                String volume_param  = "btsink_volume="+newIndex;
+                Log.d(TAG,"setAbsVolume : "+volume_param);
+                mAudioManager.setParameters(volume_param);
+            }
         }
         AvrcpControllerService.sendAbsVolRspNative(mDeviceAddress, absVol, label);
     }

@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -55,7 +56,7 @@ import java.util.UUID;
  * @hide
  */
 public class HeadsetClientService extends ProfileService {
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
     private static final String TAG = "HeadsetClientService";
 
     private HashMap<BluetoothDevice, HeadsetClientStateMachine> mStateMachineMap = new HashMap<>();
@@ -65,6 +66,9 @@ public class HeadsetClientService extends ProfileService {
     private HeadsetClientStateMachineFactory mSmFactory = null;
     private DatabaseManager mDatabaseManager;
     private AudioManager mAudioManager = null;
+    private HfpClientA2DPSync mHfpClientA2dpSinkSync = null;
+    private Context mContext = null;
+    private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
 
@@ -102,6 +106,7 @@ public class HeadsetClientService extends ProfileService {
 
         mSmFactory = new HeadsetClientStateMachineFactory();
         mStateMachineMap.clear();
+        mHfpClientA2dpSinkSync = new HfpClientA2DPSync(this);
 
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         registerReceiver(mBroadcastReceiver, filter);
@@ -114,6 +119,10 @@ public class HeadsetClientService extends ProfileService {
         // Create the thread on which all State Machines will run
         mSmThread = new HandlerThread("HeadsetClient.SM");
         mSmThread.start();
+
+        mContext = getApplicationContext();
+        Executor exec = mContext.getMainExecutor();
+        mAudioManager.setAudioServerStateCallback(exec, mServerStateCallback);
 
         setHeadsetClientService(this);
         return true;
@@ -848,6 +857,10 @@ public class HeadsetClientService extends ProfileService {
         return true;
     }
 
+    public boolean InternalConnectAudio(BluetoothDevice device) {
+        return connectAudio(device);
+    }
+
     boolean holdCall(BluetoothDevice device) {
 
         HeadsetClientStateMachine sm = getStateMachine(device);
@@ -987,6 +1000,21 @@ public class HeadsetClientService extends ProfileService {
         return call;
     }
 
+    public boolean isA2dpSinkPossible() {
+        if(mHfpClientA2dpSinkSync != null)
+            return mHfpClientA2dpSinkSync.isA2dpStreamAllowed();
+        return false;
+    }
+
+    public boolean IsHFPDisableInProgress(BluetoothDevice device) {
+        HeadsetClientStateMachine sm = getStateMachine(device);
+        if (sm == null) {
+            return false;
+        }
+        return sm.getIsHFPDisableInProgress();
+
+     }
+
     public boolean sendDTMF(BluetoothDevice device, byte code) {
 
         HeadsetClientStateMachine sm = getStateMachine(device);
@@ -1015,12 +1043,12 @@ public class HeadsetClientService extends ProfileService {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
-            return null;
+            return  new ArrayList<BluetoothHeadsetClientCall>();
         }
 
         int connectionState = sm.getConnectionState(device);
         if (connectionState != BluetoothProfile.STATE_CONNECTED) {
-            return null;
+            return  new ArrayList<BluetoothHeadsetClientCall>();
         }
         return sm.getCurrentCalls();
     }
@@ -1102,6 +1130,32 @@ public class HeadsetClientService extends ProfileService {
         sm.sendMessage(StackEvent.STACK_EVENT, stackEvent);
     }
 
+    private class AudioServerStateCallback extends AudioManager.AudioServerStateCallback {
+        @Override
+        public void onAudioServerDown() {
+            Log.d(TAG, "notifying onAudioServerDown");
+        }
+
+        @Override
+        public void onAudioServerUp() {
+            Log.d(TAG, "notifying onAudioServerUp");
+            if (isRemoteDeviceConnected()) {
+                Log.d(TAG, "onAudioServerUp: Audio is On, Notify HeadsetClientStateMachine");
+                synchronized (mStateMachineMap) {
+                    for (Map.Entry<BluetoothDevice, HeadsetClientStateMachine> entry : mStateMachineMap
+                     .entrySet()) {
+                        if (entry.getValue() != null) {
+                            int audioState = entry.getValue().getAudioState(entry.getKey());
+                            if (audioState == BluetoothHeadsetClient.STATE_AUDIO_CONNECTED) {
+                                entry.getValue().sendMessage(entry.getValue().AUDIO_SERVER_UP);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     // State machine management
     private synchronized HeadsetClientStateMachine getStateMachine(BluetoothDevice device) {
         if (device == null) {
@@ -1159,6 +1213,11 @@ public class HeadsetClientService extends ProfileService {
                 sm.dump(sb);
             }
         }
+    }
+
+    public boolean isRemoteDeviceConnected() {
+        List <BluetoothDevice> listDevices =  getConnectedDevices();
+        return listDevices.size() > 0;
     }
 
     // For testing

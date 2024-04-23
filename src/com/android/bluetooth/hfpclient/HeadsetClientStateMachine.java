@@ -60,6 +60,7 @@ import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.internal.annotations.VisibleForTesting;
@@ -79,7 +80,7 @@ import java.util.Set;
 
 public class HeadsetClientStateMachine extends StateMachine {
     private static final String TAG = "HeadsetClientStateMachine";
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
 
     static final int NO_ACTION = 0;
     static final int IN_BAND_RING_ENABLED = 1;
@@ -104,12 +105,14 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int EXPLICIT_CALL_TRANSFER = 18;
     public static final int DISABLE_NREC = 20;
     public static final int SEND_VENDOR_AT_COMMAND = 21;
+    public static final int AUDIO_SERVER_UP = 27;
 
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
     private static final int QUERY_OPERATOR_NAME = 51;
     private static final int SUBSCRIBER_INFO = 52;
     private static final int CONNECTING_TIMEOUT = 53;
+    private static final int AUDIO_CONNECTING_TIMEOUT = 54;
 
     // special action to handle terminating specific call from multiparty call
     static final int TERMINATE_SPECIFIC_CALL = 53;
@@ -118,6 +121,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     @VisibleForTesting
     static final int CONNECTING_TIMEOUT_MS = 10000;  // 10s
     private static final int ROUTING_DELAY_MS = 250;
+    static final int AUDIO_CONNECTING_TIMEOUT_MS = 3000;  // 3s
 
     private static final int MAX_HFP_SCO_VOICE_CALL_VOLUME = 15; // HFP 1.5 spec.
     private static final int MIN_HFP_SCO_VOICE_CALL_VOLUME = 1; // HFP 1.5 spec.
@@ -137,6 +141,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     private long mClccTimer = 0;
 
     private final HeadsetClientService mService;
+    private A2dpSinkService mA2dpService;
 
     // Set of calls that represent the accurate state of calls that exists on AG and the calls that
     // are currently in process of being notified to the AG from HF.
@@ -280,6 +285,11 @@ public class HeadsetClientStateMachine extends StateMachine {
         mNativeInterface.queryCurrentCalls(getByteAddress(mCurrentDevice));
         addQueuedAction(QUERY_CURRENT_CALLS, 0);
         return true;
+    }
+
+    public boolean getIsHFPDisableInProgress() {
+        return  (sAudioIsRouted == true &&
+            mAudioState == BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED);
     }
 
     private void queryCallsDone() {
@@ -710,6 +720,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         mService = context;
         mNativeInterface = nativeInterface;
         mAudioManager = mService.getAudioManager();
+        mA2dpService = A2dpSinkService.getA2dpSinkService();
 
         mVendorProcessor = new VendorCommandResponseProcessor(mService, mNativeInterface);
 
@@ -1184,11 +1195,13 @@ public class HeadsetClientStateMachine extends StateMachine {
                                 BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED,
                                 BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED);
                     } else { // We have successfully sent a connect request!
+                        sendMessageDelayed(AUDIO_CONNECTING_TIMEOUT, AUDIO_CONNECTING_TIMEOUT_MS);
                         mAudioState = BluetoothHeadsetClient.STATE_AUDIO_CONNECTING;
                     }
                     break;
 
                 case DISCONNECT_AUDIO:
+                    removeMessages(AUDIO_CONNECTING_TIMEOUT);
                     if (!mNativeInterface.disconnectAudio(getByteAddress(mCurrentDevice))) {
                         Log.e(TAG, "ERROR: Couldn't disconnect Audio for device " + mCurrentDevice);
                     }
@@ -1411,6 +1424,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                         case StackEvent.EVENT_TYPE_CLIP:
                         case StackEvent.EVENT_TYPE_CALL_WAITING:
                             sendMessage(QUERY_CURRENT_CALLS);
+                            mA2dpService.NotifyHFcallsChanged();
                             break;
                         case StackEvent.EVENT_TYPE_CURRENT_CALLS:
                             queryCallsUpdate(event.valueInt, event.valueInt3, event.valueString,
@@ -1418,6 +1432,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                                             == HeadsetClientHalConstants.CALL_MPTY_TYPE_MULTI,
                                     event.valueInt2
                                             == HeadsetClientHalConstants.CALL_DIRECTION_OUTGOING);
+                            mA2dpService.NotifyHFcallsChanged();
                             break;
                         case StackEvent.EVENT_TYPE_VOLUME_CHANGED:
                             if (event.valueInt == HeadsetClientHalConstants.VOLUME_TYPE_SPK) {
@@ -1505,6 +1520,12 @@ public class HeadsetClientStateMachine extends StateMachine {
                     }
 
                     break;
+                case AUDIO_CONNECTING_TIMEOUT:
+                    Log.w(TAG, "Audio Connection timeout for " + mCurrentDevice);
+                    broadcastAudioState(mCurrentDevice,
+                            BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED, mAudioState);
+                    mAudioState = BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
+                    break;
                 default:
                     return NOT_HANDLED;
             }
@@ -1561,6 +1582,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                         break;
                     }
 
+                    removeMessages(AUDIO_CONNECTING_TIMEOUT);
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_CONNECTED;
 
                     // We need to set the volume after switching into HFP mode as some Audio HALs
@@ -1600,6 +1622,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
                 case HeadsetClientHalConstants.AUDIO_STATE_DISCONNECTED:
                     // No state transition is involved, fire broadcast immediately
+                    removeMessages(AUDIO_CONNECTING_TIMEOUT);
                     broadcastAudioState(device, BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED,
                             mAudioState);
                     mAudioState = BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
@@ -1669,6 +1692,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                     holdCall();
                     break;
 
+                case AUDIO_SERVER_UP:
+                    processAudioServerUp();
+                    break;
+
                 case StackEvent.STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
                     if (DBG) {
@@ -1732,6 +1759,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     // (such as Telecom) and hence this will still keep the call around, there
                     // is not much we can do here since dropping the call without user consent
                     // even if the audio connection snapped may not be a good idea.
+                    queryCallsStart();
                     routeHfpAudio(false);
                     returnAudioFocusIfNecessary();
                     transitionTo(mConnected);
@@ -1860,6 +1888,32 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
         mService.sendBroadcast(intent, BLUETOOTH_CONNECT,
                 Utils.getTempAllowlistBroadcastOptions());
+    }
+
+    private void processAudioServerUp() {
+        Log.i(TAG, "onAudioSeverUp: restore audio parameters");
+        final int amVol = mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
+        final int hfVol = amToHfVol(amVol);
+
+        if (DBG) {
+            Log.d(TAG, "hfp_enable=true mAudioWbs is " + mAudioWbs);
+        }
+        if (mAudioWbs) {
+            if (DBG) {
+                Log.d(TAG, "Setting sampling rate as 16000");
+            }
+            mAudioManager.setParameters("hfp_set_sampling_rate=16000");
+        } else {
+            if (DBG) {
+                Log.d(TAG, "Setting sampling rate as 8000");
+            }
+            mAudioManager.setParameters("hfp_set_sampling_rate=8000");
+        }
+        if (DBG) {
+            Log.d(TAG, "hf_volume " + hfVol);
+        }
+        mAudioManager.setParameters("hfp_enable=true");
+        mAudioManager.setParameters("hfp_volume=" + hfVol);
     }
 
     boolean isConnected() {

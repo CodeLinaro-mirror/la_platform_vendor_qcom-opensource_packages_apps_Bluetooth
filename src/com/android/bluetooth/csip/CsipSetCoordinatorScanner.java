@@ -387,6 +387,10 @@ public class CsipSetCoordinatorScanner {
     /* to stop set discorvey procedure - stop LE scan or BREDR inquiry */
     void stopSetDiscovery(int setId, int reason) {
         Log.d(TAG, "stopGroupDiscovery");
+        if (mSetId != setId || !mScanResolution) {
+          Log.d(TAG, "Discovery not in progress for set " + setId);
+          return;
+        }
 
         mDiscoveryStoppedReason = reason;
 
