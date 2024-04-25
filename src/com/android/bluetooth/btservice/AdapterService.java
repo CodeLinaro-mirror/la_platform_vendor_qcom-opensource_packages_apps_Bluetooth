@@ -611,7 +611,7 @@ public class AdapterService extends Service {
                         initProfileServices();
                         //getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS);
                         //getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_RESERVED_0F);
-                        //getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_DYNAMIC_AUDIO_BUFFER);
+                        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_DYNAMIC_AUDIO_BUFFER);
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
                         mBtCompanionManager.loadCompanionInfo();
                         //update wifi state to lower layers
