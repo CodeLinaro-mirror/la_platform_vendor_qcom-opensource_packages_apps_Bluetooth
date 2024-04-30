@@ -132,6 +132,9 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     static final int MSG_AVRCP_PLAY_ITEM_PTS = 356;
 
+    static final int MESSAGE_PROCESS_GET_PLAY_STATUS = 357;
+    static final int MESSAGE_PROCESS_SET_ADDRESSED_PLAYER_RSP = 358;
+
     //Internal
     static final int MESSAGE_PROCESS_IMAGE_DOWNLOADED = 400;
 
@@ -346,6 +349,13 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     public static final String CUSTOM_ACTION_PULL_COVERART_THUMBNAIL =
       "android.bluetooth.avrcp-controller.profile.action.CUSTOM_ACTION_PULL_COVERART_THUMBNAIL";
+
+    public static final String CUSTOM_ACTION_SET_ADDRESSED_PLAYER =
+      "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_SET_ADDRESSED_PLAYER";
+    public static final String KEY_PLAYER_ID = "player_id";
+
+    private String CUSTOM_ACTION_GET_PLAY_STATUS =
+      "com.android.bluetooth.avrcpcontroller.CUSTOM_ACTION_GET_PLAY_STATUS";
 
     GetFolderList mGetFolderList = null;
     AddToNowPlaying mAddToNowPlaying = null;
@@ -745,7 +755,6 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
 
                case MSG_AVRCP_ADD_TO_NOW_PLAYING:
-                   mAddToNowPlaying.setMediaId((String) msg.obj);
                    transitionTo(mAddToNowPlaying);
                    return true;
 
@@ -1001,6 +1010,21 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                     return true;
                 }
+                case MESSAGE_PROCESS_SET_ADDRESSED_PLAYER: {
+                    String mediaID = ((Bundle) msg.obj).getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
+                    setAddressedPlayer(mediaID);
+                    return true;
+                }
+                case MESSAGE_PROCESS_GET_PLAY_STATUS: {
+                    if(mService != null) {
+                      mService.getPlaybackStateNative(Utils.getByteAddress(mDevice));
+                    }
+                    return true;
+                }
+                case MESSAGE_PROCESS_SET_ADDRESSED_PLAYER_RSP: {
+                    broadcastResult(CUSTOM_ACTION_SET_ADDRESSED_PLAYER, msg.arg1);
+                    return true;
+                }
                 default:
                     return super.processMessage(msg);
             }
@@ -1172,6 +1196,22 @@ class AvrcpControllerStateMachine extends StateMachine {
             AvrcpControllerService.getFolderItemsNative(
                 mDeviceAddress, (byte) scope, (byte) start, (byte) end,
                 (byte) attributeId.length, attributeId);
+        }
+
+        private void setAddressedPlayer(String mediaId) {
+          logD("setAddressedPlayer for ID "+mediaId);
+          if (mediaId != null) {
+            BrowseTree.BrowseNode currItem = mBrowseTree.findBrowseNodeByID(mediaId);
+            logD("processGetItemAttrReq mediaId=" + mediaId + " node=" + currItem);
+            if (currItem != null) {
+              int playerId = (int)currItem.getBluetoothID();
+              mService.setAddressedPlayerNative(mDeviceAddress, playerId);
+            } else {
+              logD("Node not found");
+            }
+          } else {
+            logD("setAddressedPlayer called with null MediaID");
+            }
         }
     }
 
@@ -1670,10 +1710,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     class AddToNowPlaying extends State {
         private String STATE_TAG = "Avrcp.AddToNowPlaying";
         private String mMediaId = null;
-
-        public void setMediaId(String mediaId) {
-            mMediaId = mediaId;
-        }
+        int mScope = AvrcpControllerService.BROWSE_SCOPE_VFS;
 
         private boolean isSupported() {
             boolean supported = false;
@@ -1697,22 +1734,24 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         @Override
         public void enter() {
+            Message msg = getCurrentMessage();
+            if (msg.what == MSG_AVRCP_ADD_TO_NOW_PLAYING) {
+                mMediaId = ((Bundle) msg.obj).getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
+                mScope = ((Bundle) msg.obj).getInt(KEY_BROWSE_SCOPE, 0);
+            }
             BrowseTree.BrowseNode currItem = mBrowseTree.findBrowseNodeByID(mMediaId);
-            BrowseTree.BrowseNode currFolder = mBrowseTree.getCurrentBrowsedFolder();
             Log.d(STATE_TAG, "processAddToNowPlayingReq mediaId=" + mMediaId + " node=" + currItem);
             if (currItem != null) {
-                int scope = currFolder.getScope();
-
                 if (isSupported()) {
-                    Log.d(STATE_TAG, "Add to now playing, scope: " + scope);
+                    Log.d(STATE_TAG, "Add to now playing, scope: " + mScope);
 
-                    if (scope != AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST) {
+                    if (mScope != AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST) {
                         AvrcpControllerService.addToNowPlayingNative(
-                            mDeviceAddress, (byte)scope,
+                            mDeviceAddress, (byte)mScope,
                             currItem.getBluetoothID(), mUidCounter);
                         sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
                     } else {
-                        Log.w(STATE_TAG, "Add to now playing invalid scope: " + scope);
+                        Log.w(STATE_TAG, "Add to now playing invalid scope: " + mScope);
                         broadcastAddToNowPlayingResult(AvrcpControllerService.JNI_AVRC_STS_INVALID_SCOPE);
                         transitionTo(mConnected);
                     }
@@ -2025,6 +2064,10 @@ class AvrcpControllerStateMachine extends StateMachine {
               handleCustomActionGetTotalNumOfItems(extras);
             } else if(AvrcpControllerStateMachine.CUSTOM_ACTION_PULL_COVERART_THUMBNAIL.equals(action)) {
               handleCustomActionPullCoverArt(extras);
+            } else if (CUSTOM_ACTION_SET_ADDRESSED_PLAYER.equals(action)) {
+                handleCustomActionSetAddressedPlayer(extras);
+            } else if (CUSTOM_ACTION_GET_PLAY_STATUS.equals(action)) {
+                handleCustomActionGetPlayStatus();
             } else {
               Log.w(TAG, "Custom action " + action + " not supported.");
             }
@@ -2106,8 +2149,7 @@ class AvrcpControllerStateMachine extends StateMachine {
             return;
         }
 
-        String mediaId = extras.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
-        sendMessage(MSG_AVRCP_ADD_TO_NOW_PLAYING, mediaId);
+        sendMessage(MSG_AVRCP_ADD_TO_NOW_PLAYING, extras);
     }
 
     public void handleCustomActionGetItemAttributes(Bundle extras) {
@@ -2189,6 +2231,19 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
 
         sendMessage(MSG_GET_FOLDER_ITEMS_PTS, extras);
+    }
+
+    public void handleCustomActionSetAddressedPlayer(Bundle extras) {
+        logD("handleCustomActionSetAddressedPlayer extras: " + extras);
+        if (extras == null) {
+            return;
+        }
+
+        sendMessage(MESSAGE_PROCESS_SET_ADDRESSED_PLAYER, extras);
+    }
+
+    public void handleCustomActionGetPlayStatus() {
+      sendMessage(MESSAGE_PROCESS_GET_PLAY_STATUS);
     }
 
     public void handleCustomActionPlaySelectedItem(Bundle extras) {

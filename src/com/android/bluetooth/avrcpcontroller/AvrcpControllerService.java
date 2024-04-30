@@ -891,7 +891,7 @@ public class AvrcpControllerService extends ProfileService {
         AvrcpControllerStateMachine stateMachine = getStateMachine(device);
         if (stateMachine != null) {
             stateMachine.sendMessage(
-                    AvrcpControllerStateMachine.MESSAGE_PROCESS_SET_ADDRESSED_PLAYER);
+                    AvrcpControllerStateMachine.MESSAGE_PROCESS_SET_ADDRESSED_PLAYER_RSP, status);
         }
     }
 
