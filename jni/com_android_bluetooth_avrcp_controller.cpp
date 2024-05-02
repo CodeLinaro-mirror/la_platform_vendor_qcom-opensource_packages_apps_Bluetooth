@@ -790,8 +790,7 @@ static void btavrcp_set_addressed_player_callback(RawAddress *bd_addr,
                                (jint)status);
 }
 
-/*static void btavrcp_addressed_player_changed_callback(RawAddress* bd_addr,
-                                                      uint16_t id) {
+static void btavrcp_addressed_player_changed_callback(RawAddress* bd_addr, uint16_t id) {
   ALOGI("%s status %d", __func__, id);
   std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
@@ -814,8 +813,7 @@ static void btavrcp_set_addressed_player_callback(RawAddress *bd_addr,
       sCallbacksObj, method_handleAddressedPlayerChanged, addr.get(), (jint)id);
 }
 
-static void btavrcp_now_playing_content_changed_callback(
-    RawAddress *bd_addr) {
+static void btavrcp_now_playing_content_changed_callback(RawAddress *bd_addr) {
   ALOGI("%s", __func__);
 
   CallbackEnv sCallbackEnv(__func__);
@@ -833,7 +831,6 @@ static void btavrcp_now_playing_content_changed_callback(
   sCallbackEnv->CallVoidMethod(
       sCallbacksObj, method_handleNowPlayingContentChanged, addr.get());
 }
-*/
 
 static void btavrcp_available_player_changed_callback (
     RawAddress* bd_addr) {
@@ -939,8 +936,8 @@ static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     btavrcp_change_path_callback,
     btavrcp_set_browsed_player_callback,
     btavrcp_set_addressed_player_callback,
-   /*btavrcp_addressed_player_changed_callback,
-    btavrcp_now_playing_content_changed_callback;*/
+    btavrcp_addressed_player_changed_callback,
+    btavrcp_now_playing_content_changed_callback,
     btavrcp_available_player_changed_callback,
     btavrcp_search_response_callback,
     btavrcp_uids_changed_callback,
