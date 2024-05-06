@@ -79,6 +79,7 @@ import java.nio.charset.CharsetDecoder;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -454,7 +455,8 @@ public final class Utils {
         // attributionSource.enforceCallingUid();
         final int result = PermissionChecker.checkPermissionForDataDeliveryFromDataSource(
                 context, permission, PID_UNKNOWN,
-                new AttributionSource(context.getAttributionSource(), attributionSource), message);
+                new AttributionSource(context.getAttributionSource(),
+                                      Objects.requireNonNull(attributionSource)), message);
         if (result == PERMISSION_GRANTED) {
             return true;
         }
@@ -696,7 +698,8 @@ public final class Utils {
         // attributionSource.enforceCallingUid();
         if (PermissionChecker.checkPermissionForDataDeliveryFromDataSource(
                 context, ACCESS_COARSE_LOCATION, PID_UNKNOWN,
-                new AttributionSource(context.getAttributionSource(), attributionSource),
+                new AttributionSource(context.getAttributionSource(),
+                                      Objects.requireNonNull(attributionSource)),
                 "Bluetooth location check") == PERMISSION_GRANTED) {
             return true;
         }
@@ -724,14 +727,16 @@ public final class Utils {
         // attributionSource.enforceCallingUid();
         if (PermissionChecker.checkPermissionForDataDeliveryFromDataSource(
                 context, ACCESS_FINE_LOCATION, PID_UNKNOWN,
-                new AttributionSource(context.getAttributionSource(), attributionSource),
+                new AttributionSource(context.getAttributionSource(),
+                                      Objects.requireNonNull(attributionSource)),
                 "Bluetooth location check") == PERMISSION_GRANTED) {
             return true;
         }
 
         if (PermissionChecker.checkPermissionForDataDeliveryFromDataSource(
                 context, ACCESS_COARSE_LOCATION, PID_UNKNOWN,
-                new AttributionSource(context.getAttributionSource(), attributionSource),
+                new AttributionSource(context.getAttributionSource(),
+                                      Objects.requireNonNull(attributionSource)),
                 "Bluetooth location check") == PERMISSION_GRANTED) {
             return true;
         }
@@ -758,7 +763,8 @@ public final class Utils {
         // attributionSource.enforceCallingUid();
         if (PermissionChecker.checkPermissionForDataDeliveryFromDataSource(
                 context, ACCESS_FINE_LOCATION, PID_UNKNOWN,
-                new AttributionSource(context.getAttributionSource(), attributionSource),
+                new AttributionSource(context.getAttributionSource(),
+                                      Objects.requireNonNull(attributionSource)),
                 "Bluetooth location check") == PERMISSION_GRANTED) {
             return true;
         }
