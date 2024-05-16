@@ -1021,8 +1021,10 @@ public class BluetoothInCallService extends InCallService {
                 Log.i(TAG, "activeCall null");
             }
             Log.i(TAG, "activeCall.can(Connection.CAPABILITY_HOLD)" + activeCall.can(Connection.CAPABILITY_HOLD));
+            Log.i(TAG, "activeCall.can(Connection.CAPABILITY_SUPPORT_HOLD)" + activeCall.can(Connection.CAPABILITY_SUPPORT_HOLD));
             if (!mCallInfo.isNullCall(activeCall)
-                    && activeCall.can(Connection.CAPABILITY_HOLD)) {
+                    && (activeCall.can(Connection.CAPABILITY_HOLD) ||
+                        activeCall.can(Connection.CAPABILITY_SUPPORT_HOLD))) {
                 Log.i(TAG, "holding activeCall");
                 activeCall.hold();
                 ret = true;

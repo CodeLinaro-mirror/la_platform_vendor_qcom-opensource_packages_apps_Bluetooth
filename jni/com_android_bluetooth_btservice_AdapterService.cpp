@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "BluetoothServiceJni"
 #include "com_android_bluetooth.h"
 #include "hardware/bt_sock.h"
@@ -1932,5 +1938,11 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     return JNI_ERR;
   }
 #endif
+
+  status = android::register_com_android_bluetooth_a2dp_sink_vendor_service(e);
+  if (status < 0) {
+    ALOGE("jni vendor a2dp sink service registration failure, status: %d", status);
+    return JNI_ERR;
+  }
   return JNI_VERSION_1_6;
 }

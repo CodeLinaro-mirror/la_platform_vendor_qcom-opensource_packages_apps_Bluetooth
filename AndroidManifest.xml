@@ -133,6 +133,7 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
         android:directBootAware="true"
+        android:requestLegacyExternalStorage="true"
         android:defaultToDeviceProtectedStorage="true">
         <provider android:name="com.android.bluetooth.opp.BluetoothOppProvider"
             android:authorities="com.android.bluetooth.opp"

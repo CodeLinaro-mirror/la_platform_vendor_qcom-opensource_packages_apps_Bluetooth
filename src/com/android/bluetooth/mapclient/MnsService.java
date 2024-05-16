@@ -17,6 +17,7 @@
 package com.android.bluetooth.mapclient;
 
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.os.Handler;
@@ -25,6 +26,7 @@ import android.util.Log;
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.IObexConnectionHandler;
 import com.android.bluetooth.ObexServerSockets;
+import com.android.bluetooth.Utils;
 import com.android.bluetooth.sdp.SdpManager;
 
 import java.io.IOException;
@@ -41,8 +43,8 @@ public class MnsService {
     private static final String TAG = "MnsService";
     private static final Boolean DBG = MapClientService.DBG;
     private static final Boolean VDBG = MapClientService.VDBG;
-    /* MAP version 1.1 */
-    private static final int MNS_VERSION = 0x0101;
+    /* MAP version 1.4 */
+    private static final int MNS_VERSION = 0x0104;
     /* these are shared across instances */
     private static SocketAcceptor sAcceptThread = null;
     private static Handler sSessionHandler = null;
@@ -59,15 +61,14 @@ public class MnsService {
         }
         sContext = context;
         sAcceptThread = new SocketAcceptor();
-        sServerSockets = ObexServerSockets.createWithFixedChannels(sAcceptThread,
-                SdpManager.MNS_RFCOMM_CHANNEL, SdpManager.MNS_L2CAP_PSM);
+        sServerSockets = ObexServerSockets.create(sAcceptThread);
         SdpManager sdpManager = SdpManager.getDefaultManager();
         if (sdpManager == null) {
             Log.e(TAG, "SdpManager is null");
             return;
         }
         mSdpHandle = sdpManager.createMapMnsRecord("MAP Message Notification Service",
-                sServerSockets.getRfcommChannel(), -1, MNS_VERSION,
+                sServerSockets.getRfcommChannel(), sServerSockets.getL2capPsm(), MNS_VERSION,
                 MasClient.MAP_SUPPORTED_FEATURES);
     }
 
@@ -128,7 +129,12 @@ public class MnsService {
             MceStateMachine stateMachine = sContext.getMceStateMachineForDevice(device);
             if (stateMachine == null) {
                 Log.e(TAG, "Error: NO statemachine for device: " + device.getAddress()
-                        + " (name: " + device.getName());
+                        + " (name: " + Utils.getName(device));
+                return false;
+            } else if (stateMachine.getState() != BluetoothProfile.STATE_CONNECTED) {
+                Log.e(TAG, "Error: statemachine for device: " + device.getAddress()
+                        + " (name: " + Utils.getName(device) + ") is not currently CONNECTED : "
+                        + stateMachine.getCurrentState());
                 return false;
             }
             MnsObexServer srv = new MnsObexServer(stateMachine, sServerSockets);
