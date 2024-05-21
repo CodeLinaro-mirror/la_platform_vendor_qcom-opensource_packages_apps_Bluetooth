@@ -41,7 +41,7 @@ public class HfpClientA2DPSync{
         hsClientService = context;
     }
 
-    private List <BluetoothHeadsetClientCall> getCurrentCalls() {
+    public List <BluetoothHeadsetClientCall> getCurrentCalls() {
         List <BluetoothHeadsetClientCall> callList =  new ArrayList<BluetoothHeadsetClientCall>();;
         List <BluetoothDevice> connectedDevices = hsClientService.getConnectedDevices();
         if(!(connectedDevices.isEmpty())) {
@@ -51,5 +51,18 @@ public class HfpClientA2DPSync{
             return callList;
         }
         return  Collections.emptyList();
+    }
+
+    public BluetoothDevice getCallingDevice() {
+        BluetoothDevice callingDevice = null;
+        List <BluetoothDevice> connectedDevices = hsClientService.getConnectedDevices();
+        if(!(connectedDevices.isEmpty())) {
+            for (BluetoothDevice mDevice : connectedDevices) {
+                if(!hsClientService.getCurrentCalls(mDevice).isEmpty()) {
+                    callingDevice = mDevice;
+                }
+            }
+        }
+        return callingDevice;
     }
 }
