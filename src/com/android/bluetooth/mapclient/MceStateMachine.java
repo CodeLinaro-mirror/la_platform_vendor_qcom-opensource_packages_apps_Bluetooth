@@ -139,6 +139,9 @@ class MceStateMachine extends StateMachine {
     private static final String FOLDER_SENT = "sent";
     private static final String INBOX_PATH = "telecom/msg/inbox";
 
+    // URI Scheme for messages with email contact
+    private static final String SCHEME_MAILTO = "mailto";
+
     /* Properties for MAP PTS test */
     // Set "vendor.bt.mce.test.upload" to true to test PTS upload feature case
     // MAP/MCE/MMU/BV-01-I
@@ -309,12 +312,8 @@ class MceStateMachine extends StateMachine {
         if (this.getCurrentState() == mConnected && !isAbort()) {
             Bmessage bmsg = new Bmessage();
             // Set type and status.
-            if (Utils.isPtsTestMode()) {
-                bmsg.setType(Bmessage.Type.SMS_GSM);
-            } else {
-                bmsg.setType(getDefaultMessageType());
-            }
-            bmsg.setStatus(Bmessage.Status.UNREAD);
+            bmsg.setType(getDefaultMessageType());
+            bmsg.setStatus(Bmessage.Status.READ);
             bmsg.setFolder(FOLDER_OUTBOX);
 
             for (Uri contact : contacts) {
@@ -336,10 +335,20 @@ class MceStateMachine extends StateMachine {
                             Log.d(TAG, "Sending to phone numbers " + destEntryPhone.getValueList());
                         }
                     }
-                } else {
+                } else if (SCHEME_MAILTO.equals(contact.getScheme())) {
+                    VCardEntry destEntry = new VCardEntry();
+                    VCardProperty destEntryContact = new VCardProperty();
+                    destEntryContact.setName(VCardConstants.PROPERTY_EMAIL);
+                    destEntryContact.addValues(contact.getSchemeSpecificPart());
+                    destEntry.addProperty(destEntryContact);
+                    bmsg.addRecipient(destEntry);
+                    Log.d(TAG, "SPECIFIC: " + contact.getSchemeSpecificPart());
                     if (DBG) {
-                        Log.w(TAG, "Scheme " + contact.getScheme() + " not supported.");
+                        Log.d(TAG, "Sending to emails "
+                                + destEntryContact.getValueList());
                     }
+                } else {
+                    Log.w(TAG, "Scheme " + contact.getScheme() + " not supported.");
                     return false;
                 }
             }
@@ -1056,6 +1065,7 @@ private String getFileExtension(String path){
                 case SMS_CDMA:
                 case SMS_GSM:
                 case MMS:
+                case EMAIL:
                     if (DBG) {
                         Log.d(TAG, "Body: " + message.getBodyContent());
                     }
@@ -1115,7 +1125,6 @@ private String getFileExtension(String path){
                     }
                     mService.sendBroadcast(intent, RECEIVE_SMS);
                     break;
-                case EMAIL:
                 default:
                     Log.e(TAG, "Received unhandled type" + message.getType().toString());
                     break;
