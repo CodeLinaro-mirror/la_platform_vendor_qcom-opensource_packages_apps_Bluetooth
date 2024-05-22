@@ -47,6 +47,11 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.btservice;
@@ -588,7 +593,7 @@ public class Config {
     }
 
     private static void getAudioProperties() {
-        mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", false);
+        mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", true);
         mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
         boolean isCsipQti = SystemProperties.getBoolean("ro.vendor.bluetooth.csip_qti", false);
         if (isCsipQti) {
