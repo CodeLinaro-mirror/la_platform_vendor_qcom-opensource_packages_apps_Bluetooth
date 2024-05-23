@@ -4704,10 +4704,36 @@ public class AdapterService extends Service {
 
         private Bundle getPreferredAudioProfiles(BluetoothDevice device,
                 AttributionSource source) {
+            AdapterService service = getService();
+            if (service == null) {
+                return null;
+            }
+            if(device == null) {
+                return null;
+            }
+            if (service.getBondState(device) != BluetoothDevice.BOND_BONDED) {
+                return null;
+            }
+
             ActiveDeviceManagerServiceIntf activeDeviceManager =
                                                             ActiveDeviceManagerServiceIntf.get();
-            Bundle mPreferredAudioProfiles = activeDeviceManager.getpreferredProfile(
+
+            BluetoothDevice mMediaDevice = activeDeviceManager.getActiveDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+            BluetoothDevice mCallDevice = activeDeviceManager.getActiveDevice(ApmConstIntf.AudioFeatures.CALL_AUDIO);
+            Bundle mPreferredAudioProfiles = null;
+
+            if(device.equals(mMediaDevice) && device.equals(mCallDevice)) {
+                mPreferredAudioProfiles = activeDeviceManager.getpreferredProfile(
                                                 ApmConstIntf.AudioFeatures.MAX_AUDIO_FEATURES );
+            } else if (device.equals(mMediaDevice)) {
+                mPreferredAudioProfiles = activeDeviceManager.getpreferredProfile(
+                                                ApmConstIntf.AudioFeatures.MEDIA_AUDIO );
+            } else if (device.equals(mCallDevice)) {
+                mPreferredAudioProfiles = activeDeviceManager.getpreferredProfile(
+                                                ApmConstIntf.AudioFeatures.CALL_AUDIO );
+            } else {
+                return null;
+            }
             Log.e(TAG, "getPreferredAudioProfiles: OUTPUT_ONLY: " +
                         mPreferredAudioProfiles.getInt(BluetoothAdapter.AUDIO_MODE_OUTPUT_ONLY));
             Log.e(TAG, "getPreferredAudioProfiles: AUDIO_MODE_DUPLEX: " +

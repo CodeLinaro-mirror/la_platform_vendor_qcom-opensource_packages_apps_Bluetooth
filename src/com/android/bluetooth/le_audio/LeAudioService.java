@@ -2935,17 +2935,17 @@ public class LeAudioService extends ProfileService {
                 Objects.requireNonNull(source, "source cannot be null");
                 Objects.requireNonNull(receiver, "receiver cannot be null");
 
-                Log.i(TAG, "registerCallback: mLeAudioServiceLock: " + mLeAudioServiceLock);
+                Log.i(TAG, "registerCallback: mLeAudioServiceLock= " + mLeAudioServiceLock);
                 synchronized(mLeAudioServiceLock) {
                     LeAudioService service = getService(source);
                     if(service == null) {
-                        Log.i(TAG, "registerCallback: service is null");
-                        throw new IllegalStateException("Service is unavailable: " + service);
+                        Log.i(TAG, "registerCallback: service is null, return");
+                        return;
                     } else {
                         Log.i(TAG, "registerCallback: service is NOT null");
                         if(service.mLeAudioCallbacks == null) {
-                            Log.i(TAG, "registerCallback: service.mLeAudioCallbacks is null");
-                            throw new IllegalStateException("Service is unavailable: " + service);
+                            Log.i(TAG, "registerCallback: service.mLeAudioCallbacks is null, return");
+                            return;
                         } else{
                             Log.i(TAG, "registerCallback: service.mLeAudioCallbacks is NOT null");
                         }
