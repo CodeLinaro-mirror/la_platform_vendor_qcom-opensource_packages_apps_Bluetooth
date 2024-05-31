@@ -513,6 +513,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                     action = HeadsetClientHalConstants.CALL_ACTION_CHLD_1;
                 } else if (getCall(BluetoothHeadsetClientCall.CALL_STATE_ACTIVE) != null) {
                     action = HeadsetClientHalConstants.CALL_ACTION_CHLD_3;
+                    if (HeadsetClientHandler.isPtsEnabled()) {
+                        Log.w(TAG, "Don't send AT+CHLD=3 for pts HFP/HF/ECC/BV-02-C");
+                        return;
+                    }
                 } else if (flag == BluetoothHeadsetClient.CALL_ACCEPT_NONE) {
                     action = HeadsetClientHalConstants.CALL_ACTION_CHLD_2;
                 } else {
