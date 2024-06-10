@@ -216,6 +216,8 @@ public class HeadsetClientService extends ProfileService {
         }
     };
 
+    /* Headset Profile Listener to register
+     * HeadsetScoStateChnaged callback */
     private BluetoothProfile.ServiceListener mProfileListener =
         new BluetoothProfile.ServiceListener() {
         public void onServiceConnected(int profile, BluetoothProfile proxy) {
@@ -224,7 +226,7 @@ public class HeadsetClientService extends ProfileService {
 
                 if (mService != null) {
                     mService.registerCallback(mExecutor, mCallback);
-                    Log.d(TAG,"Register Ag SCO State chnage callback");
+                    Log.d(TAG,"Register HeadsetScoStateChanged callback");
                 } else {
                     Log.e(TAG,"Bluetooth HeadsetService is NULL");
                 }
@@ -233,7 +235,7 @@ public class HeadsetClientService extends ProfileService {
 
         public void onServiceDisconnected(int profile) {
             if (profile == BluetoothProfile.HEADSET && mService != null) {
-                Log.d(TAG,"Unregister Ag SCO State chnage callback");
+                Log.d(TAG,"Unregister HeadsetScoStateChanged callback");
                 mService.unregisterCallback(mCallback);
                 mService = null;
             }
