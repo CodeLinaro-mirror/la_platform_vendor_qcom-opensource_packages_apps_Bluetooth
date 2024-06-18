@@ -245,6 +245,10 @@ public class HfpClientConnectionService extends ConnectionService {
         BluetoothHeadsetClientCall call =
                 request.getExtras().getParcelable(TelecomManager.EXTRA_INCOMING_CALL_EXTRAS);
         HfpClientConnection connection = block.onCreateIncomingConnection(call);
+        if (connection == null) {
+            Log.w(TAG, "Connection does not exist");
+            return null;
+        }
         connection.setHfpClientConnectionService(this);
         return connection;
     }
@@ -263,6 +267,10 @@ public class HfpClientConnectionService extends ConnectionService {
             return null;
         }
         HfpClientConnection connection = block.onCreateOutgoingConnection(request.getAddress());
+        if (connection == null) {
+            Log.w(TAG, "Connection does not exist");
+            return null;
+        }
         connection.setHfpClientConnectionService(this);
         return connection;
     }

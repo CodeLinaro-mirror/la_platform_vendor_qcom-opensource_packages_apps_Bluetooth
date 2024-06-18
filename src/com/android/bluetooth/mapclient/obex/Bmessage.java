@@ -13,6 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
+*/
 
 package com.android.bluetooth.mapclient;
 
@@ -40,6 +46,8 @@ public class Bmessage {
     String mBbodyCharset;
     String mBbodyLanguage;
     int mBbodyLength;
+    String MimeType;
+    boolean mImageMMS = false;
 
     String mMessage;
 
@@ -96,6 +104,23 @@ public class Bmessage {
     public Bmessage setType(Type type) {
         mBmsgType = type;
         return this;
+    }
+
+    public String getFileType() {
+        return MimeType;
+    }
+
+    public Bmessage setFileType(String FileType){
+        MimeType = FileType;
+        return this;
+    }
+    public Bmessage SetImageMMS(boolean flag){
+        mImageMMS = flag;
+        return this;
+    }
+
+    public boolean IsImageMMS() {
+        return mImageMMS;
     }
 
     public String getFolder() {

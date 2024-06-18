@@ -13,6 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+ /*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
+*/
 
 package com.android.bluetooth.mapclient;
 
@@ -53,7 +59,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MapClientService extends ProfileService {
     private static final String TAG = "MapClientService";
 
-    static final boolean DBG = false;
+    static final boolean DBG = true;
     static final boolean VDBG = false;
 
     static final int MAXIMUM_CONNECTED_DEVICES = 4;
@@ -430,6 +436,12 @@ public class MapClientService extends ProfileService {
         }
         return mapStateMachine.setMessageStatus(handle, status);
     }
+    public synchronized boolean sendImage(BluetoothDevice device, Uri[] contacts, String ImagePath,
+            PendingIntent sentIntent, PendingIntent deliveredIntent) {
+        MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
+         return mapStateMachine != null
+                 && mapStateMachine.sendMapImageMessage(contacts, ImagePath, sentIntent, deliveredIntent);
+    }
 
     @Override
     public void dump(StringBuilder sb) {
@@ -650,6 +662,29 @@ public class MapClientService extends ProfileService {
                     service.enforceCallingOrSelfPermission(Manifest.permission.READ_SMS,
                             "Need READ_SMS permission");
                     result = service.getUnreadMessages(device);
+                }
+                receiver.send(result);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+
+        @Override
+        public void sendImage(BluetoothDevice device, Uri[] contacts, String ImagePath,
+                PendingIntent sentIntent, PendingIntent deliveredIntent, AttributionSource source,
+                SynchronousResultReceiver receiver) {
+            if (VDBG) {
+                Log.v(TAG, "sendImage()");
+            }
+            try {
+                MapClientService service = getService(source);
+                boolean result = false;
+                if (service != null) {
+                    if (DBG) Log.d(TAG, "Checking Permission of sendMessage");
+                    service.enforceCallingOrSelfPermission(Manifest.permission.SEND_SMS,
+                            "Need SEND_SMS permission");
+                    result = service.sendImage(device, contacts, ImagePath, sentIntent,
+                            deliveredIntent);
                 }
                 receiver.send(result);
             } catch (RuntimeException e) {
