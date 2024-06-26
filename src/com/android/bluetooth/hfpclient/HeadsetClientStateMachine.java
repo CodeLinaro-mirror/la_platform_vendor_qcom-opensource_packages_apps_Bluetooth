@@ -1988,6 +1988,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                                 Log.d(TAG, "AG SCO connected audio state changed" + event.device + ": "
                                         + event.valueInt);
                             }
+                            if (event.valueInt == BluetoothHeadsetClient.STATE_AUDIO_CONNECTING) {
+                                mNativeInterface.disconnectAudio(getByteAddress(mCurrentDevice));
+                                Log.d(TAG, "SCO is already occupied, reject incoming SCO request");
+                            }
                             break;
                         default:
                             return NOT_HANDLED;
