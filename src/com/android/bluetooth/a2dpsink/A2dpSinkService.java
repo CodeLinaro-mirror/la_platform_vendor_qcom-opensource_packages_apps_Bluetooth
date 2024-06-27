@@ -364,15 +364,20 @@ public class A2dpSinkService extends ProfileService {
 
     public void NotifyHFcallsChanged() {
         Log.d(TAG ," NotifyHFcallsChanged ");
+        BluetoothDevice callingDevice = null;
         List <BluetoothHeadsetClientCall> callList =  new ArrayList<BluetoothHeadsetClientCall>();
         if(mHeadsetClientService == null)
             mHeadsetClientService = HeadsetClientService.getHeadsetClientService();
         List <BluetoothDevice> connectedDevices = mHeadsetClientService.getConnectedDevices();
         if(!(connectedDevices.isEmpty())) {
             for (BluetoothDevice mDevice : connectedDevices) {
+                if(!mHeadsetClientService.getCurrentCalls(mDevice).isEmpty()) {
+                    callingDevice = mDevice;
+                }
                 callList.addAll(mHeadsetClientService.getCurrentCalls(mDevice));
             }
         }
+        Log.d(TAG ," callingDevice" + callingDevice + "streamingDevice" + mStreamingDevice);
         if(!(callList.isEmpty())&& mStreamingDevice != null) {
             Log.d(TAG ,"Incomming Call in progress send pause to :" + mStreamingDevice);
             AvrcpControllerService avrcpService =
@@ -383,7 +388,10 @@ public class A2dpSinkService extends ProfileService {
             avrcpService.sendPassThroughCommandNative(Utils.getByteAddress(mStreamingDevice),
                         AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
                         AvrcpControllerService.KEY_STATE_RELEASED);
-            mA2dpSinkStreamHandler.obtainMessage(A2dpSinkStreamHandler.STOP_SINK).sendToTarget();
+
+            if(!mStreamingDevice.equals(callingDevice)) {
+                mA2dpSinkStreamHandler.obtainMessage(A2dpSinkStreamHandler.STOP_SINK).sendToTarget();
+            }
             mPausedDueToCallIndicators = true;
             sAudioIsEnabled = false;
         }
