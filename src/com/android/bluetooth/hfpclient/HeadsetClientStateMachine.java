@@ -681,8 +681,15 @@ public class HeadsetClientStateMachine extends StateMachine {
             action = HeadsetClientHalConstants.CALL_ACTION_CHLD_0;
         }
         if (c != null) {
-            Log.d(TAG, "call uuid: " + c.getUUID() + " terminate call uuid " + uuid);
-            if (c.getUUID().compareTo(uuid) == 0 && mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
+            boolean mPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
+            if (mPts) {
+                Log.d(TAG, "call uuid: " + c.getUUID() + " terminate call uuid " + uuid);
+                if (c.getUUID().compareTo(uuid) != 0) {
+                    return;
+                }
+            }
+
+            if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
                 addQueuedAction(TERMINATE_CALL, action);
             } else {
                 Log.e(TAG, "ERROR: Couldn't terminate outgoing call");
@@ -1464,7 +1471,6 @@ public class HeadsetClientStateMachine extends StateMachine {
                 case TERMINATE_CALL:
                     {
                       UUID uuid = (UUID) message.obj;
-                      Log.d(TAG, "terminate call request uuid = " + uuid.toString());
                       terminateCall(uuid);
                     }
                     break;
