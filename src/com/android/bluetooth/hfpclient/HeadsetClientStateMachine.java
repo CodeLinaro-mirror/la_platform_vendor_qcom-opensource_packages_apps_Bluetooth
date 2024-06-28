@@ -684,7 +684,7 @@ public class HeadsetClientStateMachine extends StateMachine {
             boolean mPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
             if (mPts) {
                 Log.d(TAG, "call uuid: " + c.getUUID() + " terminate call uuid " + uuid);
-                if (c.getUUID().compareTo(uuid) != 0) {
+                if ((uuid != null) && (c.getUUID().compareTo(uuid) != 0)) {
                     return;
                 }
             }
