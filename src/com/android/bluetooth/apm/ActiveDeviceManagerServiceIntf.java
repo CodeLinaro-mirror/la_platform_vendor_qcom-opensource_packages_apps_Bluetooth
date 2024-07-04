@@ -174,6 +174,28 @@ public class ActiveDeviceManagerServiceIntf {
         return false;
     }
 
+    public boolean isUpdatePending(int mAudioType) {
+        if(activeDeviceManagerService == null)
+            return false;
+
+        Class[] arg = new Class[1];
+        arg[0] = int.class;
+
+        try {
+            Method isUpdatePending=activeDeviceManagerService.getDeclaredMethod("isUpdatePending", arg);
+            Boolean ret = (Boolean)isUpdatePending.invoke(mActiveDeviceManagerService, mAudioType);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return false;
+    }
+
     public boolean suspendRecording(Boolean suspend) {
         if(activeDeviceManagerService == null)
             return false;

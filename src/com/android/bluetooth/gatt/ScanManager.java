@@ -1019,18 +1019,22 @@ public class ScanManager {
             PhyInfo result = null;
             int curScanSettingLE1M = Integer.MIN_VALUE;
             int curScanSettingLECoded = Integer.MIN_VALUE;
+            int curScanSettingLE1MPriority = Integer.MIN_VALUE;
+            int curScanSettingLECodedPriority = Integer.MIN_VALUE;
             int curScanPhy = BluetoothDevice.PHY_LE_1M;
             int aggregateScanPhy = BluetoothDevice.PHY_LE_1M;
             for (ScanClient client : cList) {
                 // Get the most aggresive scan mode for each PHY
                 curScanPhy = client.settings.getPhy();
                 if (((curScanPhy & BluetoothDevice.PHY_LE_1M)== BluetoothDevice.PHY_LE_1M) &&
-                        (client.settings.getScanMode() > curScanSettingLE1M)) {
+                        (mPriorityMap.get(client.settings.getScanMode()) > curScanSettingLE1MPriority)) {
                     curScanSettingLE1M = client.settings.getScanMode();
+                    curScanSettingLE1MPriority = mPriorityMap.get(client.settings.getScanMode());
                 }
                 if (((curScanPhy & BluetoothDevice.PHY_LE_CODED)== BluetoothDevice.PHY_LE_CODED) &&
-                        (client.settings.getScanMode() > curScanSettingLECoded)) {
+                        (mPriorityMap.get(client.settings.getScanMode()) > curScanSettingLECodedPriority)) {
                     curScanSettingLECoded = client.settings.getScanMode();
+                    curScanSettingLECodedPriority = mPriorityMap.get(client.settings.getScanMode());
                 }
                 aggregateScanPhy |= client.settings.getPhy();
             }

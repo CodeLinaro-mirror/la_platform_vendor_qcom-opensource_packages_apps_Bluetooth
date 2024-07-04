@@ -2031,6 +2031,16 @@ public class LeAudioService extends ProfileService {
     }
 
     /**
+     * Check if inband ringtone is enabled by the LE Audio group.
+     * Group id for the device can be found with {@link BluetoothLeAudio#getGroupId}.
+     * @param groupId LE Audio group id
+     * @return true if inband ringtone is enabled, false otherwise
+     */
+    public boolean isInbandRingtoneEnabled(int groupId) {
+        return true;
+    }
+
+    /**
      * Set In Call state
      * @param inCall True if device in call (any state), false otherwise.
      */
@@ -2761,7 +2771,21 @@ public class LeAudioService extends ProfileService {
 
         @Override
         public void isInbandRingtoneEnabled(AttributionSource source,
-                SynchronousResultReceiver receiver, int groupId) {
+               SynchronousResultReceiver receiver, int groupId) {
+            try {
+                Objects.requireNonNull(source, "source cannot be null");
+                Objects.requireNonNull(receiver, "receiver cannot be null");
+
+                LeAudioService service = getService(source);
+                boolean result = false;
+                if (service != null) {
+                    enforceBluetoothPrivilegedPermission(service);
+                    result = service.isInbandRingtoneEnabled(groupId);
+                }
+                receiver.send(result);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
         }
 
         @Override
