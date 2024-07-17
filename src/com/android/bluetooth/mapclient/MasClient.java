@@ -71,6 +71,7 @@ public class MasClient {
             0x66
     };
     private static final byte OAP_TAGID_MAP_SUPPORTED_FEATURES = 0x29;
+    private static final int L2CAP_INVALID_PSM = -1;
     private static final int MAP_FEATURE_NOTIFICATION_REGISTRATION = 0x00000001;
     private static final int MAP_FEATURE_NOTIFICATION = 0x00000002;
     private static final int MAP_FEATURE_BROWSING = 0x00000004;

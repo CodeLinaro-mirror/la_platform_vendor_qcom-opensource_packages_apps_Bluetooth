@@ -165,6 +165,7 @@ public class LeAudioService extends ProfileService {
     private int mLeActiveGroupID;
     private LeAudioCodecConfig mLeAudioCodecConfig;
     ServiceFactory mServiceFactory = new ServiceFactory();
+    private final static Object mLeAudioServiceLock = new Object();
 
     //LeAudioNativeInterface mLeAudioNativeInterface;
     //LeAudioBroadcasterNativeInterface mLeAudioBroadcasterNativeInterface = null;
@@ -440,7 +441,9 @@ public class LeAudioService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "setLeAudioService(): set to: " + instance);
         }
-        sLeAudioService = instance;
+        synchronized(mLeAudioServiceLock) {
+            sLeAudioService = instance;
+        }
     }
 
     public boolean connect(BluetoothDevice device) {
@@ -2028,6 +2031,16 @@ public class LeAudioService extends ProfileService {
     }
 
     /**
+     * Check if inband ringtone is enabled by the LE Audio group.
+     * Group id for the device can be found with {@link BluetoothLeAudio#getGroupId}.
+     * @param groupId LE Audio group id
+     * @return true if inband ringtone is enabled, false otherwise
+     */
+    public boolean isInbandRingtoneEnabled(int groupId) {
+        return true;
+    }
+
+    /**
      * Set In Call state
      * @param inCall True if device in call (any state), false otherwise.
      */
@@ -2515,6 +2528,7 @@ public class LeAudioService extends ProfileService {
             if (!Utils.checkServiceAvailable(mService, TAG)
                     || !Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)
                     || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
+                Log.d(TAG, "getService(): return");
                 return null;
             }
             if(mService == null) {
@@ -2757,7 +2771,21 @@ public class LeAudioService extends ProfileService {
 
         @Override
         public void isInbandRingtoneEnabled(AttributionSource source,
-                SynchronousResultReceiver receiver, int groupId) {
+               SynchronousResultReceiver receiver, int groupId) {
+            try {
+                Objects.requireNonNull(source, "source cannot be null");
+                Objects.requireNonNull(receiver, "receiver cannot be null");
+
+                LeAudioService service = getService(source);
+                boolean result = false;
+                if (service != null) {
+                    enforceBluetoothPrivilegedPermission(service);
+                    result = service.isInbandRingtoneEnabled(groupId);
+                }
+                receiver.send(result);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
         }
 
         @Override
@@ -2931,23 +2959,26 @@ public class LeAudioService extends ProfileService {
                 Objects.requireNonNull(source, "source cannot be null");
                 Objects.requireNonNull(receiver, "receiver cannot be null");
 
-                LeAudioService service = getService(source);
-                if(service == null) {
-                    Log.i(TAG, "registerCallback: service is null");
-                    throw new IllegalStateException("Service is unavailable: " + service);
-                } else {
-                    Log.i(TAG, "registerCallback: service is NOT null");
-                    if(service.mLeAudioCallbacks == null) {
-                        Log.i(TAG, "registerCallback: service.mLeAudioCallbacks is null");
-                        throw new IllegalStateException("Service is unavailable: " + service);
-                    } else{
-                        Log.i(TAG, "registerCallback: service.mLeAudioCallbacks is NOT null");
+                Log.i(TAG, "registerCallback: mLeAudioServiceLock= " + mLeAudioServiceLock);
+                synchronized(mLeAudioServiceLock) {
+                    LeAudioService service = getService(source);
+                    if(service == null) {
+                        Log.i(TAG, "registerCallback: service is null, return");
+                        return;
+                    } else {
+                        Log.i(TAG, "registerCallback: service is NOT null");
+                        if(service.mLeAudioCallbacks == null) {
+                            Log.i(TAG, "registerCallback: service.mLeAudioCallbacks is null, return");
+                            return;
+                        } else{
+                            Log.i(TAG, "registerCallback: service.mLeAudioCallbacks is NOT null");
+                        }
                     }
-                }
 
-                enforceBluetoothPrivilegedPermission(service);
-                service.mLeAudioCallbacks.register(callback);
-                receiver.send(null);
+                    enforceBluetoothPrivilegedPermission(service);
+                    service.mLeAudioCallbacks.register(callback);
+                    receiver.send(null);
+                }
             } catch (RuntimeException e) {
                 Log.i(TAG, "registerCallback: catch exception");
                 receiver.propagateException(e);

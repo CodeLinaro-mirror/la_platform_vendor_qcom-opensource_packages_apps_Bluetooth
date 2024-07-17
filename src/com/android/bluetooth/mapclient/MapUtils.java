@@ -29,6 +29,8 @@ class MapUtils {
     private static MnsService sMnsService = null;
     private static final String FETCH_MESSAGE_TYPE =
             "persist.bluetooth.pts.mapclient.fetchmessagetype";
+    private static final String SEND_MESSAGE_TYPE =
+            "persist.bluetooth.pts.mapclient.sendmessagetype";
 
     @VisibleForTesting
     static void setMnsService(MnsService service) {
@@ -50,5 +52,15 @@ class MapUtils {
         } else {
             return MessagesFilter.MESSAGE_TYPE_ALL;
         }
+    }
+
+    static Bmessage.Type sendMessageType() {
+        if (Utils.isPtsTestMode()) {
+            int messageType = SystemProperties.getInt(SEND_MESSAGE_TYPE, -1);
+            if (messageType > 0 && messageType < Bmessage.Type.values().length) {
+                return Bmessage.Type.values()[messageType];
+            }
+        }
+        return Bmessage.Type.MMS;
     }
 }

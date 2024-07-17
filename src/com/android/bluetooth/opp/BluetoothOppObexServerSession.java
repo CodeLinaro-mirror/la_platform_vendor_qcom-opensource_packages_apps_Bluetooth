@@ -43,6 +43,7 @@ import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
+import android.os.SystemProperties;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.BluetoothObexTransport;
@@ -272,6 +273,11 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
                 Log.w(TAG, "mimeType is null or in unacceptable list, reject the transfer");
             }
             return ResponseCodes.OBEX_HTTP_UNSUPPORTED_TYPE;
+        }
+
+        if(SystemProperties.getBoolean("persist.bluetooth.auto_accept_opp", false)) {
+            Log.d(TAG, "autoAccept for Incoming File Transfer");
+            return ResponseCodes.OBEX_HTTP_OK;
         }
 
         ContentValues values = new ContentValues();

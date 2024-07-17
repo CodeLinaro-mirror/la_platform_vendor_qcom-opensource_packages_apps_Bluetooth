@@ -80,9 +80,10 @@ public class Config {
     private static Class mCsClientServiceClass = null;
     private static Class mCcServiceClass = null;
     private static ArrayList<Class> profiles = new ArrayList<>();
-    private static boolean mIsA2dpSink, mIsBAEnabled, mIsSplitA2dpEnabled,
+    private static boolean mIsA2dpSink, mIsSplitSink, mIsBAEnabled, mIsSplitA2dpEnabled,
             mIsGroupSerEnabled, mIsCsipServiceEnabled;
     private static boolean mIsHfpClient;
+    private static boolean mIsPbapClient;
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -267,7 +268,25 @@ public class Config {
                     if (DBG) Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
                     continue;
                 }
-                if (DBG) Log.d(TAG, "Adding " + config.mClass.getSimpleName());
+                // ignore adding map server service for targets where map client is enabled
+                if ((config.mClass.getSimpleName().equals("BluetoothMapService")) &&
+                    (mIsSplitSink)) {
+                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
+                    continue;
+                }
+                // ignore adding map client service for targets where map client is disabled
+                if ((config.mClass.getSimpleName().equals("MapClientService")) &&
+                    (!mIsSplitSink)) {
+                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
+                    continue;
+                }
+                // ignore adding pbap client service for targets where pbap client is disabled
+                if ((config.mClass.getSimpleName().equals("PbapClientService")) &&
+                    (!mIsPbapClient)) {
+                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
+                    continue;
+                }
+                Log.v(TAG, "Adding " + config.mClass.getSimpleName());
                 profiles.add(config.mClass);
             }
         }
@@ -553,6 +572,10 @@ public class Config {
         } if (serviceName.equals("HapClientService")) {
             return addAospAudioProfiles(serviceName);
         }
+        if ((serviceName.equals("HeadsetClientService")) && (!mIsHfpClient))
+            return false;
+        if ((serviceName.equals("HeadsetService")) && (mIsHfpClient))
+            return false;
 
         // always return true for other profiles
         return true;
@@ -583,10 +606,18 @@ public class Config {
     }
 
     private static void getAudioProperties() {
+        mIsSplitSink = SystemProperties.getBoolean("persist.vendor.bluetooth.split_a2dp_sink", false);
+
+        if (mIsSplitSink) {
+           SystemProperties.set("persist.vendor.service.bt.a2dp.sink", "true");
+           SystemProperties.set("persist.vendor.bt.a2dp.sink_conn", "2");
+        }
+
         mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", false);
         mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
         mIsHfpClient = SystemProperties.getBoolean("persist.vendor.bluetooth.hfp_client", false);
         boolean isCsipQti = SystemProperties.getBoolean("ro.vendor.bluetooth.csip_qti", false);
+        mIsPbapClient = SystemProperties.getBoolean("persist.vendor.bluetooth.pbap_client", false);
         if (isCsipQti) {
             mIsGroupSerEnabled = true;
         } else {
@@ -605,7 +636,7 @@ public class Config {
                 + mIsBAEnabled + " mIsSplitA2dpEnabled " + mIsSplitA2dpEnabled
                 + " isCsipQti " + isCsipQti);
         }
-        Log.d(TAG, "getAudioProperties mIsHfpClient" + mIsHfpClient);
+        Log.d(TAG, "getAudioProperties mIsHfpClient" + mIsHfpClient + " mIsPbapClient " + mIsPbapClient);
     }
 
     public static boolean getIsCsipQti() {

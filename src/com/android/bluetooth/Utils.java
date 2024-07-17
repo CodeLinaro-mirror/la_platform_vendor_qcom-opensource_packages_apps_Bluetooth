@@ -504,21 +504,24 @@ public final class Utils {
     @SuppressLint("AndroidFrameworkRequiresPermission")
     private static boolean checkPermissionForDataDelivery(Context context, String permission,
             AttributionSource attributionSource, String message) {
-        final int result = PermissionChecker.checkPermissionForDataDeliveryFromDataSource(
+        if (context != null) {
+            final int result = PermissionChecker.checkPermissionForDataDeliveryFromDataSource(
                 context, permission, PID_UNKNOWN,
                 new AttributionSource(context.getAttributionSource(), attributionSource), message);
-        if (result == PERMISSION_GRANTED) {
-            return true;
-        }
+            if (result == PERMISSION_GRANTED) {
+                return true;
+            }
 
-        final String msg = "Need " + permission + " permission for " + attributionSource + ": "
-                + message;
-        if (result == PERMISSION_HARD_DENIED) {
-            throw new SecurityException(msg);
-        } else {
-            Log.w(TAG, msg);
-            return false;
+            final String msg = "Need " + permission + " permission for " + attributionSource + ": "
+                    + message;
+            if (result == PERMISSION_HARD_DENIED) {
+                throw new SecurityException(msg);
+            } else {
+                Log.w(TAG, msg);
+                return false;
+            }
         }
+        return false;
     }
 
     /**

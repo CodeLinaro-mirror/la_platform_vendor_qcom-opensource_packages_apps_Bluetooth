@@ -2172,7 +2172,9 @@ public class A2dpService extends ProfileService {
         // so the Audio Service can reset accordingly the audio feeding
         // parameters in the Audio HAL to the Bluetooth stack.
         int rememberedVolume = -1;
-        if (isActiveDevice(device) && !sameAudioFeedingParameters) {
+        ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
+        boolean isUpdatePending = activeDeviceManager.isUpdatePending(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+        if (isActiveDevice(device) && !sameAudioFeedingParameters && !isUpdatePending) {
             Log.w(TAG, "codecConfigUpdated: device is active");
             synchronized (mBtAvrcpLock) {
                 if (mAvrcp_ext != null)
