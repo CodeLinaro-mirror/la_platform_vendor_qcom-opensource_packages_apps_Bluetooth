@@ -579,11 +579,20 @@ class PhonePolicy {
         }
 
         if ((hapClientService != null) && ArrayUtils.contains(uuids,
-                 BluetoothUuid.HAS) && (hapClientService.getConnectionPolicy(device)
-                 == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
-             debugLog("setting hearing access profile priority for device " + device);
-             mAdapterService.getDatabase().setProfileConnectionPolicy(device,
-                     BluetoothProfile.HAP_CLIENT, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+                BluetoothUuid.HAS) && (hapClientService.getConnectionPolicy(device)
+                == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
+            debugLog("setting hearing access profile priority for device " + device);
+            if ((hearingAidService != null) && ArrayUtils.contains(uuids,
+                    BluetoothUuid.HEARING_AID) && (hearingAidService.getConnectionPolicy(device)
+                    == BluetoothProfile.CONNECTION_POLICY_ALLOWED)) {
+                debugLog("LE Audio preferred over ASHA for device " + device);
+                if (isLeAudioProfileAllowed) {
+                   mAdapterService.getDatabase().setProfileConnectionPolicy(device,
+                       BluetoothProfile.HEARING_AID, BluetoothProfile.CONNECTION_POLICY_FORBIDDEN);
+                }
+            }
+            mAdapterService.getDatabase().setProfileConnectionPolicy(device,
+                   BluetoothProfile.HAP_CLIENT, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
          }
 
         if ((bcService != null) && ArrayUtils.contains(uuids,
