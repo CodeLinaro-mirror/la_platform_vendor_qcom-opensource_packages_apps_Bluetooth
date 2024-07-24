@@ -853,6 +853,12 @@ public class HeadsetClientService extends ProfileService {
         return false;
     }
 
+    public boolean isScoActive(BluetoothDevice device) {
+        if(mHfpClientA2dpSinkSync != null)
+            return mHfpClientA2dpSinkSync.isScoActive(device);
+        return false;
+    }
+
     public BluetoothDevice getCallingDevice() {
         if(mHfpClientA2dpSinkSync != null)
             return mHfpClientA2dpSinkSync.getCallingDevice();

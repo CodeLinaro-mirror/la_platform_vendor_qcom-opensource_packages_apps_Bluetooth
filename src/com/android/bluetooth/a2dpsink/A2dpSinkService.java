@@ -911,6 +911,15 @@ public class A2dpSinkService extends ProfileService {
                 }
                 return;
             }
+        } else if(dev != null && dev.equals(callingDevice)) {
+            if (mHeadsetClientService!= null && mHeadsetClientService.isScoActive(callingDevice)) {
+                Log.d(TAG, "HFP SCO active, wait for 100 msec to SCO gets disconnected : "+dev);
+                Message msg = mA2dpSinkStreamHandler.obtainMessage(
+                                  A2dpSinkStreamHandler.DELAYED_START_IND);
+                msg.obj = dev;
+                mA2dpSinkStreamHandler.sendMessageDelayed(msg,HFP_DISABLING_TIMEOUT);
+                return;
+            }
         }
         BluetoothDevice device = getDevice(address);
         Log.d(TAG, "onStartIndCallback dev " + device + "streaming device" + mStreamingDevice);

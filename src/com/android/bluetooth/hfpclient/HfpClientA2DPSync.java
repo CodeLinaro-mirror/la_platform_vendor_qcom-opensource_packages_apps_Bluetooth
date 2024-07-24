@@ -18,7 +18,7 @@ import java.util.*;
 
 public class HfpClientA2DPSync{
     private final HeadsetClientService hsClientService;
-
+    private static final String TAG = "HfpClientA2DPSync";
     public boolean isA2dpStreamAllowed(){
         List <BluetoothHeadsetClientCall> currentCalls = getCurrentCalls();
         if((currentCalls.isEmpty()) == false)
@@ -35,6 +35,14 @@ public class HfpClientA2DPSync{
             }
         }
         return true;
+    }
+    public boolean isScoActive(BluetoothDevice device) {
+        int audioState = hsClientService.getAudioState(device);
+        if(audioState == BluetoothHeadsetClient.STATE_AUDIO_CONNECTED
+            || audioState == BluetoothHeadsetClient.STATE_AUDIO_CONNECTING) {
+            return true;
+        }
+        return false;
     }
 
     public HfpClientA2DPSync(HeadsetClientService context) {
