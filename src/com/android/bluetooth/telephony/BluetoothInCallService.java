@@ -465,7 +465,7 @@ public class BluetoothInCallService extends InCallService {
             enforceModifyPermission();
             Log.i(TAG, "BT - hanging up call");
             BluetoothCall call = mCallInfo.getForegroundCall();
-            if (mCallInfo.isNullCall(call) && checkIfCallIsHfpClientCall(call)) {
+            if (mCallInfo.isNullCall(call)) {
                 return false;
             }
             if (checkIfCallIsHfpClientCall(call)) {
