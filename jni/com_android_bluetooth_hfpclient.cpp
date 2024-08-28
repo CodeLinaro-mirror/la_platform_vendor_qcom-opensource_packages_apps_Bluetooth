@@ -219,7 +219,7 @@ static void resp_and_hold_cb(const RawAddress* bd_addr,
                                (jint)resp_and_hold, addr.get());
 }
 
-static void clip_cb(const RawAddress* bd_addr, const char* number) {
+static void clip_cb(const RawAddress* bd_addr, const char* number, int type, const char *alpha) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -233,10 +233,19 @@ static void clip_cb(const RawAddress* bd_addr, const char* number) {
     number = null_str;
   }
 
+  const char null_str2[] = "";
+  if(!alpha){
+    alpha = null_str2;
+  }
+
   ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                     sCallbackEnv->NewStringUTF(number));
+
+  ScopedLocalRef<jstring> js_alpha(sCallbackEnv.get(),
+                                    sCallbackEnv->NewStringUTF(alpha));
+
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClip, js_number.get(),
-                               addr.get());
+                               addr.get(), type, js_alpha.get());
 }
 
 static void call_waiting_cb(const RawAddress* bd_addr, const char* number) {
@@ -263,7 +272,9 @@ static void current_calls_cb(const RawAddress* bd_addr, int index,
                              bthf_client_call_direction_t dir,
                              bthf_client_call_state_t state,
                              bthf_client_call_mpty_type_t mpty,
-                             const char* number) {
+                             const char* number,
+                             int type,
+                             const char *alpha) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -277,10 +288,19 @@ static void current_calls_cb(const RawAddress* bd_addr, int index,
     number = null_str;
   }
 
+  const char null_str2[] = "";
+  if(!alpha){
+    alpha = null_str2;
+  }
+
   ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                     sCallbackEnv->NewStringUTF(number));
+
+  ScopedLocalRef<jstring> js_alpha(sCallbackEnv.get(),
+                                    sCallbackEnv->NewStringUTF(alpha));
+
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCurrentCalls, index, dir,
-                               state, mpty, js_number.get(), addr.get());
+                               state, mpty, js_number.get(), addr.get(), type, js_alpha.get());
 }
 
 static void volume_change_cb(const RawAddress* bd_addr,
@@ -425,11 +445,11 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   method_onCallSetup = env->GetMethodID(clazz, "onCallSetup", "(I[B)V");
   method_onCallHeld = env->GetMethodID(clazz, "onCallHeld", "(I[B)V");
   method_onRespAndHold = env->GetMethodID(clazz, "onRespAndHold", "(I[B)V");
-  method_onClip = env->GetMethodID(clazz, "onClip", "(Ljava/lang/String;[B)V");
+  method_onClip = env->GetMethodID(clazz, "onClip", "(Ljava/lang/String;[BILjava/lang/String;)V");
   method_onCallWaiting =
       env->GetMethodID(clazz, "onCallWaiting", "(Ljava/lang/String;[B)V");
   method_onCurrentCalls =
-      env->GetMethodID(clazz, "onCurrentCalls", "(IIIILjava/lang/String;[B)V");
+      env->GetMethodID(clazz, "onCurrentCalls", "(IIIILjava/lang/String;[BILjava/lang/String;)V");
   method_onVolumeChange = env->GetMethodID(clazz, "onVolumeChange", "(II[B)V");
   method_onCmdResult = env->GetMethodID(clazz, "onCmdResult", "(II[B)V");
   method_onSubscriberInfo =
