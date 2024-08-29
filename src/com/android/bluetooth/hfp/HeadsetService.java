@@ -2100,6 +2100,10 @@ public class HeadsetService extends ProfileService {
         Log.i(TAG, "setActiveDeviceHF: device=" + device + ", " + Utils.getUidPidString());
         synchronized (mStateMachines) {
             if (device == null) {
+                if (mActiveDevice == null ) {
+                    Log.i(TAG, "setActiveDevice: device is already set to null");
+                    return ActiveDeviceManagerServiceIntf.SHO_SUCCESS;
+                }
                 // Clear the active device
                 if (mVoiceRecognitionStarted) {
                     if (!stopVoiceRecognition(mActiveDevice)) {

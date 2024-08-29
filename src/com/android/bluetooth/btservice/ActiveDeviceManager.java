@@ -400,7 +400,7 @@ public class ActiveDeviceManager {
                         break;
                     }
 
-                    if (prevState == BluetoothProfile.STATE_CONNECTED) {
+                    if (nextState == BluetoothProfile.STATE_DISCONNECTED) {
                         // Device disconnected
                         if (DBG) {
                             Log.d(TAG,
