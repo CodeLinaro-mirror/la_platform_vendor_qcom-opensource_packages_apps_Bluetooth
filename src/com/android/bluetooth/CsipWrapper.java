@@ -62,6 +62,7 @@ public class CsipWrapper {
     private CsipSetCoordinatorService mCsipSetCoordinatorService;
     private final String TAG = "CsipWrapper";
     private final boolean DBG = true;
+    private static ServiceFactory mFactory;
 
     /**
      * Get singleton instance.
@@ -70,6 +71,7 @@ public class CsipWrapper {
         synchronized (INSTANCE_LOCK) {
             if (sInstance == null) {
                 sInstance = new CsipWrapper();
+                mFactory = new ServiceFactory();
             }
             return sInstance;
         }
@@ -189,17 +191,12 @@ public class CsipWrapper {
     }
 
     private GroupService getGroupService() {
-        if (mGroupService == null) {
-            mGroupService = new ServiceFactory().getGroupService();
-        }
+        mGroupService = mFactory.getGroupService();
         return mGroupService;
     }
 
     private CsipSetCoordinatorService getCsipSetCoordinatorService() {
-        if (mCsipSetCoordinatorService == null) {
-            mCsipSetCoordinatorService =
-                new ServiceFactory().getCsipSetCoordinatorService();
-        }
+        mCsipSetCoordinatorService = mFactory.getCsipSetCoordinatorService();
         return mCsipSetCoordinatorService;
     }
 
