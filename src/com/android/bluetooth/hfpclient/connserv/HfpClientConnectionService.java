@@ -304,6 +304,23 @@ public class HfpClientConnectionService extends ConnectionService {
     }
 
     @Override
+    public void onCreateConnectionComplete(Connection connection) {
+        if (DBG) {
+            Log.d(TAG, "onCreateConnectionComplete " + connection);
+        }
+
+        BluetoothDevice bd = ((HfpClientConnection) connection).getDevice();
+        HfpClientDeviceBlock block = findBlockForDevice(bd);
+
+        if (block == null) {
+            Log.w(TAG, "HfpClient does not support having a connection manager");
+            return;
+        }
+
+        block.onCreateConnectionComplete(connection);
+    }
+
+    @Override
     public void onConference(Connection connection1, Connection connection2) {
         if (DBG) {
             Log.d(TAG, "onConference " + connection1 + " " + connection2);

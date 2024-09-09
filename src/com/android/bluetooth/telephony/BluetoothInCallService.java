@@ -323,6 +323,9 @@ public class BluetoothInCallService extends InCallService {
         }
 
         public void onParentChanged(BluetoothCall call) {
+            if (mCallInfo.isNullCall(call)) {
+                return;
+            }
             if (call.isExternalCall()) {
                 return;
             }

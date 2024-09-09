@@ -93,6 +93,16 @@ public class HfpClientDeviceBlock {
         }
     }
 
+    boolean isAllConferenceConnectonsCompleted() {
+        short count  = 0;
+        for (Connection otherConn : mConnections.values()) {
+            if (((HfpClientConnection) otherConn).isConnCompleted()) {
+                count++;
+            }
+        }
+        return (count >= 2) ? true : false;
+    }
+
     synchronized HfpClientConnection onCreateIncomingConnection(BluetoothHeadsetClientCall call) {
         HfpClientConnection connection = mConnections.get(call.getUUID());
         if (connection != null) {
@@ -112,6 +122,18 @@ public class HfpClientDeviceBlock {
             enableAudio(true, true);
         }
         return connection;
+    }
+
+    synchronized void onCreateConnectionComplete(Connection connection) {
+        if (DBG) {
+            Log.d(mTAG, "onCreateConnectionComplete " + connection);
+        }
+        if (connection != null) {
+            ((HfpClientConnection) connection).onConnCompleted();
+        }
+        if (isAllConferenceConnectonsCompleted()) {
+            updateConferenceableConnections();
+        }
     }
 
     synchronized HfpClientConnection onCreateUnknownConnection(BluetoothHeadsetClientCall call) {
@@ -346,18 +368,20 @@ public class HfpClientDeviceBlock {
         // If we have connections that are not already part of the conference then add them.
         // NOTE: addConnection takes care of duplicates (by mem addr) and the lifecycle of a
         // connection is maintained by the UUID.
-        for (Connection otherConn : mConnections.values()) {
-            if (((HfpClientConnection) otherConn).inConference()) {
+        if (isAllConferenceConnectonsCompleted()) {
+            for (Connection otherConn : mConnections.values()) {
+                if (((HfpClientConnection) otherConn).inConference()) {
                 // If this is the first connection with conference, create the conference first.
-                if (mConference == null) {
-                    mConference = new HfpClientConference(mPhoneAccount.getAccountHandle(), mDevice,
+                    if (mConference == null) {
+                        mConference = new HfpClientConference(mPhoneAccount.getAccountHandle(), mDevice,
                             mHeadsetClientProfile);
-                }
-                if (mConference.addConnection(otherConn)) {
-                    if (DBG) {
-                        Log.d(mTAG, "Adding connection " + otherConn + " to conference.");
                     }
-                    addConf = true;
+                    if (mConference.addConnection(otherConn)) {
+                        if (DBG) {
+                            Log.d(mTAG, "Adding connection " + otherConn + " to conference.");
+                        }
+                        addConf = true;
+                    }
                 }
             }
         }
