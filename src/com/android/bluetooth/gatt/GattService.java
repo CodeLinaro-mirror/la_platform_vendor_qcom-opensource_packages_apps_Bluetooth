@@ -3470,6 +3470,32 @@ public class GattService extends ProfileService {
         }
     }
 
+    boolean isBatchScanClient(int clientIf) {
+        for (ScanClient client : mScanManager.getBatchScanQueue()) {
+            if (client.scannerId == clientIf) {
+                if (DBG) {
+                    Log.d(TAG, "BatchScanClient scannerId - " + clientIf);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    boolean isScanFilterClient(int clientIf) {
+        for (ScanClient client : mScanManager.getRegularScanQueue()) {
+            if ((client.scannerId == clientIf)
+                && (client.filters != null)
+                && !client.filters.isEmpty()) {
+                if (DBG) {
+                    Log.d(TAG, "ScanFilterClient scannerId - " + clientIf);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
     boolean isScanClient(int clientIf) {
         for (ScanClient client : mScanManager.getRegularScanQueue()) {
             if (client.scannerId == clientIf) {
@@ -3499,7 +3525,8 @@ public class GattService extends ProfileService {
         }
         for (Integer appId : mScannerMap.getAllAppsIds()) {
             if (DBG) Log.d(TAG, "unreg:" + appId);
-            if (isScanClient(appId)) {
+            //Do not unregister scanfilter client in BLE_ON state
+            if (isBatchScanClient(appId) || !isScanFilterClient(appId)) {
                 ScanClient client = new ScanClient(appId);
                 stopScan(client.scannerId, attributionSource);
                 unregisterScanner(appId, attributionSource);
