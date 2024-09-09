@@ -12,6 +12,10 @@
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
      See the License for the specific language governing permissions and
      limitations under the License.
+
+     Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+     Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+     SPDX-License-Identifier: BSD-3-Clause-Clear
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!--
@@ -267,4 +271,5 @@
     <string name="bluetooth_stays_on_message">Your device remembers to keep Bluetooth on in airplane mode. Turn off Bluetooth if you don\'t want it to stay on.</string>
     <string name="bluetooth_and_wifi_stays_on_title">Wi-Fi and Bluetooth stay on</string>
     <string name="bluetooth_and_wifi_stays_on_message">Your device remembers to keep Wi-Fi and Bluetooth on in airplane mode. Turn off Wi-Fi and Bluetooth if you don\'t want them to stay on.</string>
+    <string name="bluetooth_connect_action">Connect to Bluetooth</string>
 </resources>
