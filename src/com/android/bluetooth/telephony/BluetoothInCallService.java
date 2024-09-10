@@ -465,7 +465,7 @@ public class BluetoothInCallService extends InCallService {
             enforceModifyPermission();
             Log.i(TAG, "BT - hanging up call");
             BluetoothCall call = mCallInfo.getForegroundCall();
-            if (mCallInfo.isNullCall(call) && checkIfCallIsHfpClientCall(call)) {
+            if (mCallInfo.isNullCall(call)) {
                 return false;
             }
             if (checkIfCallIsHfpClientCall(call)) {
@@ -1365,13 +1365,27 @@ public class BluetoothInCallService extends InCallService {
         // Using the unsupported states here caused problems with inconsistent state in some
         // bluetooth devices (like not getting out of ringing state after answering a call).
         //
+
+        if (dialingCall != null) {
+            Log.i(TAG, "updateHeadsetWithCallState dailing call state: " + dialingCall.getState());
+        } else {
+            Log.i(TAG, "dailing call object is null");
+        }
+
+        if (ringingCall != null) {
+            Log.i(TAG, "updateHeadsetWithCallState ringing call state: " + ringingCall.getState());
+        } else {
+            Log.i(TAG, "ringing call object is null");
+        }
+
         int bluetoothCallState = CALL_STATE_IDLE;
         if (!mCallInfo.isNullCall(ringingCall) && !ringingCall.isSilentRingingRequested()) {
             bluetoothCallState = CALL_STATE_INCOMING;
-        } else if ((!mCallInfo.isNullCall(dialingCall))
-                  &&(dialingCall.getState() == Call.STATE_DIALING)
-                  &&(null != dialingCall.getDetails().getExtras())
-                  &&(0 != dialingCall.getDetails().getExtras().getInt(TelecomManager.EXTRA_CALL_TECHNOLOGY_TYPE))) {
+            Log.i(TAG, "updateHeadsetWithCallState CALL_STATE_INCOMING");
+        } else if ((!mCallInfo.isNullCall(dialingCall)) &&
+                        ((dialingCall.getState() == Call.STATE_DIALING) ||
+                         (dialingCall.getState() == Call.STATE_CONNECTING) ||
+                         (dialingCall.getState() == Call.STATE_PULLING_CALL))) {
             bluetoothCallState = CALL_STATE_ALERTING;
             Log.i(TAG, "updateHeadsetWithCallState CALL_STATE_ALERTING");
         } else if (hasOnlyDisconnectedCalls || mIsDisconnectedTonePlaying) {
