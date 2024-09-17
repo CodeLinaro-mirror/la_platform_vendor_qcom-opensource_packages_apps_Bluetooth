@@ -309,7 +309,13 @@ public class HfpClientConnectionService extends ConnectionService {
             Log.d(TAG, "onCreateConnectionComplete " + connection);
         }
 
-        BluetoothDevice bd = ((HfpClientConnection) connection).getDevice();
+        BluetoothDevice bd;
+        if (connection instanceof HfpClientConnection) {
+           bd = ((HfpClientConnection) connection).getDevice();
+        } else {
+           Log.e(TAG, "Connection is not an instance of HfpClientConnection");
+           return;
+        }
         HfpClientDeviceBlock block = findBlockForDevice(bd);
 
         if (block == null) {
@@ -400,6 +406,10 @@ public class HfpClientConnectionService extends ConnectionService {
 
     synchronized HfpClientDeviceBlock findBlockForHandle(PhoneAccountHandle handle) {
         PhoneAccount account = mTelecomManager.getPhoneAccount(handle);
+        if (account == null) {
+            Log.e(TAG, "Phone account is null");
+            return null;
+        }
         String btAddr = account.getAddress().getSchemeSpecificPart();
         BluetoothDevice device = mAdapter.getRemoteDevice(btAddr);
         Log.d(TAG, "Finding block for handle " + handle + " device " + btAddr);
