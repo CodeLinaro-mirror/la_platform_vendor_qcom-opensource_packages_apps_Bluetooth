@@ -184,6 +184,8 @@ public class HeadsetStateMachine extends StateMachine {
 
     private static final int CONNECT_TIMEOUT = 201;
     private static final String EXTRA_ROAMING_STATE = "android.bluetooth.extra.roaming.STATE";
+    private static final String DISABLE_CONNECT_AUDIO =
+            "persist.bluetooth.disableconnectaudio";
     static final int UPDATE_ROAMING_STATE = 25;
     private static final int CLCC_RSP_TIMEOUT_MS = 5000;
     private static final int QUERY_PHONE_STATE_CHANGED_DELAYED = 100;
@@ -1352,6 +1354,16 @@ public class HeadsetStateMachine extends StateMachine {
                             break;
                         case HeadsetStackEvent.EVENT_TYPE_ANSWER_CALL:
                             mSystemInterface.answerCall(event.device, ApmConstIntf.AudioProfiles.HFP);
+                            boolean isPts = SystemProperties.getBoolean("vendor.bt.pts.certification",
+                                            false);
+                            if (isPts) {
+                                boolean mPts = SystemProperties.getBoolean(DISABLE_CONNECT_AUDIO,
+                                                false);
+                                Log.w(TAG, "persist.bluetooth.disableconnectaudio " + mPts);
+                                    if (mPts) {
+                                        mHeadsetService.connectAudio();
+                                    }
+                            }
                             break;
                         case HeadsetStackEvent.EVENT_TYPE_HANGUP_CALL:
                             mSystemInterface.hangupCall(event.device, ApmConstIntf.AudioProfiles.HFP);
