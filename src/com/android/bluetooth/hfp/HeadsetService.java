@@ -1031,15 +1031,12 @@ public class HeadsetService extends ProfileService {
                     }
                 } else {
                     HeadsetService service = getService(source);
-                    if(!SystemProperties.getBoolean(DISABLE_CONNECT_AUDIO, false)) {
-                       Log.w(TAG, "Initiating connect Audio");
-                       if (service != null) {
-                          enforceBluetoothPrivilegedPermission(service);
-                          defaultValue = service.connectAudio();
-                       }
-                     } else {
-                         Log.w(TAG, "not initiating connect Audio");
-                     }
+                    if (service != null) {
+                        enforceBluetoothPrivilegedPermission(service);
+                        defaultValue = service.connectAudio();
+                    } else {
+                       Log.w(TAG, "not initiating connect Audio");
+                    }
                 }
                 receiver.send(defaultValue);
             } catch (RuntimeException e) {
