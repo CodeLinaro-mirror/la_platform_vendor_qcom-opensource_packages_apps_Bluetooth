@@ -791,7 +791,7 @@ public class A2dpSinkService extends ProfileService {
                 }
             } else if(state == BluetoothProfile.STATE_DISCONNECTED) {
                 connectedDevices.remove(device);
-                if(mPausedDevice != null && mPausedDevice.equals(device)) {
+                if (mPausedDevice != null && device != null && mPausedDevice.equals(device)) {
                     mPausedDevice = null;
                 }
                 if (mAudioManager != null && (connectedDevices.size() == 0)) {
