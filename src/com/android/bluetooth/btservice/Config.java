@@ -268,24 +268,7 @@ public class Config {
                     if (DBG) Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
                     continue;
                 }
-                // ignore adding map server service for targets where map client is enabled
-                if ((config.mClass.getSimpleName().equals("BluetoothMapService")) &&
-                    (mIsSplitSink)) {
-                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
-                    continue;
-                }
-                // ignore adding map client service for targets where map client is disabled
-                if ((config.mClass.getSimpleName().equals("MapClientService")) &&
-                    (!mIsSplitSink)) {
-                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
-                    continue;
-                }
-                // ignore adding pbap client service for targets where pbap client is disabled
-                if ((config.mClass.getSimpleName().equals("PbapClientService")) &&
-                    (!mIsPbapClient)) {
-                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
-                    continue;
-                }
+
                 Log.v(TAG, "Adding " + config.mClass.getSimpleName());
                 profiles.add(config.mClass);
             }
