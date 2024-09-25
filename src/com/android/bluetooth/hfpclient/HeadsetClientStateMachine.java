@@ -1462,6 +1462,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                             switch (queuedAction.first) {
                                 case QUERY_CURRENT_CALLS:
                                     queryCallsDone();
+                                    mA2dpService.NotifyHFcallsChanged();
                                     break;
                                 case VOICE_RECOGNITION_START:
                                     if (event.valueInt == AT_OK) {
