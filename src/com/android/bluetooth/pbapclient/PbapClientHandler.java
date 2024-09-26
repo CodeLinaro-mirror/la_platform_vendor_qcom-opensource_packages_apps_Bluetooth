@@ -15,6 +15,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth.pbapclient;
@@ -59,7 +63,7 @@ class PbapClientHandler extends Handler {
     static final int MSG_CUSTOM_ACTION = 1;
 
     public static final String PBAP_CLIENT_ENABLE_PTS_PROPERTY =
-        "persist.bt.pbapclient.enable_pts";
+        "vendor.bluetooth.pbapclient.enable_pts";
 
     // +++ Custom action definition for PBAP client
 
