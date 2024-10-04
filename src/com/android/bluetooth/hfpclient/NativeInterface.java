@@ -517,10 +517,12 @@ public class NativeInterface {
         }
     }
 
-    private void onClip(String number, byte[] address) {
+    private void onClip(String number, byte[] address, int type, String alpha) {
         StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CLIP);
         event.valueString = number;
         event.device = getDevice(address);
+        event.valueInt = type;
+        event.valueString2 = alpha;
         if (DBG) {
             Log.d(TAG, "onClip: address " + address + " event " + event);
         }
@@ -548,7 +550,7 @@ public class NativeInterface {
     }
 
     private void onCurrentCalls(int index, int dir, int state, int mparty, String number,
-            byte[] address) {
+            byte[] address, int type, String alpha) {
         StackEvent event = new StackEvent(StackEvent.EVENT_TYPE_CURRENT_CALLS);
         event.valueInt = index;
         event.valueInt2 = dir;
@@ -556,6 +558,8 @@ public class NativeInterface {
         event.valueInt4 = mparty;
         event.valueString = number;
         event.device = getDevice(address);
+        event.valueInt5 = type;
+        event.valueString2 = alpha;
         if (DBG) {
             Log.d(TAG, "onCurrentCalls: address " + address + " event " + event);
         }
