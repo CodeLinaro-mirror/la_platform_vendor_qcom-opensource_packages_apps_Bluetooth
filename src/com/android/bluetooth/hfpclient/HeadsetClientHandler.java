@@ -25,6 +25,10 @@ BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
 WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 package com.android.bluetooth.hfpclient;
 
@@ -55,7 +59,7 @@ class HeadsetClientHandler extends Handler {
     static final int MSG_CUSTOM_ACTION = 1;
 
     public static final String HEADSET_CLIENT_ENABLE_PTS_PROPERTY =
-        "persist.bt.headsetclient.enable_pts";
+        "vendor.bt.pts.headsetclient";
 
     // +++ Custom action definition for headset client
 

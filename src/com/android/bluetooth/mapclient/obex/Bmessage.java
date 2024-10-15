@@ -18,8 +18,8 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
 */
@@ -209,6 +209,6 @@ public class Bmessage {
     }
 
     public enum Type {
-        EMAIL, SMS_GSM, SMS_CDMA, MMS
+        NONE, EMAIL, SMS_GSM, SMS_CDMA, MMS
     }
 }

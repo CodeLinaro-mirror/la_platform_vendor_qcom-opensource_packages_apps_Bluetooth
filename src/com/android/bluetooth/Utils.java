@@ -16,6 +16,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth;
@@ -95,7 +99,7 @@ import java.util.concurrent.TimeUnit;
 public final class Utils {
     private static final String TAG = "BluetoothUtils";
     private static final int MICROS_PER_UNIT = 625;
-    private static final String PTS_TEST_MODE_PROPERTY = "persist.bluetooth.pts";
+    private static final String PTS_TEST_MODE_PROPERTY = "vendor.bluetooth.pts";
 
     private static final String ENABLE_DUAL_MODE_AUDIO =
             "persist.bluetooth.enable_dual_mode_audio";
@@ -953,7 +957,7 @@ public final class Utils {
 
     /**
      * Check if we are running in PTS test mode. To enable/disable PTS test mode, invoke
-     * {@code adb shell setprop persist.bluetooth.pts true/false}
+     * {@code adb shell setprop bluetooth.pts true/false}
      *
      * @return true if in PTS Test mode, false otherwise
      */

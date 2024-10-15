@@ -28,9 +28,9 @@ import com.android.internal.annotations.VisibleForTesting;
 class MapUtils {
     private static MnsService sMnsService = null;
     private static final String FETCH_MESSAGE_TYPE =
-            "persist.bluetooth.pts.mapclient.fetchmessagetype";
+            "vendor.bluetooth.pts.mapclient.fetchmessagetype";
     private static final String SEND_MESSAGE_TYPE =
-            "persist.bluetooth.pts.mapclient.sendmessagetype";
+            "vendor.bluetooth.pts.mapclient.sendmessagetype";
 
     @VisibleForTesting
     static void setMnsService(MnsService service) {
