@@ -76,6 +76,8 @@ public class HeadsetClientService extends ProfileService {
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
 
+    private HeadsetClientHandler mHandler = null;
+
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
 
     @Override
@@ -112,8 +114,10 @@ public class HeadsetClientService extends ProfileService {
         mStateMachineMap.clear();
         mHfpClientA2dpSinkSync = new HfpClientA2DPSync(this);
 
-        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
-        registerReceiver(mBroadcastReceiver, filter);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(AudioManager.VOLUME_CHANGED_ACTION);
+        filter.addAction(HeadsetClientHandler.ACTION_CUSTOM_ACTION);
+        registerReceiver(mBroadcastReceiver, filter, Context.RECEIVER_EXPORTED);
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
         // connection is available.
@@ -129,6 +133,10 @@ public class HeadsetClientService extends ProfileService {
         mAudioManager.setAudioServerStateCallback(exec, mServerStateCallback);
 
         setHeadsetClientService(this);
+
+        mHandler = new HeadsetClientHandler.Builder()
+                        .setContext(this)
+                        .build();
         return true;
     }
 
@@ -199,6 +207,11 @@ public class HeadsetClientService extends ProfileService {
                         }
                     }
                 }
+            } else if (action.equals(HeadsetClientHandler.ACTION_CUSTOM_ACTION)) {
+                if (DBG) Log.d(TAG, "Handle custom action");
+                Bundle extras = (Bundle) intent.getExtra(HeadsetClientHandler.EXTRA_CUSTOM_ACTION);
+                mHandler.obtainMessage(HeadsetClientHandler.MSG_CUSTOM_ACTION, extras).
+                    sendToTarget();
             }
         }
     };
@@ -977,6 +990,28 @@ public class HeadsetClientService extends ProfileService {
         Message msg = sm.obtainMessage(HeadsetClientStateMachine.ENTER_PRIVATE_MODE);
         msg.arg1 = index;
         sm.sendMessage(msg);
+        return true;
+    }
+
+    boolean releaseCall(BluetoothDevice device, int index) {
+        Log.d(TAG, "Enter releaseCall");
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        HeadsetClientStateMachine sm = getStateMachine(device);
+        if (sm == null) {
+            Log.e(TAG, "Cannot allocate SM for device " + device);
+            return false;
+        }
+
+        int connectionState = sm.getConnectionState(device);
+        if (connectionState != BluetoothProfile.STATE_CONNECTED &&
+                connectionState != BluetoothProfile.STATE_CONNECTING) {
+            return false;
+        }
+
+        Message msg = sm.obtainMessage(HeadsetClientStateMachine.RELEASE_CALL);
+        msg.arg1 = index;
+        sm.sendMessage(msg);
+        Log.d(TAG, "Exit releaseCall");
         return true;
     }
 
