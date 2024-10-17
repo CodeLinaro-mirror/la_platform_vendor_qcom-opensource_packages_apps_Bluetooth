@@ -220,6 +220,11 @@ public class MasClient {
         @Override
         public void handleMessage(Message msg) {
             MasClient inst = mInst.get();
+            if (inst == null) {
+                Log.e(TAG, "Instance is NULL");
+                return;
+            }
+
             switch (msg.what) {
                 case CONNECT:
                     if (!inst.mConnected) {
