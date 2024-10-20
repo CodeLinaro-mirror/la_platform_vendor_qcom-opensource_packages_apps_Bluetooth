@@ -810,7 +810,8 @@ public class A2dpSinkService extends ProfileService {
             } else if (device != null && !mIsSplitSink) {
                 mStreamingDevice = device;
             }
-            if (SystemProperties.get("ro.board.platform").equals("neo")) {
+            if (SystemProperties.get("ro.board.platform").equals("neo")
+               || SystemProperties.get("ro.board.platform").equals("neo61")) {
                 if (mAdapterService != null
                     && ArrayUtils.contains(mAdapterService.getRemoteUuids(device),
                                                    BluetoothUuid.MAS)) {
@@ -840,7 +841,7 @@ public class A2dpSinkService extends ProfileService {
                 }
             } else if(state == BluetoothProfile.STATE_DISCONNECTED) {
                 connectedDevices.remove(device);
-                if(mPausedDevice.equals(device)) {
+                if (mPausedDevice != null && device != null && mPausedDevice.equals(device)) {
                     mPausedDevice = null;
                 }
                 if (mAudioManager != null && (connectedDevices.size() == 0)) {

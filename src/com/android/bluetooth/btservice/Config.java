@@ -317,6 +317,12 @@ public class Config {
                     Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
                     continue;
                 }
+                // ignore adding pbap service for targets where pbap client is enabled
+                if ((config.mClass.getSimpleName().equals("BluetoothPbapService")) &&
+                    mIsPbapClient) {
+                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
+                    continue;
+                }
                 Log.v(TAG, "Adding " + config.mClass.getSimpleName());
                 profiles.add(config.mClass);
             }
@@ -352,6 +358,7 @@ public class Config {
         if (((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) ||
             ((adv_audio_feature_mask & ADV_AUDIO_BCA_FEAT_MASK ) != 0) ||
             ((adv_audio_feature_mask & ADV_AUDIO_BCS_FEAT_MASK ) != 0)) {
+            Log.d(TAG, "Add common advance audio profiles");
             for (ProfileConfig config : commonAdvAudioProfiles) {
                 if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
@@ -363,10 +370,10 @@ public class Config {
                     }
                     String serviceName = config.mClass.getSimpleName();
                     if (addAudioProfiles(serviceName)) {
-                       if (DBG) Log.d(TAG, "Adding " + serviceName);
+                       if (DBG) Log.d(TAG, "Adding: " + serviceName);
                         advAudioProfiles.add(config.mClass);
                     } else {
-                        if(DBG) Log.d(TAG, "Not added " + serviceName);
+                        if(DBG) Log.d(TAG, "Not added: " + serviceName);
                     }
                 }
             }
@@ -374,19 +381,21 @@ public class Config {
 
         /* Add unicast advance audio profiles */
         if ((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) {
+            Log.d(TAG, "Add unicast advance audio profiles");
             for (ProfileConfig config : unicastAdvAudioProfiles) {
                 if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
                 if (config.mClass.getSimpleName().equals("CCService") &&
                     isCCEnabled == false) {
-                    Log.d(TAG," isCCEnabled = " + isCCEnabled);
+                    Log.d(TAG," isCCEnabled: " + isCCEnabled);
                     continue;
                 } else if (config.mClass.getSimpleName().equals("CsClientService") &&
                     isCSEnabled == false) {
+                    Log.d(TAG," isCSEnabled: " + isCSEnabled);
                     continue;
                 }
                 else if (supported && config.mClass != null) {
-                    Log.d(TAG, "Adding " + config.mClass.getSimpleName());
+                    Log.d(TAG, "Adding: " + config.mClass.getSimpleName());
                     advAudioProfiles.add(config.mClass);
                 }
             }
@@ -395,6 +404,7 @@ public class Config {
         /* Add broadcast advance audio profiles */
         if ((adv_audio_feature_mask & ADV_AUDIO_BCA_FEAT_MASK) != 0 ||
             (adv_audio_feature_mask & ADV_AUDIO_BCS_FEAT_MASK) != 0) {
+            Log.d(TAG, "Add broadcast advance audio profiles");
             for (ProfileConfig config : broadcastAdvAudioProfiles) {
                 if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
@@ -410,10 +420,10 @@ public class Config {
                     }
                     String serviceName = config.mClass.getSimpleName();
                     if (addAospAudioProfiles(serviceName)) {
-                        Log.d(TAG, "Adding " + config.mClass.getSimpleName());
+                        Log.d(TAG, "Adding profile: " + config.mClass.getSimpleName());
                         advAudioProfiles.add(config.mClass);
                     } else {
-                        if(DBG) Log.d(TAG, "Not added " + serviceName);
+                        if(DBG) Log.d(TAG, "Not added profile: " + serviceName);
                     }
                 }
             }
@@ -539,9 +549,12 @@ public class Config {
                   long mask = config.mMask;
                   HapClientService hapClientService = HapClientService.getHapClientService();
                   if (hapClientService != null) {
-                     if (hapClientService.isEnabled() == false) {
-                        mask &= ~(1L << BluetoothProfile.HAP_CLIENT);
-                     }
+                    if (hapClientService.isEnabled() == false) {
+                      mask &= ~(1L << BluetoothProfile.HAP_CLIENT);
+                    }
+                  } else {
+                      Log.d(TAG, "Unsetting the bit in mask for HapClientService: " + mask);
+                      mask &= ~(1L << BluetoothProfile.HAP_CLIENT);
                   }
                   Log.d(TAG, "HapClientService profile mask: " + mask);
                   return mask;
@@ -582,6 +595,7 @@ public class Config {
 
     private static synchronized boolean addAudioProfiles(String serviceName) {
         /* If property not enabled and request is for A2DPSinkService, don't add */
+        Log.d(TAG, "addAudioProfiles, service: " + serviceName);
         if ((serviceName.equals("A2dpSinkService")) && (!mIsA2dpSink))
             return false;
         if ((serviceName.equals("A2dpService")) && (mIsA2dpSink))
@@ -609,6 +623,7 @@ public class Config {
     }
 
     private static synchronized boolean addAospAudioProfiles(String serviceName) {
+        Log.d(TAG, "addAospAudioProfiles, service: " + serviceName);
         AdapterService adapterService = AdapterService.getAdapterService();
         if (adapterService == null) {
             Log.e(TAG,"adapterService is null");
