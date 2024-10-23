@@ -254,20 +254,24 @@ class MceStateMachine extends StateMachine {
     }
 
     public synchronized int getState() {
-        IState currentState = this.getCurrentState();
-        if (currentState == null || currentState.getClass() == Disconnected.class) {
-            return BluetoothProfile.STATE_DISCONNECTED;
+        try {
+            IState currentState = this.getCurrentState();
+            if (currentState == null || currentState.getClass() == Disconnected.class) {
+                return BluetoothProfile.STATE_DISCONNECTED;
+            }
+            if (currentState.getClass() == Connected.class) {
+                return BluetoothProfile.STATE_CONNECTED;
+            }
+            if (currentState.getClass() == Connecting.class) {
+                return BluetoothProfile.STATE_CONNECTING;
+            }
+            if (currentState.getClass() == Disconnecting.class) {
+                return BluetoothProfile.STATE_DISCONNECTING;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        if (currentState.getClass() == Connected.class) {
-            return BluetoothProfile.STATE_CONNECTED;
-        }
-        if (currentState.getClass() == Connecting.class) {
-            return BluetoothProfile.STATE_CONNECTING;
-        }
-        if (currentState.getClass() == Disconnecting.class) {
-            return BluetoothProfile.STATE_DISCONNECTING;
-        }
-        return BluetoothProfile.STATE_DISCONNECTED;
+	return BluetoothProfile.STATE_DISCONNECTED;
     }
 
     public boolean disconnect() {
