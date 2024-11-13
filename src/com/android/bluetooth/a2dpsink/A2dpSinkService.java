@@ -791,7 +791,7 @@ public class A2dpSinkService extends ProfileService {
                 }
             } else if(state == BluetoothProfile.STATE_DISCONNECTED) {
                 connectedDevices.remove(device);
-                if(mPausedDevice.equals(device)) {
+                if (mPausedDevice != null && device != null && mPausedDevice.equals(device)) {
                     mPausedDevice = null;
                 }
                 if (mAudioManager != null && (connectedDevices.size() == 0)) {
@@ -903,7 +903,7 @@ public class A2dpSinkService extends ProfileService {
             mA2dpSinkStreamHandler.sendMessageDelayed(msg,HFP_DISABLING_TIMEOUT);
             return;
         }
-        if(dev != null && !dev.equals(callingDevice)) {
+        if(dev != null && callingDevice != null && !dev.equals(callingDevice)) {
             if (mHeadsetClientService!= null && mHeadsetClientService.isA2dpSinkPossible() == false) {
                 if(mA2dpSinkVendor!= null){
                     Log.d(TAG, "Reject A2dpSink");
