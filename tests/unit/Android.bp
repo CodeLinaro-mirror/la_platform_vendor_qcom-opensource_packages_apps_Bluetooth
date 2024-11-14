@@ -5,12 +5,12 @@ android_test {
     certificate: "platform",
 
     libs: [
-        "javax.obex",
-        "android.test.runner",
+        "javax.obex.stubs",
+        "android.test.runner.stubs",
         "telephony-common",
         "libprotobuf-java-micro",
-        "android.test.base",
-        "android.test.mock",
+        "android.test.base.stubs",
+        "android.test.mock.stubs",
     ],
 
     static_libs: [
