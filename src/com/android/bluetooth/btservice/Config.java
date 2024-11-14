@@ -522,6 +522,7 @@ public class Config {
     }
 
     private static long getProfileMask(Class profile) {
+        Log.d(TAG, "getProfileMask, profile: " + profile);
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             if (config.mClass == profile) {
                 return config.mMask;
@@ -548,15 +549,19 @@ public class Config {
                 } else if (profile == HapClientService.class) {
                   long mask = config.mMask;
                   HapClientService hapClientService = HapClientService.getHapClientService();
+                  boolean isQtiLeAudioEnabled = ApmConstIntf.getQtiLeAudioEnabled();
+                  AdapterService adapterService = AdapterService.getAdapterService();
                   if (hapClientService != null) {
                     if (hapClientService.isEnabled() == false) {
                       mask &= ~(1L << BluetoothProfile.HAP_CLIENT);
                     }
-                  } else {
-                      Log.d(TAG, "Unsetting the bit in mask for HapClientService: " + mask);
+                  } else if (isQtiLeAudioEnabled && adapterService != null &&
+                            (adapterService.isHapClientSupported() ==
+                                BluetoothStatusCodes.FEATURE_NOT_SUPPORTED)) {
+                      Log.d(TAG, "Unset the bit in mask for HapClientService: " + mask);
                       mask &= ~(1L << BluetoothProfile.HAP_CLIENT);
                   }
-                  Log.d(TAG, "HapClientService profile mask: " + mask);
+                  Log.d(TAG, "HapClientService Profile Mask: " + mask);
                   return mask;
                 }
                 return config.mMask;
