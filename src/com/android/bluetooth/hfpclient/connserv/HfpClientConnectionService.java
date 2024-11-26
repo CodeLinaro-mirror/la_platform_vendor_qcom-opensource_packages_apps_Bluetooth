@@ -321,6 +321,9 @@ public class HfpClientConnectionService extends ConnectionService {
 
     synchronized HfpClientDeviceBlock findBlockForHandle(PhoneAccountHandle handle) {
         PhoneAccount account = mTelecomManager.getPhoneAccount(handle);
+        if (account == null) {
+            return null;
+        }
         String btAddr = account.getAddress().getSchemeSpecificPart();
         BluetoothDevice device = mAdapter.getRemoteDevice(btAddr);
         Log.d(TAG, "Finding block for handle " + handle + " device " + btAddr);
