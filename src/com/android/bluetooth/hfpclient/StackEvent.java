@@ -56,6 +56,8 @@ public class StackEvent {
     public int valueInt4 = 0;
     public String valueString = null;
     public BluetoothDevice device = null;
+    public int valueInt5 = 0;
+    public String valueString2 = null;
 
     StackEvent(int type) {
         this.type = type;
@@ -72,6 +74,8 @@ public class StackEvent {
         result.append(", value4:" + valueInt4);
         result.append(", string: \"" + valueString + "\"");
         result.append(", device:" + device + "}");
+        result.append(", value5:" + valueInt5);
+        result.append(", string2: \"" + valueString2 + "\"");
         return result.toString();
     }
 

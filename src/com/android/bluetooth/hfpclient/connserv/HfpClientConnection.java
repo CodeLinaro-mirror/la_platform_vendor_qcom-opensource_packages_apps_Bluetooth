@@ -48,6 +48,7 @@ public class HfpClientConnection extends Connection {
     private boolean mLocalDisconnect;
     private boolean mClientHas3WayCalling;
     private boolean mAdded;
+    private boolean mConnCompleted;
     private ConnectionHandler mHandler;
 
     private static final int MSG_ENABLE_AUDIO_WITHOUT_REDIRECT = 2;
@@ -121,6 +122,14 @@ public class HfpClientConnection extends Connection {
 
     public void onAdded() {
         mAdded = true;
+    }
+
+    public void onConnCompleted() {
+        mConnCompleted = true;
+    }
+
+    public boolean isConnCompleted() {
+        return mConnCompleted;
     }
 
     public BluetoothHeadsetClientCall getCall() {
