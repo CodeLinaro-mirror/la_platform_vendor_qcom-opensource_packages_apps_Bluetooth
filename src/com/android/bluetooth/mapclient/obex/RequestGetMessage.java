@@ -85,10 +85,15 @@ final class RequestGetMessage extends Request {
             return;
         }
 
-        mBmessage = BmessageParser.createBmessage(bmsg);
+        try {
+            mBmessage = BmessageParser.createBmessage(bmsg);
 
-        if (mBmessage == null) {
-            mResponseCode = ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
+            if (mBmessage == null) {
+                mResponseCode = ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
+            }
+        } catch (OutOfMemoryError ex) {
+             Log.e(TAG, "Create bmessage failure!", ex);
+             mResponseCode = ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
         }
     }
 
