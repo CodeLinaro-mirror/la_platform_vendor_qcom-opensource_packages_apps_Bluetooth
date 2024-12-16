@@ -734,6 +734,9 @@ public class HeadsetStateMachine extends StateMachine {
         public boolean processMessage(Message message) {
             switch (message.what) {
                 case CONNECT:
+                    //Since we are about to connect, let’s remove any pending
+                    //connection messages from the queue.”
+                    removeMessages(CONNECT);
                     BluetoothDevice device = (BluetoothDevice) message.obj;
                     stateLogD("Connecting to " + device);
                     if (!mDevice.equals(device)) {
@@ -1514,6 +1517,7 @@ public class HeadsetStateMachine extends StateMachine {
                 // state. This is to prevent auto connect attempts from disconnecting
                 // devices that previously successfully connected.
                 removeDeferredMessages(CONNECT);
+                removeMessages(CONNECT);
             }
             broadcastStateTransitions();
             DeviceProfileMapIntf dpm = DeviceProfileMapIntf.getDeviceProfileMapInstance();
