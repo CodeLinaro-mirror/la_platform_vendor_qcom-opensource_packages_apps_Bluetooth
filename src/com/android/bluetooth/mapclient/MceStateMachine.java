@@ -81,10 +81,14 @@ import com.android.vcard.VCardEntry;
 import com.android.vcard.VCardProperty;
 import com.android.bluetooth.Utils;
 
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -142,6 +146,16 @@ class MceStateMachine extends StateMachine {
     // URI Scheme for messages with email contact
     private static final String SCHEME_MAILTO = "mailto";
 
+    /* Properties for MAP filter */
+    private final static String BLUETOOTH_MAP_FILTER_USE_PROPERTY = "vendor.bt.pts.mce.useproperty";
+    private final static String BLUETOOTH_MAP_FILTER_MESSAGE_TYPE = "vendor.bt.pts.mce.messagetype";
+    private final static String BLUETOOTH_MAP_FILTER_READ_STATUS = "vendor.bt.pts.mce.readstatus";
+    private final static String BLUETOOTH_MAP_FILTER_PERIODBEGIN = "vendor.bt.pts.mce.periodbegin";
+    private final static String BLUETOOTH_MAP_FILTER_PERIODEND = "vendor.bt.pts.mce.periodend";
+    private final static String BLUETOOTH_MAP_FILTER_RECIPIENT = "vendor.bt.pts.mce.recipient";
+    private final static String BLUETOOTH_MAP_FILTER_ORIGINATOR = "vendor.bt.pts.mce.originator";
+    private final static String BLUETOOTH_MAP_FILTER_PRIORITY = "vendor.bt.pts.mce.priority";
+
     /* Properties for MAP PTS test */
     // Set "vendor.bt.mce.test.upload" to true to test PTS upload feature case
     // MAP/MCE/MMU/BV-01-I
@@ -150,6 +164,18 @@ class MceStateMachine extends StateMachine {
     // as under test requests and reports failure.
     private final static String BLUETOOTH_MAP_TEST_UPLOAD = "vendor.bt.pts.mce.test.upload";
     private final static String BLUETOOTH_MAP_AUTO_GET_NEW_MESSAGE = "vendor.bt.pts.mce.autogetnewmessage";
+
+    // Set value to 'true' while testing PTS case MAP/MCE/MSM/BV-03-C
+    // PTS Bug: PTS initiates MNS connection may break its ongoing session of sending message
+    // Therefore, IUT can be blocked here and not able to send SetNotificaitonRegistration Off
+    private final static String BLUETOOTH_MAP_BYPASS_GET_MSG_LISTING = "vendor.bt.pts.mce.bypass_get_msg_listing";
+    private final static String BLUETOOTH_MAP_BYPASS_GET_FLD_LISTING = "vendor.bt.pts.mce.bypass_get_fld_listing";
+
+    // Set value to 'true' while testing PTS case MAP/MCE/MMB/BV-07-C
+    // PTS bug: Not able to accept other Put command
+    private final static String BLUETOOTH_MAP_BYPASS_SET_NOTIFY_REG = "vendor.bt.pts.mce.bypass_set_notify_reg";
+
+    private final static String MESSAGES_FILTER_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
 
     // Instance id under pts test
     private final static String BLUETOOTH_MAP_INSTANCE_UNDER_TEST = "vendor.bt.pts.mce.instance";
@@ -721,7 +747,9 @@ private String getFileExtension(String path){
             mMasClient.makeRequest(new RequestSetPath(FOLDER_TELECOM));
             mMasClient.makeRequest(new RequestSetPath(FOLDER_MSG));
             mMasClient.makeRequest(new RequestSetPath(FOLDER_INBOX));
-            mMasClient.makeRequest(new RequestGetFolderListing(0, 0));
+            if (!bypassFolderListing())
+                // For testing PTS case: MAP/MCE/MMB/BV-03-C
+                mMasClient.makeRequest(new RequestGetFolderListing(0, 0));
             if (Utils.isPtsTestMode()) {
                 if (isTestUpload()) return;
                 mMasClient.makeRequest(new RequestUpdateInbox());
@@ -771,11 +799,14 @@ private String getFileExtension(String path){
                 case MSG_GET_MESSAGE_LISTING:
                     // Get latest 50 Unread messages in the last week
                     MessagesFilter filter = new MessagesFilter();
-                    filter.setMessageType(MapUtils.fetchMessageType());
-                    filter.setReadStatus(MessagesFilter.READ_STATUS_UNREAD);
-                    Calendar calendar = Calendar.getInstance();
-                    calendar.add(Calendar.DATE, -7);
-                    filter.setPeriod(calendar.getTime(), null);
+                    if (!isFilterPropUsed()) {
+                        filter.setMessageType(MapUtils.fetchMessageType());
+                        Calendar calendar = Calendar.getInstance();
+                        calendar.add(Calendar.DATE, -7);
+                        filter.setPeriod(calendar.getTime(), null);
+                    } else {
+                        setFilterFromProperties(filter);
+                    }
                     mMasClient.makeRequest(new RequestGetMessagesListing(
                             (String) message.obj, 0, filter, 0, 50, 0));
                     break;
@@ -926,8 +957,57 @@ private String getFileExtension(String path){
             return SystemProperties.getBoolean(BLUETOOTH_MAP_AUTO_GET_NEW_MESSAGE, true);
         }
 
+        private boolean isFilterPropUsed() {
+            return SystemProperties.getBoolean(BLUETOOTH_MAP_FILTER_USE_PROPERTY, false);
+        }
+
         private boolean isTestUpload() {
             return SystemProperties.getBoolean(BLUETOOTH_MAP_TEST_UPLOAD, false);
+        }
+
+        private boolean bypassFolderListing() {
+            return SystemProperties.getBoolean(BLUETOOTH_MAP_BYPASS_GET_FLD_LISTING, false);
+        }
+
+        private boolean bypassMsgListing() {
+            return SystemProperties.getBoolean(BLUETOOTH_MAP_BYPASS_GET_MSG_LISTING, false);
+        }
+
+        private boolean bypassSetNotifyRegist() {
+            return SystemProperties.getBoolean(BLUETOOTH_MAP_BYPASS_SET_NOTIFY_REG, false);
+        }
+
+        private void setFilterFromProperties(MessagesFilter filter) {
+            filter.setMessageType((byte)SystemProperties.getInt(
+                    BLUETOOTH_MAP_FILTER_MESSAGE_TYPE,
+                    MessagesFilter.MESSAGE_TYPE_ALL));
+            filter.setReadStatus((byte)SystemProperties.getInt(
+                    BLUETOOTH_MAP_FILTER_READ_STATUS,
+                    MessagesFilter.READ_STATUS_UNREAD));
+
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(MESSAGES_FILTER_DATE_FORMAT);
+
+            Date filterBegin, filterEnd;
+            try {
+                filterBegin = simpleDateFormat.parse(SystemProperties.get(BLUETOOTH_MAP_FILTER_PERIODBEGIN));
+            } catch (ParseException e) {
+                filterBegin = null;
+                Log.e(TAG, "Exception during parse begin period " + SystemProperties.get(BLUETOOTH_MAP_FILTER_PERIODBEGIN));
+            }
+            try {
+                filterEnd = simpleDateFormat.parse(SystemProperties.get(BLUETOOTH_MAP_FILTER_PERIODEND));
+            } catch (ParseException e) {
+                filterEnd = null;
+                Log.e(TAG, "Exception during parse end period " + SystemProperties.get(BLUETOOTH_MAP_FILTER_PERIODEND));
+            }
+            filter.setPeriod(filterBegin, filterEnd);
+
+            filter.setRecipient(SystemProperties.get(BLUETOOTH_MAP_FILTER_RECIPIENT));
+            filter.setOriginator(SystemProperties.get(BLUETOOTH_MAP_FILTER_ORIGINATOR));
+            filter.setPriority((byte)SystemProperties.getInt(
+                    BLUETOOTH_MAP_FILTER_PRIORITY,
+                    MessagesFilter.PRIORITY_ANY));
+            if (DBG) Log.d(TAG, "filter " + filter);
         }
 
         // Sets the specified message status to "read" (from "unread" status, mostly)
