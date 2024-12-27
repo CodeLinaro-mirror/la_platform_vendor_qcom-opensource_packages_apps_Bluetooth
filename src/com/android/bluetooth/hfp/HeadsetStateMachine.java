@@ -259,6 +259,10 @@ public class HeadsetStateMachine extends StateMachine {
     // used for synchronizing mCurrentState set/get
     private final Object mLock = new Object();
 
+    static int mClccCount = 0;
+    // used for synchronizing CLCC_COUNT variable
+    private final Object mClccLock = new Object();
+
     // Run time dependencies
     private final HeadsetService mHeadsetService;
     private final AdapterService mAdapterService;
@@ -416,6 +420,7 @@ public class HeadsetStateMachine extends StateMachine {
         }
         mConnectivityManager.unregisterNetworkCallback(mDefaultNetworkCallback);
         mAudioParams.clear();
+        mClccCount = 0;
     }
 
     public void dump(StringBuilder sb) {
@@ -2835,6 +2840,10 @@ public class HeadsetStateMachine extends StateMachine {
                 mNativeInterface.clccResponse(device, 1, 0, 0, 0, false, phoneNumber, type);
             }
             mNativeInterface.clccResponse(device, 0, 0, 0, 0, false, "", 0);
+            synchronized(mClccLock) {
+              mClccCount++;
+              Log.i(TAG, "CLCC requests count" + mClccCount);
+            }
         } else if (hasMessages(SEND_CLCC_RESP_AFTER_VOIP_CALL)) {
             Log.w(TAG, "processAtClcc: send OK response as VOIP call ended just now");
             mNativeInterface.clccResponse(device, 0, 0, 0, 0, false, "", 0);
@@ -2845,6 +2854,10 @@ public class HeadsetStateMachine extends StateMachine {
                 Log.e(TAG, "processAtClcc: failed to list current calls for " + device);
                 mNativeInterface.clccResponse(device, 0, 0, 0, 0, false, "", 0);
             } else {
+                synchronized(mClccLock) {
+                  mClccCount++;
+                  Log.i(TAG, "CLCC requests count" + mClccCount);
+                }
                 sendMessageDelayed(CLCC_RSP_TIMEOUT, device, CLCC_RSP_TIMEOUT_MS);
             }
         }
@@ -3209,7 +3222,15 @@ public class HeadsetStateMachine extends StateMachine {
             return;
         }
         if (clcc.mIndex == 0) {
-            removeMessages(CLCC_RSP_TIMEOUT);
+            synchronized(mClccLock) {
+              if (mClccCount == 0) {
+                Log.i(TAG, "No Clcc requests in queue. removing the timeout msg");
+                removeMessages(CLCC_RSP_TIMEOUT);
+              } else {
+                Log.w(TAG, "more CLCC requests from remote(s).should not remove CLCC timeout msgs");
+                mClccCount--;
+              }
+            }
         }
         // get the top of the Q
         HeadsetCallState tempCallState = mDelayedCSCallStates.peek();
