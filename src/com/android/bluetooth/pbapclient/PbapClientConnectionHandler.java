@@ -280,20 +280,26 @@ class PbapClientConnectionHandler extends Handler {
                     Log.e(TAG, "Account creation failed.");
                     return;
                 }
-                if (isRepositorySupported(SUPPORTED_REPOSITORIES_FAVORITES)) {
-                    downloadContacts(FAV_PATH);
-                }
+
                 if (isRepositorySupported(SUPPORTED_REPOSITORIES_LOCALPHONEBOOK)) {
                     downloadContacts(PB_PATH);
                 }
+                HashMap<String, Integer> callCounter = new HashMap<>();
+                downloadCallLog(ICH_PATH, VCARD_TYPE_30, 0, 0, callCounter);
+                downloadCallLog(OCH_PATH, VCARD_TYPE_30, 0, 0, callCounter);
+                downloadCallLog(MCH_PATH, VCARD_TYPE_30, 0, 0, callCounter);
+
+                if (isRepositorySupported(SUPPORTED_REPOSITORIES_FAVORITES)) {
+                    downloadContacts(FAV_PATH);
+                }
+
                 if (isRepositorySupported(SUPPORTED_REPOSITORIES_SIMCARD)) {
                     downloadContacts(SIM_PB_PATH);
                 }
 
-                HashMap<String, Integer> callCounter = new HashMap<>();
-                downloadCallLog(MCH_PATH, VCARD_TYPE_30, 0, 0, callCounter);
-                downloadCallLog(ICH_PATH, VCARD_TYPE_30, 0, 0, callCounter);
-                downloadCallLog(OCH_PATH, VCARD_TYPE_30, 0, 0, callCounter);
+                downloadCallLog(SIM_ICH_PATH, VCARD_TYPE_30, 0, 0, callCounter);
+                downloadCallLog(SIM_OCH_PATH, VCARD_TYPE_30, 0, 0, callCounter);
+                downloadCallLog(SIM_MCH_PATH, VCARD_TYPE_30, 0, 0, callCounter);
                 break;
 
             case MSG_DOWNLOAD_EXT:
