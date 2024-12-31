@@ -12,7 +12,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
+
 package com.android.bluetooth.hfpclient.connserv;
 
 import android.bluetooth.BluetoothDevice;
@@ -244,7 +250,7 @@ public class HfpClientConnection extends Connection {
             Log.d(TAG, "onHold " + mCurrentCall);
         }
         if (!mClosed) {
-            mHeadsetProfile.holdCall(mDevice);
+            mHeadsetProfile.holdCall(mDevice, mCurrentCall);
         }
     }
 
@@ -258,7 +264,7 @@ public class HfpClientConnection extends Connection {
             Log.d(TAG, "onUnhold " + mCurrentCall);
         }
         if (!mClosed) {
-            mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_HOLD);
+            mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_HOLD, mCurrentCall);
         }
     }
 
@@ -268,7 +274,7 @@ public class HfpClientConnection extends Connection {
             Log.d(TAG, "onAnswer " + mCurrentCall);
         }
         if (!mClosed) {
-            mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
+            mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE, mCurrentCall);
         }
     }
 
