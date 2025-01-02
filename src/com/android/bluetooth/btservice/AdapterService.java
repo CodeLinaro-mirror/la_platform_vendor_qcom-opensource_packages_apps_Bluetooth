@@ -1142,14 +1142,17 @@ public class AdapterService extends Service {
             int n = mCallbacks.beginBroadcast();
             debugLog("updateAdapterState() - Broadcasting state " + BluetoothAdapter.nameForState(
                     newState) + " to " + n + " receivers.");
-            for (int i = 0; i < n; i++) {
-                try {
-                    mCallbacks.getBroadcastItem(i).onBluetoothStateChange(prevState, newState);
-                } catch (RemoteException e) {
-                    debugLog("updateAdapterState() - Callback #" + i + " failed (" + e + ")");
+            try {
+                for (int i = 0; i < n; i++) {
+                    try {
+                        mCallbacks.getBroadcastItem(i).onBluetoothStateChange(prevState, newState);
+                    } catch (RemoteException e) {
+                        debugLog("updateAdapterState() - Callback #" + i + " failed (" + e + ")");
+                    }
                 }
+            } finally {
+                mCallbacks.finishBroadcast();
             }
-            mCallbacks.finishBroadcast();
         }
 
         // Turn the Adapter all the way off if we are disabling and the snoop log setting changed.
@@ -7504,7 +7507,7 @@ public class AdapterService extends Service {
     boolean isSdpCompleted(BluetoothDevice device) {
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         return (deviceProp != null ) ? deviceProp.isSdpCompleted() : false;
-	}
+    }
 
     public CompanionManager getCompanionManager() {
         return mBtCompanionManager;
