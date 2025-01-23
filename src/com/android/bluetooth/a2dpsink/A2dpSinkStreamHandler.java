@@ -424,11 +424,13 @@ public class A2dpSinkStreamHandler extends Handler {
     }
 
     private void startFluorideStreaming() {
+        requestMediaKeyFocus();
         mA2dpSinkService.informAudioFocusStateNative(STATE_FOCUS_GRANTED);
         mA2dpSinkService.informAudioTrackGainNative(1.0f);
     }
 
     private void stopFluorideStreaming() {
+        releaseMediaKeyFocus();
         mA2dpSinkService.informAudioFocusStateNative(STATE_FOCUS_LOST);
     }
 
