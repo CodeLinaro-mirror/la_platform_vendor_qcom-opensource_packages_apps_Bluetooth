@@ -365,13 +365,18 @@ class PbapClientConnectionHandler extends Handler {
             connectionRequest.setHeader(HeaderSet.TARGET, PBAP_TARGET);
 
             if (mPseRec != null) {
+                int pseSupportedFeatures = mPseRec.getSupportedFeatures();
                 if (DBG) {
-                    Log.d(TAG, "Remote PbapSupportedFeatures " + mPseRec.getSupportedFeatures());
+                    Log.d(TAG, "Remote PbapSupportedFeatures " + pseSupportedFeatures);
                 }
 
                 ObexAppParameters oap = new ObexAppParameters();
 
-                if (mPseRec.getProfileVersion() >= PBAP_V1_2) {
+                // According to PBAP spec, PbapSupportedFeatures in header is mandatory if the PSE
+                // advertises a PbapSupportedFeatures attribute in its SDP record, else excluded.
+                // Default value we are setting it to 3, that's why we are comparing with 3
+                // PTS case PBAP/PCE/SSM/BV-10-C check this.
+                if (pseSupportedFeatures != 3 && mPseRec.getProfileVersion() >= PBAP_V1_2) {
                     oap.add(BluetoothPbapRequest.OAP_TAGID_PBAP_SUPPORTED_FEATURES,
                             PBAP_SUPPORTED_FEATURE);
                 }
