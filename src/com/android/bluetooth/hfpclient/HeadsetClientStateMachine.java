@@ -886,13 +886,14 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
         logD("hfp_enable=" + enable);
         if (enable && !sAudioIsRouted) {
-            mAudioManager.setParameters("hfp_enable=true");
+            sAudioIsRouted = true;
             SystemProperties.set(Utils.PROP_SCO_CONNECTION_STATUS, "true");
+            mAudioManager.setParameters("hfp_enable=true");
         } else if (!enable) {
-            mAudioManager.setParameters("hfp_enable=false");
+            sAudioIsRouted = false;
             SystemProperties.set(Utils.PROP_SCO_CONNECTION_STATUS, "false");
+            mAudioManager.setParameters("hfp_enable=false");
         }
-        sAudioIsRouted = enable;
     }
 
     private AudioFocusRequest requestAudioFocus() {
