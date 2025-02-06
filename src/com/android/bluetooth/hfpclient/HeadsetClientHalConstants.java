@@ -54,6 +54,7 @@ public final class HeadsetClientHalConstants {
     static final int SERVICE_TYPE_ROAMING = 1;
 
     // match up with bthf_client_call_state_t enum of bt_hf_client.h
+    static final int CALL_STATE_UNKNOWN = -1;
     static final int CALL_STATE_ACTIVE = 0;
     static final int CALL_STATE_HELD = 1;
     static final int CALL_STATE_DIALING = 2;
@@ -171,7 +172,7 @@ public final class HeadsetClientHalConstants {
 
     static final int HANDSFREECLIENT_AT_CMD_NREC = 15;
     static final int HANDSFREECLIENT_AT_CMD_VENDOR_SPECIFIC_CMD = 16;
-
+    static final int HANDSFREECLIENT_AT_CMD_BIEV = 17;
     // Flag to check for local NREC support
     static final boolean HANDSFREECLIENT_NREC_SUPPORTED = true;
 }

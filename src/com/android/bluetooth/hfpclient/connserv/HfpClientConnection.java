@@ -142,7 +142,8 @@ public class HfpClientConnection extends Connection {
     }
 
     public void enterPrivateMode() {
-        mHeadsetProfile.enterPrivateMode(mDevice, mCurrentCall.getId());
+        mHeadsetProfile.enterPrivateMode(mDevice,
+                        (mCurrentCall.getId() + (mCurrentCall.getNumber().hashCode())));
         setActive();
     }
 

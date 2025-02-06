@@ -72,6 +72,8 @@ public class HeadsetClientService extends ProfileService {
     private static final String EXTRA_AUDIO_STATE = "android.bluetooth.extra.audio.STATE";
     private static final String ACTION_QUERY_NETWORK = "android.bluetooth.action.HFP_CLIENT_NETWORK_NAME";
     private static final String ACTION_ON_CLIENT_CALL = "android.bluetooth.action.ON_HFP_CLIENT_CALL";
+    private static final String ACTION_SEND_BIEV = "android.bluetooth.action.SEND_BIEV";
+    private static final String EXTRA_LEVEL = "level";
     private HashMap<BluetoothDevice, HeadsetClientStateMachine> mStateMachineMap = new HashMap<>();
     private static HeadsetClientService sHeadsetClientService;
     private NativeInterface mNativeInterface = null;
@@ -127,6 +129,7 @@ public class HeadsetClientService extends ProfileService {
         filter.addAction(ACTION_AUDIO_CONN_DISCONN);
         filter.addAction(ACTION_QUERY_NETWORK);
         filter.addAction(ACTION_ON_CLIENT_CALL);
+        filter.addAction(ACTION_SEND_BIEV);
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         registerReceiver(mBroadcastReceiver, filter, Context.RECEIVER_EXPORTED);
@@ -327,6 +330,14 @@ public class HeadsetClientService extends ProfileService {
                   if (sm != null) {
                       sm.sendMessage(
                               HeadsetClientStateMachine.ACTION_CONNECTION_STATE_CHANGED, currState);
+                  }
+              }
+         } else if  (action.equals(ACTION_SEND_BIEV)) {
+              Log.d(TAG, "Received ACTION_SEND_BIEV");
+              int value = intent.getIntExtra(EXTRA_LEVEL,0);
+              for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
+                  if (sm != null) {
+                      sm.sendMessage(HeadsetClientStateMachine.SEND_BIEV, value);
                   }
               }
          }
@@ -629,8 +640,7 @@ public class HeadsetClientService extends ProfileService {
                 HeadsetClientService service = getService(source);
                 boolean defaultValue = false;
                 if (service != null) {
-                    defaultValue = service.terminateCall(device,
-                            call != null ? call.getUUID() : null);
+                    defaultValue = service.terminateCall(device, call);
                 } else {
                     Log.w(TAG, "service is null");
                 }
@@ -1190,7 +1200,7 @@ public class HeadsetClientService extends ProfileService {
         return true;
     }
 
-    boolean terminateCall(BluetoothDevice device, UUID uuid) {
+    boolean terminateCall(BluetoothDevice device, BluetoothHeadsetClientCall call) {
 
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
@@ -1205,7 +1215,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         Message msg = sm.obtainMessage(HeadsetClientStateMachine.TERMINATE_CALL);
-        msg.obj = uuid;
+        msg.obj = call;
         sm.sendMessage(msg);
         return true;
     }

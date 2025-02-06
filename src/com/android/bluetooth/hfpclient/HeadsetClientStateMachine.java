@@ -119,6 +119,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     public static final int AG_SCO_CONNECTED = 25;
     public static final int AG_SCO_DISCONNECTED = 26;
     public static final int CONNECT_AUDIO_WITH_DELAY = 30;
+    public static final int SEND_BIEV = 31;
     // internal actions
     private static final int QUERY_CURRENT_CALLS = 50;
     public static final int QUERY_OPERATOR_NAME = 51;
@@ -437,7 +438,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                 Log.w(TAG, "Outgoing call did not see a response, clear the calls and send CHUP");
                 // We send a terminate because we are in a bad state and trying to
                 // recover.
-                terminateCall(c.getUUID());
+                terminateCall(c);
 
                 // Clean out the state for outgoing call.
                 for (Integer idx : mCalls.keySet()) {
@@ -665,31 +666,48 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
     }
 
-    private void terminateCall(UUID uuid) {
+    private void terminateCall(BluetoothHeadsetClientCall c) {
         if (DBG) {
             Log.d(TAG, "terminateCall");
         }
 
         int action = HeadsetClientHalConstants.CALL_ACTION_CHUP;
+        int state = c != null ? c.getState() : HeadsetClientHalConstants.CALL_STATE_UNKNOWN;
+        int id = c != null ? c.getId() : 0;
 
-        BluetoothHeadsetClientCall c = getCall(BluetoothHeadsetClientCall.CALL_STATE_DIALING,
-                BluetoothHeadsetClientCall.CALL_STATE_ALERTING,
-                BluetoothHeadsetClientCall.CALL_STATE_ACTIVE);
-        if (c == null) {
-            // If the call being terminated is currently held, switch the action to CHLD_0
-            c = getCall(BluetoothHeadsetClientCall.CALL_STATE_HELD);
+        // If the call being terminated is currently held, switch the action to CHLD_0
+        if (state == BluetoothHeadsetClientCall.CALL_STATE_HELD) {
             action = HeadsetClientHalConstants.CALL_ACTION_CHLD_0;
         }
-        if (c != null) {
-            boolean mPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
+
+        /* If the call is being termianted is currently conferenced,
+           switch the action to CHLD_1 or CHLD_1X  This logic is for PTS*/
+        boolean mPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
+        if (mPts && c != null && c.isMultiParty() && mCalls.size() > 1) {
+            mPts = SystemProperties.getBoolean("vendor.bt.pts.certification.chld_1x", false);
             if (mPts) {
-                Log.d(TAG, "call uuid: " + c.getUUID() + " terminate call uuid " + uuid);
-                if ((uuid != null) && (c.getUUID().compareTo(uuid) != 0)) {
-                    return;
-                }
+                action = HeadsetClientHalConstants.CALL_ACTION_CHLD_1X;
             }
 
-            if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, 0)) {
+            mPts = SystemProperties.getBoolean("vendor.bt.pts.certification.chld_1", false);
+            if (mPts) {
+                action = HeadsetClientHalConstants.CALL_ACTION_CHLD_1;
+            }
+        }
+
+        if (c == null) {
+            c = getCall(BluetoothHeadsetClientCall.CALL_STATE_DIALING,
+                BluetoothHeadsetClientCall.CALL_STATE_ALERTING,
+                BluetoothHeadsetClientCall.CALL_STATE_ACTIVE);
+        }
+
+        if (c == null) {
+            c = getCall(BluetoothHeadsetClientCall.CALL_STATE_HELD);
+                action = HeadsetClientHalConstants.CALL_ACTION_CHLD_0;
+        }
+
+        if (c != null) {
+            if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice), action, id)) {
                 addQueuedAction(TERMINATE_CALL, action);
             } else {
                 Log.e(TAG, "ERROR: Couldn't terminate outgoing call");
@@ -709,11 +727,13 @@ public class HeadsetClientStateMachine extends StateMachine {
             return;
         }
 
+        int id = c != null ? c.getId() : 0;
+
         if (mNativeInterface.handleCallAction(getByteAddress(mCurrentDevice),
-                HeadsetClientHalConstants.CALL_ACTION_CHLD_2X, idx)) {
+                HeadsetClientHalConstants.CALL_ACTION_CHLD_2X, id)) {
             addQueuedAction(ENTER_PRIVATE_MODE, c);
         } else {
-            Log.e(TAG, "ERROR: Couldn't enter private " + " id:" + idx);
+            Log.e(TAG, "ERROR: Couldn't enter private " + " id:" + id);
         }
     }
 
@@ -1417,6 +1437,13 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
                 }
 
+                case SEND_BIEV:
+                    int value = message.arg1;
+                    Log.d(TAG, "Connected: send AT+BIEV =1," + value);
+                    mNativeInterface.sendATCmd(getByteAddress(mCurrentDevice),
+                                    HeadsetClientHalConstants.HANDSFREECLIENT_AT_CMD_BIEV,1, value, null);
+                    break;
+
                 // Called only for Mute/Un-mute - Mic volume change is not allowed.
                 case SET_MIC_VOLUME:
                     break;
@@ -1470,8 +1497,8 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
                 case TERMINATE_CALL:
                     {
-                      UUID uuid = (UUID) message.obj;
-                      terminateCall(uuid);
+                      BluetoothHeadsetClientCall call = (BluetoothHeadsetClientCall) message.obj;
+                      terminateCall(call);
                     }
                     break;
                 case ENTER_PRIVATE_MODE:
