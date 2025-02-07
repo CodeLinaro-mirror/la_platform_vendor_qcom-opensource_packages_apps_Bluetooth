@@ -56,9 +56,9 @@ cc_library_shared {
         "libnativehelper",
         "liblog",
         "libbase",
+        "libbluetooth-types",
     ],
     static_libs: [
-        "libbluetooth-types",
         "libcutils",
         "libbluetoothqti_jni",
     ],
