@@ -44,6 +44,7 @@ public class HfpClientConnection extends Connection {
     private boolean mLocalDisconnect;
     private boolean mClientHasEcc;
     private boolean mAdded;
+    private final Object mCurrentCallUpdateLock = new Object();
 
     // Constructor to be used when there's an existing call (such as that created on the AG or
     // when connection happens and we see calls for the first time).
@@ -56,10 +57,11 @@ public class HfpClientConnection extends Connection {
         if (call == null) {
             throw new IllegalStateException("Call is null");
         }
-
-        mCurrentCall = call;
-        handleCallChanged();
-        finishInitializing();
+        synchronized(mCurrentCallUpdateLock) {
+            mCurrentCall = call;
+            handleCallChanged();
+            finishInitializing();
+        }
     }
 
     // Constructor to be used when a call is intiated on the HF. The call handle is obtained by
@@ -73,17 +75,18 @@ public class HfpClientConnection extends Connection {
         if (mHeadsetProfile == null) {
             throw new IllegalStateException("HeadsetProfile is null, returning");
         }
+        synchronized(mCurrentCallUpdateLock) {
+            mCurrentCall = mHeadsetProfile.dial(mDevice, number.getSchemeSpecificPart());
+            if (mCurrentCall == null) {
+                close(DisconnectCause.ERROR);
+                Log.e(TAG, "Failed to create the call, dial failed.");
+                return;
+            }
 
-        mCurrentCall = mHeadsetProfile.dial(mDevice, number.getSchemeSpecificPart());
-        if (mCurrentCall == null) {
-            close(DisconnectCause.ERROR);
-            Log.e(TAG, "Failed to create the call, dial failed.");
-            return;
+            setInitializing();
+            setDialing();
+            finishInitializing();
         }
-
-        setInitializing();
-        setDialing();
-        finishInitializing();
     }
 
     void finishInitializing() {
@@ -189,7 +192,9 @@ public class HfpClientConnection extends Connection {
         setDisconnected(new DisconnectCause(cause));
 
         mClosed = true;
-        mCurrentCall = null;
+        synchronized(mCurrentCallUpdateLock){
+            mCurrentCall = null;
+        }
 
         destroy();
     }
