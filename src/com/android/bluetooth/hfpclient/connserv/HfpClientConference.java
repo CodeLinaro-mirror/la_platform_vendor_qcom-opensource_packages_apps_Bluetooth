@@ -12,7 +12,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
+
 package com.android.bluetooth.hfpclient.connserv;
 
 import android.bluetooth.BluetoothDevice;
@@ -49,7 +55,9 @@ public class HfpClientConference extends Conference {
     @Override
     public void onMerge(Connection connection) {
         Log.d(TAG, "onMerge " + connection);
-        addConnection(connection);
+        // Only sends the request to merge call
+        // Add connection to conferecne call when calls are merged in AG actually
+        onConnectionAdded(connection);
     }
 
     @Override
