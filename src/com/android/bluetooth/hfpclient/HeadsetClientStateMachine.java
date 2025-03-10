@@ -128,7 +128,7 @@ public class HeadsetClientStateMachine extends StateMachine {
 
     static final int HF_ORIGINATED_CALL_ID = -1;
     private static final long OUTGOING_TIMEOUT_MILLI = 10 * 1000; // 10 seconds
-    private static final long QUERY_CURRENT_CALLS_WAIT_MILLIS = 2 * 1000; // 2 seconds
+    private static final long QUERY_CURRENT_CALLS_WAIT_MILLIS = 3 * 1000; // 3 seconds
 
     // Keep track of audio routing across all devices.
     private static boolean sAudioIsRouted = false;
