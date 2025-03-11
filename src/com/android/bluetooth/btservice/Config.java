@@ -598,7 +598,7 @@ public class Config {
 
         mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", false);
         mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
-        mIsHfpClient = SystemProperties.getBoolean("persist.vendor.bluetooth.hfp_client", false);
+        mIsHfpClient = SystemProperties.getBoolean("persist.vendor.service.bt.hfp.client", false);
         boolean isCsipQti = SystemProperties.getBoolean("ro.vendor.bluetooth.csip_qti", false);
         mIsPbapClient = SystemProperties.getBoolean("persist.vendor.bluetooth.pbap_client", false);
         if (isCsipQti) {
