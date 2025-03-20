@@ -16,7 +16,7 @@
     <bool name="profile_supported_a2dp">true</bool>
     <bool name="profile_supported_ca">true</bool>
     <bool name="profile_supported_a2dp_sink">true</bool>
-    <bool name="profile_supported_hs_hfp">false</bool>
+    <bool name="profile_supported_hs_hfp">true</bool>
     <bool name="profile_supported_hfpclient">true</bool>
     <bool name="profile_supported_hfp_incallservice">true</bool>
     <bool name="profile_supported_hid_host">true</bool>

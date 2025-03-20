@@ -455,7 +455,7 @@ public class Config {
 
         mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", true);
         mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
-        mIsHfpClient = SystemProperties.getBoolean("persist.vendor.bluetooth.hfp_client", true);
+        mIsHfpClient = SystemProperties.getBoolean("persist.vendor.service.bt.hfp.client", true);
         // Split A2dp will be enabled by default
         mIsSplitA2dpEnabled = true;
         AdapterService adapterService = AdapterService.getAdapterService();
