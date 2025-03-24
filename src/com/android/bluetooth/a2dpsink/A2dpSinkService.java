@@ -953,7 +953,7 @@ public class A2dpSinkService extends ProfileService {
             mA2dpSinkStreamHandler.sendMessageDelayed(msg,HFP_DISABLING_TIMEOUT);
             return;
         }
-        if(dev != null && !dev.equals(callingDevice)) {
+        if(dev != null && callingDevice != null && !dev.equals(callingDevice)) {
             if (mHeadsetClientService!= null && mHeadsetClientService.isA2dpSinkPossible() == false) {
                 if(mA2dpSinkVendor!= null){
                     Log.d(TAG, "Reject A2dpSink");
