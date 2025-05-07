@@ -15,6 +15,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth.pbapclient;
@@ -40,14 +44,11 @@ final class BluetoothPbapRequestPullPhoneBookSize extends BluetoothPbapRequest {
 
     public static final String VCARD_LISTING_TYPE = "x-bt/vcard-listing";
 
-    private Account mAccount;
-
     private int mPhonebookSize = 0;
 
     private int mNewMissedCalls = -1;
 
-    public BluetoothPbapRequestPullPhoneBookSize(String pbName, Account account, String type) {
-        mAccount = account;
+    public BluetoothPbapRequestPullPhoneBookSize(String pbName, String type, long filter) {
 
         mHeaderSet.setHeader(HeaderSet.NAME, pbName);
 
@@ -56,7 +57,9 @@ final class BluetoothPbapRequestPullPhoneBookSize extends BluetoothPbapRequest {
         ObexAppParameters oap = new ObexAppParameters();
 
         oap.add(OAP_TAGID_MAX_LIST_COUNT, (short) 0);
-
+        if (filter != 0) {
+            oap.add(OAP_TAGID_FILTER, filter);
+        }
         oap.addToHeaderSet(mHeaderSet);
     }
 
