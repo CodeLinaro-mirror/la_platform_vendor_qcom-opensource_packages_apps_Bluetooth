@@ -66,8 +66,10 @@ public class MasClient {
     private static final byte OAP_TAGID_MAP_SUPPORTED_FEATURES = 0x29;
     private static final int MAP_FEATURE_NOTIFICATION_REGISTRATION = 0x00000001;
     private static final int MAP_FEATURE_NOTIFICATION = 0x00000002;
+    private static final int MAP_FEATURE_MESSAGES_LISTING_FORMAT_1_1 = 0x00000200;
     static final int MAP_SUPPORTED_FEATURES =
-            MAP_FEATURE_NOTIFICATION_REGISTRATION | MAP_FEATURE_NOTIFICATION;
+            MAP_FEATURE_NOTIFICATION_REGISTRATION | MAP_FEATURE_NOTIFICATION
+            | MAP_FEATURE_MESSAGES_LISTING_FORMAT_1_1;
 
     private final StateMachine mCallback;
     private Handler mHandler;
