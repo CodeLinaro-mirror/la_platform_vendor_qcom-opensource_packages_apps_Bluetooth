@@ -66,7 +66,8 @@ public class HfpClientA2DPSync{
         List <BluetoothDevice> connectedDevices = hsClientService.getConnectedDevices();
         if(!(connectedDevices.isEmpty())) {
             for (BluetoothDevice mDevice : connectedDevices) {
-                if(!hsClientService.getCurrentCalls(mDevice).isEmpty()) {
+                if((!hsClientService.getCurrentCalls(mDevice).isEmpty()) ||
+                      (isScoActive(mDevice))) {
                     callingDevice = mDevice;
                 }
             }
