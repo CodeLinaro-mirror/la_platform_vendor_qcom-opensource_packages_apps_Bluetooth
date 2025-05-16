@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -717,7 +717,7 @@ static void btavrcp_get_folder_items_callback(
 }
 
 static void btavrcp_change_path_callback(RawAddress *bd_addr,
-                                         uint8_t count) {
+                                         uint32_t count) {
   ALOGI("%s count %d", __func__, count);
   std::shared_lock<std::shared_timed_mutex> lock(sCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
