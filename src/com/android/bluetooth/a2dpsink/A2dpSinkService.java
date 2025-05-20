@@ -811,7 +811,8 @@ public class A2dpSinkService extends ProfileService {
                 mStreamingDevice = device;
             }
             if (SystemProperties.get("ro.board.platform").equals("neo")
-               || SystemProperties.get("ro.board.platform").equals("neo61")) {
+               || SystemProperties.get("ro.board.platform").equals("neo61")
+               || SystemProperties.get("ro.board.platform").equals("seraph")) {
                 if (mAdapterService != null
                     && ArrayUtils.contains(mAdapterService.getRemoteUuids(device),
                                                    BluetoothUuid.MAS)) {
