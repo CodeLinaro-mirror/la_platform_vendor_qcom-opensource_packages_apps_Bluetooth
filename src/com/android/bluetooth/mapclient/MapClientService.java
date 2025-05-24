@@ -38,6 +38,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
+import android.os.Message;
 import android.os.ParcelUuid;
 import android.util.Log;
 
@@ -692,8 +693,13 @@ public class MapClientService extends ProfileService {
                         Log.w(TAG, "SDP search ended with no MAS record. Status: " + status);
                         return;
                     }
-                    stateMachine.obtainMessage(MceStateMachine.MSG_MAS_SDP_DONE,
-                            masRecord).sendToTarget();
+                    Message msg = stateMachine.obtainMessage(MceStateMachine.MSG_MAS_SDP_DONE,
+                            masRecord);
+                    if (msg == null) {
+                        Log.e(TAG, "obtainMessage() returned null");
+                    } else {
+                        msg.sendToTarget();
+                    }
                 }
             }
         }

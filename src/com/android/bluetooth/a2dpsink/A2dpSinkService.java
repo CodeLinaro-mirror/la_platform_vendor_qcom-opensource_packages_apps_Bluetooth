@@ -790,6 +790,10 @@ public class A2dpSinkService extends ProfileService {
                     }
                 }
             } else if(state == BluetoothProfile.STATE_DISCONNECTED) {
+                if (connectedDevices.size() == 0) {
+                    Log.d(TAG, "Don't process disconnect state as it is not moved to connected");
+                    return;
+                }
                 connectedDevices.remove(device);
                 if (mPausedDevice != null && device != null && mPausedDevice.equals(device)) {
                     mPausedDevice = null;
