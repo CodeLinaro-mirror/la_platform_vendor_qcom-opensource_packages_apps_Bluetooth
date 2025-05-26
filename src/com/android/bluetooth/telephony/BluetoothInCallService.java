@@ -12,40 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-/* Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
  */
 
 package com.android.bluetooth.telephony;
@@ -426,13 +397,15 @@ public class BluetoothInCallService extends InCallService {
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean answerCall(int profile) {
         Log.d(TAG, "answer received");
-        if (ApmConstIntf.AudioProfiles.HFP == profile) {
-            Log.d(TAG, "answercall: hfp");
-            Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
-            DsdaIntent.putExtra("state", ANSWER_CALL);
-            DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-            sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
-            return true;
+        if (ApmConstIntf.getQtiLeAudioEnabled()) {
+            if (ApmConstIntf.AudioProfiles.HFP == profile) {
+                Log.d(TAG, "answercall: hfp");
+                Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
+                DsdaIntent.putExtra("state", ANSWER_CALL);
+                DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+                sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
+                return true;
+            }
         }
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -448,13 +421,15 @@ public class BluetoothInCallService extends InCallService {
 
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean hangupCall(int profile) {
-        if (ApmConstIntf.AudioProfiles.HFP == profile) {
-            Log.d(TAG, "hangup call: hfp");
-            Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
-            DsdaIntent.putExtra("state", HANGUP_CALL);
-            DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-            sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
-            return true;
+        if (ApmConstIntf.getQtiLeAudioEnabled()) {
+            if (ApmConstIntf.AudioProfiles.HFP == profile) {
+                Log.d(TAG, "hangup call: hfp");
+                Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
+                DsdaIntent.putExtra("state", HANGUP_CALL);
+                DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+                sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
+                return true;
+            }
         }
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -604,15 +579,16 @@ public class BluetoothInCallService extends InCallService {
             Log.w(TAG, "listCurrentCalls called when service is not created");
             return false;
         }
-        if (ApmConstIntf.AudioProfiles.HFP == profile) {
-            Log.d(TAG, "listCurrentCalls: hfp");
-            Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
-            DsdaIntent.putExtra("state", LIST_CLCC);
-            DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-            sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
-            return true;
+        if (ApmConstIntf.getQtiLeAudioEnabled()) {
+            if (ApmConstIntf.AudioProfiles.HFP == profile) {
+                Log.d(TAG, "listCurrentCalls: hfp");
+                Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
+                DsdaIntent.putExtra("state", LIST_CLCC);
+                DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+                sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
+                return true;
+            }
         }
-
         synchronized (LOCK) {
             enforceModifyPermission();
             // only log if it is after we recently updated the headset state or else it can
@@ -700,14 +676,16 @@ public class BluetoothInCallService extends InCallService {
 
     @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean processChld(int chld, int profile) {
-        if (ApmConstIntf.AudioProfiles.HFP == profile) {
-            Log.d(TAG, "processChld: hfp");
-            Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
-            DsdaIntent.putExtra("state", PROCESS_CHLD);
-            DsdaIntent.putExtra("chld", chld);
-            DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-            sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
-            return true;
+        if (ApmConstIntf.getQtiLeAudioEnabled()) {
+            if (ApmConstIntf.AudioProfiles.HFP == profile) {
+                Log.d(TAG, "processChld: hfp");
+                Intent DsdaIntent = new Intent(ACTION_DSDA_CALL_STATE_CHANGE);
+                DsdaIntent.putExtra("state", PROCESS_CHLD);
+                DsdaIntent.putExtra("chld", chld);
+                DsdaIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+                sendBroadcastAsUser(DsdaIntent, UserHandle.ALL);
+                return true;
+            }
         }
         synchronized (LOCK) {
             enforceModifyPermission();
