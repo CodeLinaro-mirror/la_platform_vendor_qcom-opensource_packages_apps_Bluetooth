@@ -47,6 +47,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 
 package com.android.bluetooth.btservice;
@@ -1226,8 +1231,7 @@ public class AdapterService extends Service {
             return true;
         }
         if (profile == BluetoothProfile.PBAP_CLIENT) {
-            return ArrayUtils.contains(localDeviceUuids, BluetoothUuid.PBAP_PCE)
-                    && ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.PBAP_PSE);
+            return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.PBAP_PSE);
         }
         if (profile == BluetoothProfile.HEARING_AID) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HEARING_AID);
