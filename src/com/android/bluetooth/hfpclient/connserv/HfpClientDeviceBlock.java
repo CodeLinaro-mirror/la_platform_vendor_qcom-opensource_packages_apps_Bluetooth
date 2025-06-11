@@ -131,9 +131,6 @@ public class HfpClientDeviceBlock {
         if (connection != null) {
             ((HfpClientConnection) connection).onConnCompleted();
         }
-        if (isAllConferenceConnectonsCompleted()) {
-            updateConferenceableConnections();
-        }
     }
 
     synchronized HfpClientConnection onCreateUnknownConnection(BluetoothHeadsetClientCall call) {
