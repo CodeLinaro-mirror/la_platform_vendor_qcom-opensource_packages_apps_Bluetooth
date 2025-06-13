@@ -32,6 +32,7 @@ import android.content.Attributable;
 import android.content.AttributionSource;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.os.SystemProperties;
@@ -802,6 +803,15 @@ public class AvrcpControllerService extends ProfileService {
                     "createFromNativePlayerItem name: " + name + " transportFlags "
                             + transportFlags + " play status " + playStatus + " player type "
                             + playerType);
+        }
+        int focusState = AudioManager.ERROR;
+        A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
+        if (a2dpSinkService != null) {
+            focusState = a2dpSinkService.getFocusState();
+        }
+        if (focusState != AudioManager.AUDIOFOCUS_GAIN && focusState != AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+            Log.w(TAG, "Audio focus(" + focusState + ") is not available!");
+            playStatus = JNI_PLAY_STATUS_ERROR;
         }
         BluetoothDevice device = getAnonymousDevice(address);
         AvrcpPlayer.Builder apb = new AvrcpPlayer.Builder();

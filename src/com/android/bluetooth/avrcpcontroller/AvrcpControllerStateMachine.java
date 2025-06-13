@@ -677,8 +677,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                 }
 
                 case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                    logD(STATE_TAG + " playStatus " + msg.what);
-                    mAddressedPlayer.setPlayStatus(msg.arg1);
+                    logD(STATE_TAG + " playStatus " + msg.arg1);
 
                     // Pause music when SCO is connected
                     if (msg.arg1 == PlaybackStateCompat.STATE_PLAYING
@@ -694,9 +693,6 @@ class AvrcpControllerStateMachine extends StateMachine {
                         return true;
                     }
 
-                    PlaybackStateCompat playbackState = mAddressedPlayer.getPlaybackState();
-                    BluetoothMediaBrowserService.notifyChanged(playbackState);
-
                     int focusState = AudioManager.ERROR;
                     A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
                     if (a2dpSinkService != null) {
@@ -709,15 +705,19 @@ class AvrcpControllerStateMachine extends StateMachine {
                         return true;
                     }
 
-                    if (playbackState.getState() == PlaybackStateCompat.STATE_PLAYING
+                    if (msg.arg1 == PlaybackStateCompat.STATE_PLAYING
                             && focusState == AudioManager.AUDIOFOCUS_NONE) {
                         if (shouldRequestFocus()) {
                             mSessionCallbacks.onPrepare();
                         } else {
                             sendMessage(MSG_AVRCP_PASSTHRU,
                                     AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
+                            return true;
                         }
                     }
+
+                    mAddressedPlayer.setPlayStatus(msg.arg1);
+                    BluetoothMediaBrowserService.notifyChanged(mAddressedPlayer.getPlaybackState());
                     return true;
 
                 case MESSAGE_PROCESS_PLAY_POS_CHANGED:
