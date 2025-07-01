@@ -301,7 +301,6 @@ class AvrcpControllerStateMachine extends StateMachine {
                     break;
                 case CLEANUP:
                     mService.removeStateMachine(AvrcpControllerStateMachine.this);
-                    doQuit();
                     break;
             }
             return true;
