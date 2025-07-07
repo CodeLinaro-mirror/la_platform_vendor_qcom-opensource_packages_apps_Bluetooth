@@ -51,8 +51,8 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -296,6 +296,9 @@ public class AdapterService extends Service {
     private static final int TYPE_BREDR = 100;
     private static final int TYPE_PRIVATE_ADDRESS = 101;
     private static final int INVALID_GROUP_ID = 16;
+
+   // Invalid Gatt Id
+    private static final int INVALID_GATT_ID = -1;
 
     private static final UUID EMPTY_UUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
@@ -3198,7 +3201,7 @@ public class AdapterService extends Service {
 
             enforceBluetoothPrivilegedPermission(service);
 
-            return service.disconnectAllEnabledProfiles(device);
+            return service.disconnectAllEnabledProfiles(device, source);
         }
 
         @Override
@@ -5749,7 +5752,7 @@ public class AdapterService extends Service {
      * @return true if all profiles successfully disconnected, false if an error occurred
      */
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
-    public int disconnectAllEnabledProfiles(BluetoothDevice device) {
+    public int disconnectAllEnabledProfiles(BluetoothDevice device, AttributionSource source) {
         CallAudioIntf mCallAudio = CallAudioIntf.get();
         MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
         boolean disconnectMedia = false;
@@ -5884,6 +5887,13 @@ public class AdapterService extends Service {
             Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting Volume Control Profile");
             mVolumeControlService.disconnect(device);
         }
+
+        //To disconnect gatt over bredr
+        if (mGattService != null) {
+            Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting Gatt Profile for BREDR");
+            mGattService.serverDisconnectIf(INVALID_GATT_ID, device.getAddress(), source);
+        }
+
         ///*_REF
         if (mBCService != null &&  mBCGetConnState != null) {
                 int connState = BluetoothProfile.STATE_DISCONNECTED;
