@@ -317,13 +317,14 @@ class PbapClientConnectionHandler extends Handler {
             connectionRequest.setHeader(HeaderSet.TARGET, PBAP_TARGET);
 
             if (mPseRec != null) {
+                int pseSupportedFeatures = mPseRec.getSupportedFeatures();
                 if (DBG) {
-                    Log.d(TAG, "Remote PbapSupportedFeatures " + mPseRec.getSupportedFeatures());
+                    Log.d(TAG, "pseSupportedFeatures " + pseSupportedFeatures);
                 }
 
                 ObexAppParameters oap = new ObexAppParameters();
 
-                if (mPseRec.getProfileVersion() >= PBAP_V1_2) {
+                if (pseSupportedFeatures != 0 && mPseRec.getProfileVersion() >= PBAP_V1_2) {
                     oap.add(BluetoothPbapRequest.OAP_TAGID_PBAP_SUPPORTED_FEATURES,
                             PBAP_SUPPORTED_FEATURE);
                 }
