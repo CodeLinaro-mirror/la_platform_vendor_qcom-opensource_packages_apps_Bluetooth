@@ -10,8 +10,14 @@ on property:persist.vendor.service.bt.source.role.enabled=*
     # setting bluetooth source role properties
     setprop bluetooth.profile.a2dp.source.enabled ${persist.vendor.service.bt.source.role.enabled}
     setprop bluetooth.profile.hfp.ag.enabled ${persist.vendor.service.bt.source.role.enabled}
+    setprop bluetooth.profile.pbap.server.enabled ${persist.vendor.service.bt.source.role.enabled}
+    setprop bluetooth.profile.map.server.enabled ${persist.vendor.service.bt.source.role.enabled}
 
 on property:persist.vendor.service.bt.sink.role.enabled=*
     # setting bluetooth sink role properties
     setprop bluetooth.profile.a2dp.sink.enabled ${persist.vendor.service.bt.sink.role.enabled}
     setprop bluetooth.profile.hfp.hf.enabled ${persist.vendor.service.bt.sink.role.enabled}
+    setprop bluetooth.profile.pbap.client.enabled ${persist.vendor.service.bt.sink.role.enabled}
+    setprop bluetooth.profile.map.client.enabled ${persist.vendor.service.bt.sink.role.enabled}
+    setprop persist.vendor.service.bt.pbap.client ${persist.vendor.service.bt.sink.role.enabled}
+    setprop persist.vendor.service.bt.map.client ${persist.vendor.service.bt.sink.role.enabled}

@@ -84,6 +84,7 @@ public class Config {
             mIsGroupSerEnabled, mIsCsipServiceEnabled;
     private static boolean mIsHfpClient;
     private static boolean mIsPbapClient;
+    private static boolean mIsMapClient;
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -268,7 +269,21 @@ public class Config {
                     if (DBG) Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
                     continue;
                 }
-
+                if (config.mClass == BluetoothPbapService.class && (mIsPbapClient)) {
+                    Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
+                    continue;
+                } else if (config.mClass == PbapClientService.class && (!mIsPbapClient)) {
+                    Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
+                    continue;
+                } else if (config.mClass == BluetoothMapService.class && (mIsMapClient)) {
+                    Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
+                    continue;
+                } else if (config.mClass == MapClientService.class && (!mIsMapClient)) {
+                    Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
+                    continue;
+                } else {
+                    //do nothing
+                }
                 Log.v(TAG, "Adding " + config.mClass.getSimpleName());
                 profiles.add(config.mClass);
             }
@@ -600,7 +615,8 @@ public class Config {
         mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
         mIsHfpClient = SystemProperties.getBoolean("persist.vendor.service.bt.hfp.client", false);
         boolean isCsipQti = SystemProperties.getBoolean("ro.vendor.bluetooth.csip_qti", false);
-        mIsPbapClient = SystemProperties.getBoolean("persist.vendor.bluetooth.pbap_client", false);
+        mIsPbapClient = SystemProperties.getBoolean("persist.vendor.service.bt.pbap.client", false);
+        mIsMapClient = SystemProperties.getBoolean("persist.vendor.service.bt.map.client", false);
         if (isCsipQti) {
             mIsGroupSerEnabled = true;
         } else {
@@ -619,7 +635,8 @@ public class Config {
                 + mIsBAEnabled + " mIsSplitA2dpEnabled " + mIsSplitA2dpEnabled
                 + " isCsipQti " + isCsipQti);
         }
-        Log.d(TAG, "getAudioProperties mIsHfpClient" + mIsHfpClient + " mIsPbapClient " + mIsPbapClient);
+        Log.d(TAG, "getAudioProperties mIsHfpClient:" + mIsHfpClient + " mIsPbapClient:"
+                + mIsPbapClient+ " mIsMapClient:" +mIsMapClient);
     }
 
     public static boolean getIsCsipQti() {
