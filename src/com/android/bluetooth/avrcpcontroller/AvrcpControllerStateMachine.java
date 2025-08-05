@@ -130,6 +130,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     private SparseArray<AvrcpPlayer> mAvailablePlayerList = new SparseArray<AvrcpPlayer>();
     // Only accessed from State Machine processMessage
     private int mVolumeChangedNotificationsToIgnore = 0;
+    private int cachedVolumeIndex = 0;
 
     GetFolderList mGetFolderList = null;
 
@@ -466,12 +467,19 @@ class AvrcpControllerStateMachine extends StateMachine {
                                     String volume_param  = "btsink_volume=" + currIndex;
                                     mAudioManager.setParameters(volume_param);
                                 }
-                                AvrcpControllerService.sendRegisterAbsVolRspNative(
-                                        mRemoteDevice.getBluetoothAddress(),
-                                        NOTIFICATION_RSP_TYPE_CHANGED, percentageVol,
-                                        mRemoteDevice.getNotificationLabel());
                                 mPreviousPercentageVol = percentageVol;
-                                mRemoteDevice.setAbsVolNotificationRequested(false);
+                                Log.d(TAG,"cachedVolumeIndex : "+ cachedVolumeIndex +"mm index:"+
+                                       mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
+                                if (cachedVolumeIndex !=
+                                    mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC)) {
+                                    AvrcpControllerService.sendRegisterAbsVolRspNative(
+                                            mRemoteDevice.getBluetoothAddress(),
+                                            NOTIFICATION_RSP_TYPE_CHANGED, percentageVol,
+                                            mRemoteDevice.getNotificationLabel());
+                                    mRemoteDevice.setAbsVolNotificationRequested(false);
+                                    cachedVolumeIndex =
+                                        mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+                                }
                             }
                         }
                     }
@@ -903,6 +911,7 @@ class AvrcpControllerStateMachine extends StateMachine {
             String volume_param  = "btsink_volume="+newIndex;
             Log.d(TAG,"setAbsVolume : "+volume_param);
             mAudioManager.setParameters(volume_param);
+            cachedVolumeIndex = newIndex;
         }
         AvrcpControllerService.sendAbsVolRspNative(mDeviceAddress, absVol, label);
     }
