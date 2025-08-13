@@ -186,6 +186,10 @@ class AvrcpControllerStateMachine extends StateMachine {
         return mMostRecentState;
     }
 
+    public int getVolumeIndex() {
+        return cachedVolumeIndex;
+    }
+
     /**
      * Get the underlying device tracked by this state machine
      *
