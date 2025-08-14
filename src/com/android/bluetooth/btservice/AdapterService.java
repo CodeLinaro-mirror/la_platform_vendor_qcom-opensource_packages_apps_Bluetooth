@@ -138,6 +138,7 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.NetworkInfo;
 import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.SupplicantState;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -336,10 +337,11 @@ public class AdapterService extends Service {
         WifiManager wifiMgr = (WifiManager) getSystemService(Context.WIFI_SERVICE);
         if ((wifiMgr != null) && (wifiMgr.isWifiEnabled())) {
             WifiInfo wifiInfo = wifiMgr.getConnectionInfo();
-            if((wifiInfo != null) && (wifiInfo.getNetworkId() != -1)) {
+            if((wifiInfo != null) && (wifiInfo.getSupplicantState() == SupplicantState.COMPLETED)) {
                 isWifiConnected = true;
             }
         }
+        Log.w(TAG,"fetchWifiState - isWifiConnected =" + isWifiConnected);
         mVendor.setWifiState(isWifiConnected);
     }
 
@@ -1563,6 +1565,7 @@ public class AdapterService extends Service {
             if (service == null) {
                 return false;
             }
+            enforceBluetoothPrivilegedPermission(service);
             return service.setDiscoverableTimeout(timeout);
         }
 
@@ -2655,7 +2658,7 @@ public class AdapterService extends Service {
     }
 
     boolean setScanMode(int mode, int duration) {
-        enforceBluetoothPermission(this);
+        enforceBluetoothPrivilegedPermission(this);
 
         setDiscoverableTimeout(duration);
 
