@@ -4407,6 +4407,7 @@ public class GattService extends ProfileService {
         if (connected) {
             mServerMap.addConnection(serverIf, connId, address);
         } else {
+            onServerCongestion(connId,false);
             mServerMap.removeConnection(serverIf, connId);
         }
 
