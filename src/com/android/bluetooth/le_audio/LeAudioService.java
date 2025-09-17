@@ -412,7 +412,7 @@ public class LeAudioService extends ProfileService {
         mLeAudioCodecConfig = null;
         mAudioManager = null;
         mAdapterService = null;
-        mAudioManager = null;
+        mDatabaseManager = null;
         mVolumeControlService = null;
         mCsipSetCoordinatorService = null;
         mBassClientService = null;
