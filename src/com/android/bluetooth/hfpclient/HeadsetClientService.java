@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.hfpclient;
@@ -430,13 +430,14 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean acceptCall(BluetoothDevice device, int flag, AttributionSource source) {
+        public boolean acceptCall(BluetoothDevice device, int flag, BluetoothHeadsetClientCall call,
+                AttributionSource source) {
             Attributable.setAttributionSource(device, source);
             HeadsetClientService service = getService(source);
             if (service == null) {
                 return false;
             }
-            return service.acceptCall(device, flag);
+            return service.acceptCall(device, flag, call != null ? call.getUUID() : null);
         }
 
         @Override
@@ -450,13 +451,14 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean holdCall(BluetoothDevice device, AttributionSource source) {
+        public boolean holdCall(BluetoothDevice device, BluetoothHeadsetClientCall call,
+                AttributionSource source) {
             Attributable.setAttributionSource(device, source);
             HeadsetClientService service = getService(source);
             if (service == null) {
                 return false;
             }
-            return service.holdCall(device);
+            return service.holdCall(device, call != null ? call.getUUID() : null);
         }
 
         @Override
@@ -805,7 +807,7 @@ public class HeadsetClientService extends ProfileService {
         return true;
     }
 
-    boolean holdCall(BluetoothDevice device) {
+    boolean holdCall(BluetoothDevice device, UUID uuid) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "SM does not exist for device " + device);
@@ -818,11 +820,12 @@ public class HeadsetClientService extends ProfileService {
             return false;
         }
         Message msg = sm.obtainMessage(HeadsetClientStateMachine.HOLD_CALL);
+        msg.obj = uuid;
         sm.sendMessage(msg);
         return true;
     }
 
-    boolean acceptCall(BluetoothDevice device, int flag) {
+    boolean acceptCall(BluetoothDevice device, int flag, UUID uuid) {
         /* Phonecalls from a single device are supported, hang up any calls on the other phone */
         synchronized (mStateMachineMap) {
             for (Map.Entry<BluetoothDevice, HeadsetClientStateMachine> entry : mStateMachineMap
@@ -855,6 +858,7 @@ public class HeadsetClientService extends ProfileService {
         }
         Message msg = sm.obtainMessage(HeadsetClientStateMachine.ACCEPT_CALL);
         msg.arg1 = flag;
+        msg.obj = uuid;
         sm.sendMessage(msg);
         return true;
     }

@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 /**
@@ -94,6 +94,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.UUID;
 
 public class HeadsetClientStateMachine extends StateMachine {
     private static final String TAG = "HeadsetClientStateMachine";
@@ -138,6 +139,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     @VisibleForTesting
     static final int CONNECTING_TIMEOUT_MS = 10000;  // 10s
     private static final int ROUTING_DELAY_MS = 250;
+    private static final int HOLD_CALL_DELAY_MS = 250;
 
     private static final int MAX_HFP_SCO_VOICE_CALL_VOLUME = 15; // HFP 1.5 spec.
     private static final int MIN_HFP_SCO_VOICE_CALL_VOLUME = 0; // HFP 1.5 spec.
@@ -155,6 +157,8 @@ public class HeadsetClientStateMachine extends StateMachine {
     private final AudioOn mAudioOn;
     private State mPrevState;
     private long mClccTimer = 0;
+
+    private boolean mPostponeHoldCall = false;
 
     private final HeadsetClientService mService;
 
@@ -375,6 +379,21 @@ public class HeadsetClientStateMachine extends StateMachine {
         for (BluetoothHeadsetClientCall c : mCalls.values()) {
             for (int s : states) {
                 if (c.getState() == s) {
+                    Log.i(TAG, "getCall(states):" + c);
+                    return c;
+                }
+            }
+        }
+        return null;
+    }
+
+    @VisibleForTesting
+    private BluetoothHeadsetClientCall getCall(UUID uuid, int... states) {
+        logD("getFromCallsWithStates states:" + Arrays.toString(states) +", uuid:" + uuid);
+        for (BluetoothHeadsetClientCall c : mCalls.values()) {
+            for (int s : states) {
+                if (c.getState() == s && (null == uuid || uuid.equals(c.getUUID()))) {
+                    Log.i(TAG, "getCall(uuid+states):" + c);
                     return c;
                 }
             }
@@ -551,10 +570,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                         outgoing, mInBandRing));
     }
 
-    private void acceptCall(int flag) {
+    private void acceptCall(int flag, UUID uuid) {
         int action = -1;
 
-        logD("acceptCall: (" + flag + ")");
+        logD("acceptCall: (" + flag + ", " + uuid +")");
 
         BluetoothHeadsetClientCall c = getCall(BluetoothHeadsetClientCall.CALL_STATE_INCOMING,
                 BluetoothHeadsetClientCall.CALL_STATE_WAITING);
@@ -565,6 +584,16 @@ public class HeadsetClientStateMachine extends StateMachine {
             if (c == null) {
                 return;
             }
+        }
+
+        // In this scenario, the postponed HOLD_CALL message should be removed because only
+        // acceptCall should be executed to accept the waiting call. For more details, refer
+        // to the function holdCall(UUID uuid).
+        if (getCall(BluetoothHeadsetClientCall.CALL_STATE_HELD) != null &&
+            getCall(BluetoothHeadsetClientCall.CALL_STATE_ACTIVE) != null &&
+            getCall(BluetoothHeadsetClientCall.CALL_STATE_WAITING) != null) {
+            Log.i(TAG, "remove the message HOLD_CALL");
+            removeMessages(HOLD_CALL);
         }
 
         logD("Call to accept: " + c);
@@ -674,20 +703,34 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
     }
 
-    private void holdCall() {
+    private void holdCall(UUID uuid) {
         int action;
 
-        logD("holdCall");
+        logD("holdCall: (" + uuid +")");
 
-        BluetoothHeadsetClientCall c = getCall(BluetoothHeadsetClientCall.CALL_STATE_INCOMING);
+        BluetoothHeadsetClientCall c = getCall(uuid, BluetoothHeadsetClientCall.CALL_STATE_INCOMING);
         if (c != null) {
             action = HeadsetClientHalConstants.CALL_ACTION_BTRH_0;
         } else {
-            c = getCall(BluetoothHeadsetClientCall.CALL_STATE_ACTIVE);
+            c = getCall(uuid, BluetoothHeadsetClientCall.CALL_STATE_ACTIVE);
             if (c == null) {
                 return;
             }
 
+            // Currently, there are three calls: one held call, one active call, and one waiting
+            // call. It is most likely that the telecom is attempting to accept the incoming call
+            // by sequentially calling terminateCall, holdCall, and acceptCall.
+            // Calling holdCall will accept the incoming call, and then calling acceptCall
+            // will terminate the call we want to accept. Hence postone the calling of holdCall
+            // holdCall should only be executed if acceptCall is not called later, as this
+            // indicates the telecom system only intends to hold the active call.
+            if (mPostponeHoldCall &&
+                getCall(BluetoothHeadsetClientCall.CALL_STATE_HELD) != null &&
+                getCall(BluetoothHeadsetClientCall.CALL_STATE_WAITING) != null) {
+                sendMessageDelayed(HOLD_CALL, HOLD_CALL_DELAY_MS);
+                mPostponeHoldCall = false;
+                return;
+            }
             action = HeadsetClientHalConstants.CALL_ACTION_CHLD_2;
         }
 
@@ -696,19 +739,32 @@ public class HeadsetClientStateMachine extends StateMachine {
         } else {
             Log.e(TAG, "ERROR: Couldn't hold a call, action:" + action);
         }
+        mPostponeHoldCall = true;
     }
 
     private void terminateCall() {
-        logD("terminateCall");
+        terminateCall(null);
+    }
+
+    private void terminateCall(UUID uuid) {
+        logD("terminateCall: (" + uuid +")");
 
         int action = HeadsetClientHalConstants.CALL_ACTION_CHUP;
 
-        BluetoothHeadsetClientCall c = getCall(BluetoothHeadsetClientCall.CALL_STATE_DIALING,
+        BluetoothHeadsetClientCall c = getCall(uuid, BluetoothHeadsetClientCall.CALL_STATE_DIALING,
                 BluetoothHeadsetClientCall.CALL_STATE_ALERTING,
                 BluetoothHeadsetClientCall.CALL_STATE_ACTIVE);
         if (c == null) {
+            // Sending AT+CHLD=0 will also reject calls in INCOMING/WAITING state
+            // Hence skip this request in this scenario
+            if (getCall(BluetoothHeadsetClientCall.CALL_STATE_INCOMING,
+                BluetoothHeadsetClientCall.CALL_STATE_WAITING) != null) {
+                Log.w(TAG, "Incoming or waiting calls detected, skipping terminateCall");
+                return;
+            }
+
             // If the call being terminated is currently held, switch the action to CHLD_0
-            c = getCall(BluetoothHeadsetClientCall.CALL_STATE_HELD);
+            c = getCall(uuid, BluetoothHeadsetClientCall.CALL_STATE_HELD);
             action = HeadsetClientHalConstants.CALL_ACTION_CHLD_0;
         }
         if (c != null) {
@@ -843,6 +899,8 @@ public class HeadsetClientStateMachine extends StateMachine {
         mIndicatorNetworkSignal = 0;
         mIndicatorBatteryLevel = 0;
 
+        mPostponeHoldCall = true;
+
         if (!mService.isAutomotive()) {
             sMaxAmVcVol = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
             sMinAmVcVol = mAudioManager.getStreamMinVolume(AudioManager.STREAM_VOICE_CALL);
@@ -886,13 +944,14 @@ public class HeadsetClientStateMachine extends StateMachine {
         }
         logD("hfp_enable=" + enable);
         if (enable && !sAudioIsRouted) {
-            mAudioManager.setParameters("hfp_enable=true");
+            sAudioIsRouted = true;
             SystemProperties.set(Utils.PROP_SCO_CONNECTION_STATUS, "true");
+            mAudioManager.setParameters("hfp_enable=true");
         } else if (!enable) {
-            mAudioManager.setParameters("hfp_enable=false");
+            sAudioIsRouted = false;
             SystemProperties.set(Utils.PROP_SCO_CONNECTION_STATUS, "false");
+            mAudioManager.setParameters("hfp_enable=false");
         }
-        sAudioIsRouted = enable;
     }
 
     private AudioFocusRequest requestAudioFocus() {
@@ -1406,16 +1465,16 @@ public class HeadsetClientStateMachine extends StateMachine {
                     }
                     break;
                 case ACCEPT_CALL:
-                    acceptCall(message.arg1);
+                    acceptCall(message.arg1, (UUID) message.obj);
                     break;
                 case REJECT_CALL:
                     rejectCall();
                     break;
                 case HOLD_CALL:
-                    holdCall();
+                    holdCall((UUID) message.obj);
                     break;
                 case TERMINATE_CALL:
-                    terminateCall();
+                    terminateCall((UUID) message.obj);
                     break;
                 case ENTER_PRIVATE_MODE:
                     enterPrivateMode(message.arg1);
@@ -1838,7 +1897,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     break;
 
                 case HOLD_CALL:
-                    holdCall();
+                    holdCall((UUID) message.obj);
                     break;
 
                 case StackEvent.STACK_EVENT:
