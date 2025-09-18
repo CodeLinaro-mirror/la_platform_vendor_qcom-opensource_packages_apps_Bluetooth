@@ -92,7 +92,7 @@ public final class AbstractionLayer {
     static final int BT_PROPERTY_LOCAL_LE_FEATURES = 0x0D;
 
     static final int BT_PROPERTY_DYNAMIC_AUDIO_BUFFER = 0x10;
-    static final int BT_PROPERTY_REMOTE_DEVICE_GROUP = 0x12;
+    static final int BT_PROPERTY_REMOTE_DEVICE_GROUP = 0xA7;
 
     static final int BT_PROPERTY_ENC_KEY_MATERIAL = 0x18;
 
