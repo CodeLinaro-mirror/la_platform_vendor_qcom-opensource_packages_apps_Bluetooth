@@ -24,6 +24,7 @@ package com.android.bluetooth.pbapclient;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.annotation.RequiresPermission;
+import android.app.ActivityManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
@@ -36,6 +37,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.CallLog;
 import android.util.Log;
 
@@ -390,6 +393,12 @@ public class PbapClientService extends ProfileService {
                 "Need BLUETOOTH_PRIVILEGED permission");
         if (DBG) Log.d(TAG, "Received request to ConnectPBAPPhonebook " + device.getAddress());
         if (getConnectionPolicy(device) <= BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            return false;
+        }
+        int currentUserId = ActivityManager.getCurrentUser();
+        UserManager userManager = getApplicationContext().getSystemService(UserManager.class);
+        if (!userManager.isUserUnlockingOrUnlocked(UserHandle.of(currentUserId))) {
+            if (DBG) Log.d(TAG, currentUserId + "is locked");
             return false;
         }
         synchronized (mPbapClientStateMachineMap) {
