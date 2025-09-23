@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.pbapclient;
@@ -19,6 +24,8 @@ package com.android.bluetooth.pbapclient;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.annotation.RequiresPermission;
+import android.app.ActivityManager;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothProfile;
@@ -30,6 +37,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.CallLog;
 import android.util.Log;
 
@@ -45,6 +54,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -62,6 +73,7 @@ public class PbapClientService extends ProfileService {
     private static final int MAXIMUM_DEVICES = 10;
     private Map<BluetoothDevice, PbapClientStateMachine> mPbapClientStateMachineMap =
             new ConcurrentHashMap<>();
+    private Set<Account> unremovedUncleanAccount = new HashSet<>();
     private static PbapClientService sPbapClientService;
     private PbapBroadcastReceiver mPbapBroadcastReceiver = new PbapBroadcastReceiver();
     private int mSdpHandle = -1;
@@ -140,10 +152,35 @@ public class PbapClientService extends ProfileService {
                         CallLog.Calls.PHONE_ACCOUNT_ID + "=?", new String[]{acc.name});
             } catch (IllegalArgumentException e) {
                 Log.w(TAG, "Call Logs could not be deleted, they may not exist yet.");
+                unremovedUncleanAccount.add(acc);
             }
             // The device ID is the name of the account.
             accountManager.removeAccountExplicitly(acc);
         }
+    }
+
+    private void retryRemoveUncleanAccounts() {
+        // Retry deleting PBAP accounts on failure
+        if (VDBG) Log.v(TAG, "Found " + unremovedUncleanAccount.size() + " unremoved unclean accounts");
+        if (unremovedUncleanAccount.size() == 0) {
+            return;
+        }
+        for (Account acc : unremovedUncleanAccount) {
+            BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(acc.name);
+            if (acc.name != null &&
+                getConnectionState(device) == BluetoothProfile.STATE_CONNECTED) {
+                Log.i(TAG, "device " + acc.name + "is active, skip deleting account");
+                continue;
+            }
+            Log.w(TAG, "Deleting " + acc);
+            try {
+                getContentResolver().delete(CallLog.Calls.CONTENT_URI,
+                        CallLog.Calls.PHONE_ACCOUNT_ID + "=?", new String[]{acc.name});
+            } catch (IllegalArgumentException e) {
+                Log.w(TAG, "Call Logs could not be deleted, they may not exist yet.");
+            }
+        }
+        unremovedUncleanAccount.clear();
     }
 
     private void removeHfpCallLog(String accountName, Context context) {
@@ -201,6 +238,7 @@ public class PbapClientService extends ProfileService {
                     disconnect(device);
                 }
             } else if (action.equals(Intent.ACTION_USER_UNLOCKED)) {
+                retryRemoveUncleanAccounts();
                 for (PbapClientStateMachine stateMachine : mPbapClientStateMachineMap.values()) {
                     stateMachine.resumeDownload();
                 }
@@ -355,6 +393,12 @@ public class PbapClientService extends ProfileService {
                 "Need BLUETOOTH_PRIVILEGED permission");
         if (DBG) Log.d(TAG, "Received request to ConnectPBAPPhonebook " + device.getAddress());
         if (getConnectionPolicy(device) <= BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            return false;
+        }
+        int currentUserId = ActivityManager.getCurrentUser();
+        UserManager userManager = getApplicationContext().getSystemService(UserManager.class);
+        if (!userManager.isUserUnlockingOrUnlocked(UserHandle.of(currentUserId))) {
+            if (DBG) Log.d(TAG, currentUserId + "is locked");
             return false;
         }
         synchronized (mPbapClientStateMachineMap) {

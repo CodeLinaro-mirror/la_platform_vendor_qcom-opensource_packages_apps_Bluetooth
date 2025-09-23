@@ -12,9 +12,16 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.hfpclient;
+
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
 
 import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothDevice;
@@ -27,6 +34,8 @@ import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
@@ -82,6 +91,7 @@ public class HeadsetClientService extends ProfileService {
     private final Object mStartStopLock = new Object();
 
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
+    private HeadsetClientHandler mHandler = null;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -122,6 +132,7 @@ public class HeadsetClientService extends ProfileService {
             }
 
             IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+            filter.addAction(HeadsetClientHandler.ACTION_CUSTOM_ACTION);
             // For automotive device use CarAudioManager callback to handle the volume change
             if (!isAutomotive()) {
                 filter.addAction(AudioManager.VOLUME_CHANGED_ACTION);
@@ -138,6 +149,9 @@ public class HeadsetClientService extends ProfileService {
             mSmThread.start();
 
             setHeadsetClientService(this);
+            mHandler = new HeadsetClientHandler.Builder()
+                            .setContext(this)
+                            .build();
             return true;
         }
     }
@@ -238,6 +252,11 @@ public class HeadsetClientService extends ProfileService {
                         }
                     }
                 }
+            } else if (action.equals(HeadsetClientHandler.ACTION_CUSTOM_ACTION)) {
+                if (DBG) Log.d(TAG, "Handle custom action");
+                Bundle extras = (Bundle) intent.getExtra(HeadsetClientHandler.EXTRA_CUSTOM_ACTION);
+                mHandler.obtainMessage(HeadsetClientHandler.MSG_CUSTOM_ACTION, extras)
+                        .sendToTarget();
             }
         }
     };
@@ -411,13 +430,14 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean acceptCall(BluetoothDevice device, int flag, AttributionSource source) {
+        public boolean acceptCall(BluetoothDevice device, int flag, BluetoothHeadsetClientCall call,
+                AttributionSource source) {
             Attributable.setAttributionSource(device, source);
             HeadsetClientService service = getService(source);
             if (service == null) {
                 return false;
             }
-            return service.acceptCall(device, flag);
+            return service.acceptCall(device, flag, call != null ? call.getUUID() : null);
         }
 
         @Override
@@ -431,13 +451,14 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean holdCall(BluetoothDevice device, AttributionSource source) {
+        public boolean holdCall(BluetoothDevice device, BluetoothHeadsetClientCall call,
+                AttributionSource source) {
             Attributable.setAttributionSource(device, source);
             HeadsetClientService service = getService(source);
             if (service == null) {
                 return false;
             }
-            return service.holdCall(device);
+            return service.holdCall(device, call != null ? call.getUUID() : null);
         }
 
         @Override
@@ -786,7 +807,7 @@ public class HeadsetClientService extends ProfileService {
         return true;
     }
 
-    boolean holdCall(BluetoothDevice device) {
+    boolean holdCall(BluetoothDevice device, UUID uuid) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "SM does not exist for device " + device);
@@ -799,11 +820,12 @@ public class HeadsetClientService extends ProfileService {
             return false;
         }
         Message msg = sm.obtainMessage(HeadsetClientStateMachine.HOLD_CALL);
+        msg.obj = uuid;
         sm.sendMessage(msg);
         return true;
     }
 
-    boolean acceptCall(BluetoothDevice device, int flag) {
+    boolean acceptCall(BluetoothDevice device, int flag, UUID uuid) {
         /* Phonecalls from a single device are supported, hang up any calls on the other phone */
         synchronized (mStateMachineMap) {
             for (Map.Entry<BluetoothDevice, HeadsetClientStateMachine> entry : mStateMachineMap
@@ -836,6 +858,7 @@ public class HeadsetClientService extends ProfileService {
         }
         Message msg = sm.obtainMessage(HeadsetClientStateMachine.ACCEPT_CALL);
         msg.arg1 = flag;
+        msg.obj = uuid;
         sm.sendMessage(msg);
         return true;
     }
@@ -893,6 +916,28 @@ public class HeadsetClientService extends ProfileService {
         Message msg = sm.obtainMessage(HeadsetClientStateMachine.ENTER_PRIVATE_MODE);
         msg.arg1 = index;
         sm.sendMessage(msg);
+        return true;
+    }
+
+    boolean releaseCall(BluetoothDevice device, int index) {
+        Log.d(TAG, "Enter releaseCall");
+        enforceCallingOrSelfPermission(BLUETOOTH_CONNECT, "Need BLUETOOTH permission");
+        HeadsetClientStateMachine sm = getStateMachine(device);
+        if (sm == null) {
+            Log.e(TAG, "Cannot allocate SM for device " + device);
+            return false;
+        }
+
+        int connectionState = sm.getConnectionState(device);
+        if (connectionState != BluetoothProfile.STATE_CONNECTED &&
+                connectionState != BluetoothProfile.STATE_CONNECTING) {
+            return false;
+        }
+
+        Message msg = sm.obtainMessage(HeadsetClientStateMachine.RELEASE_CALL);
+        msg.arg1 = index;
+        sm.sendMessage(msg);
+        Log.d(TAG, "Exit releaseCall");
         return true;
     }
 

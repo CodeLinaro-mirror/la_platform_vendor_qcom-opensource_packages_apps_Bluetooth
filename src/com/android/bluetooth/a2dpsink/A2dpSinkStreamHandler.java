@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.a2dpsink;
@@ -74,6 +79,7 @@ public class A2dpSinkStreamHandler extends Handler {
     public static final int AUDIO_FOCUS_CHANGE = 7; // Audio focus callback with associated change
     public static final int REQUEST_FOCUS = 8; // Request focus when the media service is active
     public static final int DELAYED_PAUSE = 9; // If a call just started allow stack time to settle
+    public static final int DELAYED_PLAY = 10; // If a call just ended allow stack time to settle
 
     // Used to indicate focus lost
     private static final int STATE_FOCUS_LOST = 0;
@@ -187,6 +193,7 @@ public class A2dpSinkStreamHandler extends Handler {
                 break;
 
             case DISCONNECT:
+                removeMessages(DELAYED_PLAY);
                 // Remote device has disconnected, restore everything to default state.
                 mSentPause = false;
                 break;
@@ -200,7 +207,11 @@ public class A2dpSinkStreamHandler extends Handler {
                         // Begin playing audio, if we paused the remote, send a play now.
                         startFluorideStreaming();
                         if (mSentPause) {
-                            sendAvrcpPlay();
+                            if (HeadsetClientService.isScoConnected()) {
+                                sendMessageDelayed(obtainMessage(DELAYED_PLAY), SETTLE_TIMEOUT);
+                            } else {
+                                sendAvrcpPlay();
+                            }
                             mSentPause = false;
                         }
                         break;
@@ -221,6 +232,7 @@ public class A2dpSinkStreamHandler extends Handler {
                         break;
 
                     case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                        removeMessages(DELAYED_PLAY);
                         // Temporary loss of focus, if we are actively streaming pause the remote
                         // and make sure we resume playback when we regain focus.
                         sendMessageDelayed(obtainMessage(DELAYED_PAUSE), SETTLE_TIMEOUT);
@@ -228,6 +240,7 @@ public class A2dpSinkStreamHandler extends Handler {
                         break;
 
                     case AudioManager.AUDIOFOCUS_LOSS:
+                        removeMessages(DELAYED_PLAY);
                         // Permanent loss of focus probably due to another audio app, abandon focus
                         // and stop playback.
                         abandonAudioFocus();
@@ -242,6 +255,14 @@ public class A2dpSinkStreamHandler extends Handler {
                     sendAvrcpPause();
                     mSentPause = true;
                     mStreamAvailable = false;
+                }
+                break;
+
+            case DELAYED_PLAY:
+                if (HeadsetClientService.isScoConnected()) {
+                    sendMessageDelayed(obtainMessage(DELAYED_PLAY), SETTLE_TIMEOUT);
+                } else {
+                    sendAvrcpPlay();
                 }
                 break;
 

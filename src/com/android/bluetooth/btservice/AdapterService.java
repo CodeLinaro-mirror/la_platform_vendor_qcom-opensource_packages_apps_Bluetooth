@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.btservice;
@@ -3263,6 +3268,8 @@ public class AdapterService extends Service {
                 return BluetoothStatusCodes.ERROR_DISCONNECT_REASON_REMOTE;
             case /*HCI_ERR_UNACCEPT_CONN_INTERVAL*/ 0x3B:
                 return BluetoothStatusCodes.ERROR_DISCONNECT_REASON_BAD_PARAMETERS;
+            case /*HCI_ERR_MIC_FAILURE*/ 0x3D:
+                return BluetoothStatusCodes.ERROR_DISCONNECT_REASON_MIC_FAILURE;
             default:
                 Log.e(TAG, "Invalid HCI disconnect reason: " + hciReason);
                 return BluetoothStatusCodes.ERROR_UNKNOWN;

@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 package com.android.bluetooth.avrcpcontroller;
@@ -27,8 +32,10 @@ import android.content.Attributable;
 import android.content.AttributionSource;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.support.v4.media.session.PlaybackStateCompat;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -462,6 +469,17 @@ public class AvrcpControllerService extends ProfileService {
             }
             return service.getRemoteVersion(device);
         }
+
+        @Override
+        public void startFetchingAlbumArt(BluetoothDevice device, String type, String scheme,
+            String mimeType, int height, int width, int maxSize, AttributionSource source) {
+            Attributable.setAttributionSource(device, source);
+            AvrcpControllerService service = getService(source);
+            if (service == null) {
+                return;
+            }
+            service.startFetchingAlbumArt(device, type, scheme, mimeType, height, width, maxSize);
+        }
     }
 
 
@@ -786,6 +804,15 @@ public class AvrcpControllerService extends ProfileService {
                             + transportFlags + " play status " + playStatus + " player type "
                             + playerType);
         }
+        int focusState = AudioManager.ERROR;
+        A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
+        if (a2dpSinkService != null) {
+            focusState = a2dpSinkService.getFocusState();
+        }
+        if (focusState != AudioManager.AUDIOFOCUS_GAIN && focusState != AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+            Log.w(TAG, "Audio focus(" + focusState + ") is not available!");
+            playStatus = JNI_PLAY_STATUS_ERROR;
+        }
         BluetoothDevice device = getAnonymousDevice(address);
         AvrcpPlayer.Builder apb = new AvrcpPlayer.Builder();
         apb.setDevice(device);
@@ -976,6 +1003,31 @@ public class AvrcpControllerService extends ProfileService {
         return 0;
     }
 
+    public synchronized void startFetchingAlbumArt(BluetoothDevice device, String type, String scheme,
+            String mimeType, int height, int width, int maxSize) {
+        if (DBG) {
+            Log.d(TAG,"startFetchingAlbumArt mimeType " + mimeType + " pixel " + height + " * "
+                  + width + " maxSize: " + maxSize);
+        }
+
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGTYPE,
+                type);
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_SCHEME,
+                scheme);
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_MIMETYPE,
+                mimeType);
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGHEIGHT,
+                String.valueOf(height));
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGWIDTH,
+                String.valueOf(width));
+        SystemProperties.set(AvrcpCoverArtManager.AVRCP_CONTROLLER_COVER_ART_IMGMAXSIZE,
+                String.valueOf(maxSize));
+
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(AvrcpControllerStateMachine.MSG_AVRCP_FETCH_COVER_ART);
+        }
+    }
 
     @Override
     public void dump(StringBuilder sb) {
@@ -1125,4 +1177,24 @@ public class AvrcpControllerService extends ProfileService {
      * @param playerId player number
      */
     public native void setAddressedPlayerNative(byte[] address, int playerId);
+
+    /**
+     * Get item attributes with provided uid
+     *
+     * @param scope          scope of item to played
+     * @param uid            song unique id
+     * @param uidCounter     counter
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getItemAttributesNative(byte[] address, byte scope, long uid, int uidCounter,
+            byte numAttributes, int[] attribIds);
+
+    /**
+     * Get element attributes
+     *
+     * @param numAttributes  number of attributes
+     * @param attribIds      list of attributes
+     */
+    native static void getElementAttributesNative(byte[] address, byte numAttributes, int[] attribIds);
 }
