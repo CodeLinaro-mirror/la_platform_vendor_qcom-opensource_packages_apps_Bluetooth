@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -45,6 +45,7 @@
 package com.android.bluetooth.mapclient;
 
 import static android.Manifest.permission.BLUETOOTH_CONNECT;
+import static android.Manifest.permission.BLUETOOTH_PRIVILEGED;
 import static android.Manifest.permission.RECEIVE_SMS;
 
 import android.app.Activity;
@@ -121,6 +122,7 @@ class MceStateMachine extends StateMachine {
     static final int MSG_ABORT = 2007;
     // Abort over
     static final int MSG_ABORTED = 2008;
+    static final int MSG_SEARCH_OWN_NUMBER_TIMEOUT = 2009;
 
     private static final String TAG = "MceStateMachine";
     private static final Boolean DBG = MapClientService.DBG;
@@ -135,12 +137,16 @@ class MceStateMachine extends StateMachine {
     private static final int MSG_DISCONNECT = 2;
     private static final int MSG_CONNECTING_TIMEOUT = 3;
     private static final int MSG_DISCONNECTING_TIMEOUT = 4;
+
+    private static final boolean MESSAGE_SEEN = true;
+    private static final boolean MESSAGE_NOT_SEEN = false;
+
     // Folder names as defined in Bluetooth.org MAP spec V10
     private static final String FOLDER_TELECOM = "telecom";
     private static final String FOLDER_MSG = "msg";
     private static final String FOLDER_OUTBOX = "outbox";
-    private static final String FOLDER_INBOX = "inbox";
-    private static final String FOLDER_SENT = "sent";
+    static final String FOLDER_INBOX = "inbox";
+    static final String FOLDER_SENT = "sent";
     private static final String INBOX_PATH = "telecom/msg/inbox";
 
     // URI Scheme for messages with email contact
@@ -192,12 +198,19 @@ class MceStateMachine extends StateMachine {
     private final BluetoothDevice mDevice;
     private MapClientService mService;
     private MasClient mMasClient;
+    private MapClientContent mDatabase;
     private HashMap<String, Bmessage> mSentMessageLog = new HashMap<>(MAX_MESSAGES);
     private HashMap<Bmessage, PendingIntent> mSentReceiptRequested = new HashMap<>(MAX_MESSAGES);
     private HashMap<Bmessage, PendingIntent> mDeliveryReceiptRequested =
             new HashMap<>(MAX_MESSAGES);
     private Bmessage.Type mDefaultMessageType = Bmessage.Type.SMS_CDMA;
     private boolean mAbort = false;
+    // The amount of time for MCE to search for remote device's own phone number before:
+    // (1) MCE registering itself for being notified of the arrival of new messages; and
+    // (2) MCE start downloading existing messages off of MSE.
+    // NOTE: the value is not "final" so that it can be modified in the unit tests
+    @VisibleForTesting
+    static int sOwnNumberSearchTimeoutMs = 3_000;
 
     /**
      * An object to hold the necessary meta-data for each message so we can broadcast it alongside
@@ -213,11 +226,13 @@ class MceStateMachine extends StateMachine {
         private final String mHandle;
         private final Long mTimestamp;
         private boolean mRead;
+        private boolean mSeen;
 
-        MessageMetadata(String handle, Long timestamp, boolean read) {
+        MessageMetadata(String handle, Long timestamp, boolean read, boolean seen) {
             mHandle = handle;
             mTimestamp = timestamp;
             mRead = read;
+            mSeen = seen;
         }
 
         public String getHandle() {
@@ -235,6 +250,11 @@ class MceStateMachine extends StateMachine {
         public synchronized void setRead(boolean read) {
             mRead = read;
         }
+
+        public synchronized boolean getSeen() {
+            return mSeen;
+        }
+
     }
 
     // Map each message to its metadata via the handle
@@ -242,14 +262,15 @@ class MceStateMachine extends StateMachine {
             new ConcurrentHashMap<String, MessageMetadata>();
 
     MceStateMachine(MapClientService service, BluetoothDevice device) {
-        this(service, device, null);
+        this(service, device, null, null);
     }
 
     @VisibleForTesting
-    MceStateMachine(MapClientService service, BluetoothDevice device, MasClient masClient) {
+    MceStateMachine(MapClientService service, BluetoothDevice device, MasClient masClient,MapClientContent database) {
         super(TAG);
         mMasClient = masClient;
         mService = service;
+        mDatabase = database;
 
         mPreviousState = BluetoothProfile.STATE_DISCONNECTED;
 
@@ -350,6 +371,7 @@ class MceStateMachine extends StateMachine {
                 if (PhoneAccount.SCHEME_TEL.equals(contact.getScheme())) {
                     String path = contact.getPath();
                     if (path != null && path.contains(Telephony.Threads.CONTENT_URI.toString())) {
+                        mDatabase.addThreadContactsToEntries(bmsg, contact.getLastPathSegment());
                     } else {
                         VCardEntry destEntry = new VCardEntry();
                         VCardProperty destEntryPhone = new VCardProperty();
@@ -605,6 +627,12 @@ private String getFileExtension(String path){
     public void dump(StringBuilder sb) {
         ProfileService.println(sb, "mCurrentDevice: " + mDevice.getAddress() + "("
                 + Utils.getName(mDevice) + ") " + this.toString());
+        if (mDatabase != null) {
+            mDatabase.dump(sb);
+        } else {
+            ProfileService.println(sb, "  Device Message DB: null");
+        }
+        sb.append("\n");
     }
 
     class Disconnected extends State {
@@ -742,6 +770,17 @@ private String getFileExtension(String path){
             if (DBG) {
                 Log.d(TAG, "Enter Connected: " + getCurrentMessage().what);
             }
+
+            MapClientContent.Callbacks callbacks = new MapClientContent.Callbacks(){
+                @Override
+                public void onMessageStatusChanged(String handle, int status) {
+                    setMessageStatus(handle, status);
+                }
+            };
+            // Keeps mock database from being overwritten in tests
+            if (mDatabase == null) {
+                mDatabase = new MapClientContent(mService, callbacks, mDevice);
+            }
             onConnectionStateChanged(mPreviousState, BluetoothProfile.STATE_CONNECTED);
 
             mMasClient.makeRequest(new RequestSetPath(FOLDER_TELECOM));
@@ -756,9 +795,20 @@ private String getFileExtension(String path){
                 mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
             } else {
                 mMasClient.makeRequest(new RequestSetPath(false));
-                mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
-                sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_SENT);
-                sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_INBOX);
+            // Start searching for remote device's own phone number. Only until either:
+            //   (a) the search completes (with or without finding the number), or
+            //   (b) the timeout expires,
+            // does the MCE:
+            //   (a) register itself for being notified of the arrival of new messages, and
+            //   (b) start downloading existing messages off of MSE.
+            // In other words, the MCE shouldn't handle any messages (new or existing) until after
+            // it has tried obtaining the remote's own phone number.
+            RequestGetMessagesListingForOwnNumber requestForOwnNumber =
+                    new RequestGetMessagesListingForOwnNumber();
+            mMasClient.makeRequest(requestForOwnNumber);
+            sendMessageDelayed(MSG_SEARCH_OWN_NUMBER_TIMEOUT, requestForOwnNumber,
+                    sOwnNumberSearchTimeoutMs);
+            Log.i(TAG, Utils.getLoggableAddress(mDevice) + "[Connected]: Find phone number");
             }
         }
 
@@ -789,6 +839,7 @@ private String getFileExtension(String path){
                     break;
 
                 case MSG_NOTIFICATION:
+                    Log.d(TAG, "Notification received");
                     processNotification(message);
                     break;
 
@@ -843,6 +894,10 @@ private String getFileExtension(String path){
                         if (messageHandle != null && messageHandle.length() > 2 &&
                             ((responseCode == ResponseCodes.OBEX_HTTP_OK) ||
                              (responseCode == ResponseCodes.OBEX_HTTP_CONTINUE))) {
+                             if (SAVE_OUTBOUND_MESSAGES) {
+                              mDatabase.storeMessage(((RequestPushMessage) message.obj).getBMsg(), messageHandle,
+                              System.currentTimeMillis(), MESSAGE_SEEN);
+                            }
                             mSentMessageLog.put(messageHandle.substring(2),
                                     ((RequestPushMessage) message.obj).getBMsg());
                         }
@@ -866,7 +921,11 @@ private String getFileExtension(String path){
                         processSetMessageStatus((RequestSetMessageStatus) message.obj);
                     } else if (message.obj instanceof RequestUpdateInbox) {
                         processUpdateInbox((RequestUpdateInbox) message.obj);
+                    }else if (message.obj instanceof RequestGetMessagesListingForOwnNumber) {
+                        processMessageListingForOwnNumber(
+                                (RequestGetMessagesListingForOwnNumber) message.obj);
                     }
+
                     break;
 
                 case MSG_CONNECT:
@@ -876,6 +935,23 @@ private String getFileExtension(String path){
                     }
                     break;
 
+                case MSG_SEARCH_OWN_NUMBER_TIMEOUT:
+                    Log.w(TAG, "Timeout while searching for own phone number.");
+                    // Abort any outstanding Request so it doesn't execute on MasClient
+                    mMasClient.abort();
+                    // Remove any executed/completed Request that MasClient has passed back to
+                    // state machine. Note: {@link StateMachine} doesn't provide a {@code
+                    // removeMessages(int what, Object obj)}, nor direct access to {@link
+                    // mSmHandler}, so this will remove *all* {@code MSG_MAS_REQUEST_COMPLETED}
+                    // messages. However, {@link RequestGetMessagesListingForOwnNumber} should be
+                    // the only MAS Request enqueued at this point, since none of the other MAS
+                    // Requests should trigger/start until after getOwnNumber has completed.
+                    removeMessages(MSG_MAS_REQUEST_COMPLETED);
+                    // If failed to complete search for remote device's own phone number,
+                    // proceed without it (i.e., register MCE for MNS and start download
+                    // of existing messages from MSE).
+                    notificationRegistrationAndStartDownloadMessages();
+                    break;
                 default:
                     Log.w(TAG, "Unexpected message: " + message.what + " from state:"
                             + this.getName());
@@ -886,6 +962,8 @@ private String getFileExtension(String path){
 
         @Override
         public void exit() {
+            mDatabase.cleanUp();
+            mDatabase = null;
             mPreviousState = BluetoothProfile.STATE_CONNECTED;
         }
 
@@ -923,7 +1001,7 @@ private String getFileExtension(String path){
                             if (!mMessages.contains(ev.getHandle())) {
                                 Calendar calendar = Calendar.getInstance();
                                 MessageMetadata metadata = new MessageMetadata(ev.getHandle(),
-                                        calendar.getTime().getTime(), false);
+                                        calendar.getTime().getTime(), false, MESSAGE_NOT_SEEN);
                                 mMessages.put(ev.getHandle(), metadata);
                             }
                             if (Utils.isPtsTestMode()) return;
@@ -941,9 +1019,13 @@ private String getFileExtension(String path){
                             notifySentMessageStatus(ev.getHandle(), ev.getType());
                             break;
                         case MESSAGE_DELETED:
+                            Log.d(TAG, "message deleted");
+                            mDatabase.deleteMessage(ev.getHandle());
                             notifyMessageDeletedStatusChanged(ev.getHandle(), ev.getFolder());
                             break;
                         case READ_STATUS_CHANGED:
+                            Log.d(TAG, "message read");
+                            mDatabase.markRead(ev.getHandle());
                             notifyMessageReadStatusChanged(ev.getHandle(), ev.getFolder(), ev.getReadStatus());
                             break;
                     }
@@ -1052,10 +1134,61 @@ private String getFileExtension(String path){
                     }
                     // A message listing coming from the server should always have up to date data
                     mMessages.put(msg.getHandle(), new MessageMetadata(msg.getHandle(),
-                            msg.getDateTime().getTime(), msg.isRead()));
+                            msg.getDateTime().getTime(), msg.isRead(), MESSAGE_SEEN));
                     getMessage(msg.getHandle());
                 }
             }
+        }
+
+        /**
+         * Process the result of a MessageListing request that was made specifically to obtain
+         * the remote device's own phone number.
+         *
+         * @param request - A request object that has been resolved and returned with:
+         *   - a phone number (possibly null if a number wasn't found)
+         *   - a flag indicating whether there are still messages that can be searched/requested.
+         *   - the request will automatically update itself if a number wasn't found and there are
+         *     still messages that can be searched.
+         */
+        private void processMessageListingForOwnNumber(
+                RequestGetMessagesListingForOwnNumber request) {
+
+            if (request.isSearchCompleted()) {
+                if (DBG) {
+                    Log.d(TAG, "processMessageListingForOwnNumber: search completed");
+                }
+                if (request.getOwnNumber() != null) {
+                    // A phone number was found (should be the remote device's).
+                    if (DBG) {
+                        Log.d(TAG, "processMessageListingForOwnNumber: number found = "
+                                + request.getOwnNumber());
+                    }
+                    mDatabase.setRemoteDeviceOwnNumber(request.getOwnNumber());
+                }
+                // Remove any outstanding timeouts from state machine queue
+                removeDeferredMessages(MSG_SEARCH_OWN_NUMBER_TIMEOUT);
+                removeMessages(MSG_SEARCH_OWN_NUMBER_TIMEOUT);
+                // Move on to next stage of connection process
+                notificationRegistrationAndStartDownloadMessages();
+            } else {
+                // A phone number wasn't found, but there are still additional messages that can
+                // be requested and searched.
+                if (DBG) {
+                    Log.d(TAG, "processMessageListingForOwnNumber: continuing search");
+                }
+                mMasClient.makeRequest(request);
+            }
+        }
+
+        /**
+         * (1) MCE registering itself for being notified of the arrival of new messages; and
+         * (2) MCE downloading existing messages of off MSE.
+         */
+        private void notificationRegistrationAndStartDownloadMessages() {
+            Log.i(TAG, Utils.getLoggableAddress(mDevice) + "[Connected]: Queue Message downloads");
+            mMasClient.makeRequest(new RequestSetNotificationRegistration(true));
+            sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_SENT);
+            sendMessage(MSG_GET_MESSAGE_LISTING, FOLDER_INBOX);
         }
 
         private void processSetMessageStatus(RequestSetMessageStatus request) {
@@ -1144,6 +1277,9 @@ private String getFileExtension(String path){
             if (message == null) {
                 return;
             }
+            mDatabase.storeMessage(message, request.getHandle(),
+                    mMessages.get(request.getHandle()).getTimestamp(),
+                    mMessages.get(request.getHandle()).getSeen());
             if (!INBOX_PATH.equalsIgnoreCase(message.getFolder())) {
                 if (DBG) {
                     Log.d(TAG, "Ignoring message received in " + message.getFolder() + ".");
