@@ -1019,4 +1019,18 @@ public class A2dpSinkService extends ProfileService {
         Log.d(TAG, "onIsSuspendNeededCallback" + device);
         return mPausedDueToCallIndicators;
     }
+
+    public void onAudioServerRestartedCallback(byte[] address) {
+        mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        BluetoothDevice device = getDevice(address);
+        AvrcpControllerService avrcpService =
+                           AvrcpControllerService.getAvrcpControllerService();
+        int volIndex = avrcpService.getCachedVolumeIndex(device);
+        if (mAudioManager != null) {
+            Log.d(TAG, "onAudioServerRestartedCallback volume Index: "+volIndex);
+            String volume_param  = "btsink_volume=" + volIndex;
+            mAudioManager.setParameters(volume_param);
+
+        }
+    }
 }
