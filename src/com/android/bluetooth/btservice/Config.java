@@ -114,7 +114,6 @@ public class Config {
     private static boolean mIsA2dpSink, mIsSplitSink, mIsBAEnabled, mIsSplitA2dpEnabled,
             mIsGroupSerEnabled, mIsCsipServiceEnabled;
     private static boolean mIsHfpClient;
-    private static boolean mIsPbapClient;
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -263,7 +262,11 @@ public class Config {
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = false;
             boolean isAoAEnabled = false;
-            if (config.mClass == HearingAidService.class) {
+            if (config.mClass == PbapClientService.class) {
+                supported = PbapClientService.isEnabled();
+            } else if (config.mClass == BluetoothPbapService.class) {
+                supported = BluetoothPbapService.isEnabled();
+            } else if (config.mClass == HearingAidService.class) {
                 supported =
                         BluetoothProperties.isProfileAshaCentralEnabled().orElse(false);
             } else {
@@ -308,18 +311,6 @@ public class Config {
                 // ignore adding map client service for targets where map client is disabled
                 if ((config.mClass.getSimpleName().equals("MapClientService")) &&
                     (!mIsSplitSink)) {
-                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
-                    continue;
-                }
-                // ignore adding pbap client service for targets where pbap client is disabled
-                if ((config.mClass.getSimpleName().equals("PbapClientService")) &&
-                    (!mIsPbapClient)) {
-                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
-                    continue;
-                }
-                // ignore adding pbap service for targets where pbap client is enabled
-                if ((config.mClass.getSimpleName().equals("BluetoothPbapService")) &&
-                    mIsPbapClient) {
                     Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
                     continue;
                 }
@@ -669,7 +660,6 @@ public class Config {
         mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
         mIsHfpClient = SystemProperties.getBoolean("persist.vendor.bluetooth.hfp_client", false);
         boolean isCsipQti = SystemProperties.getBoolean("ro.vendor.bluetooth.csip_qti", false);
-        mIsPbapClient = SystemProperties.getBoolean("persist.vendor.bluetooth.pbap_client", false);
         if (isCsipQti) {
             mIsGroupSerEnabled = true;
         } else {
@@ -688,7 +678,7 @@ public class Config {
                 + mIsBAEnabled + " mIsSplitA2dpEnabled " + mIsSplitA2dpEnabled
                 + " isCsipQti " + isCsipQti);
         }
-        Log.d(TAG, "getAudioProperties mIsHfpClient" + mIsHfpClient + " mIsPbapClient " + mIsPbapClient);
+        Log.d(TAG, "getAudioProperties mIsHfpClient" + mIsHfpClient);
     }
 
     public static boolean getIsCsipQti() {
