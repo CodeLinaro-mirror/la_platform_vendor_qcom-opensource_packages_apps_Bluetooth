@@ -28,6 +28,7 @@ namespace android {
 static jmethodID method_onConnectionStateChanged;
 static jmethodID method_onAudioStateChanged;
 static jmethodID method_onAudioConfigChanged;
+static jmethodID method_onAudioServerRestarted;
 
 static const btav_sink_interface_t* sBluetoothA2dpInterface = NULL;
 static jobject mCallbacksObj = NULL;
