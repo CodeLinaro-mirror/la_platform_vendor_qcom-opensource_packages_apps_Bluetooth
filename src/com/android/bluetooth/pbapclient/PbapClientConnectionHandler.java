@@ -265,9 +265,6 @@ class PbapClientConnectionHandler extends Handler {
                     Log.e(TAG, "Account creation failed.");
                     return;
                 }
-                if (isRepositorySupported(SUPPORTED_REPOSITORIES_FAVORITES)) {
-                    downloadContacts(FAV_PATH);
-                }
                 if (isRepositorySupported(SUPPORTED_REPOSITORIES_LOCALPHONEBOOK)) {
                     downloadContacts(PB_PATH);
                 }
@@ -276,9 +273,13 @@ class PbapClientConnectionHandler extends Handler {
                 }
 
                 HashMap<String, Integer> callCounter = new HashMap<>();
-                downloadCallLog(MCH_PATH, callCounter);
                 downloadCallLog(ICH_PATH, callCounter);
                 downloadCallLog(OCH_PATH, callCounter);
+                downloadCallLog(MCH_PATH, callCounter);
+
+                if (isRepositorySupported(SUPPORTED_REPOSITORIES_FAVORITES)) {
+                    downloadContacts(FAV_PATH);
+                }
                 break;
 
             default:
