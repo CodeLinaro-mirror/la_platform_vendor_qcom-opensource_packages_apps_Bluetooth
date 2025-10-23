@@ -72,6 +72,8 @@ public class HeadsetClientService extends ProfileService {
     private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
     // Maxinum number of devices we can try connecting to in one session
     private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
+    private BluetoothDevice mDeferredScoDevice = null;
+    private boolean mIsScoDeferredForSyncOnly = false;
 
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
 
@@ -815,7 +817,7 @@ public class HeadsetClientService extends ProfileService {
         return true;
     }
 
-    int getAudioState(BluetoothDevice device) {
+    public int getAudioState(BluetoothDevice device) {
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -1238,6 +1240,20 @@ public class HeadsetClientService extends ProfileService {
         return listDevices.size() > 0;
     }
 
+    public boolean isVoiceRecognitionActive(BluetoothDevice device) {
+        HeadsetClientStateMachine sm = getStateMachine(device);
+        if (sm == null) {
+            Log.w(TAG, "isVoiceRecognitionActive: Cannot find state machine for " + device);
+            return false;
+        }
+
+        int connectionState = sm.getConnectionState(device);
+        if (connectionState != BluetoothProfile.STATE_CONNECTED) {
+            return false;
+        }
+        return sm.isVoiceRecognitionActive();
+    }
+
     // For testing
     protected synchronized Map<BluetoothDevice, HeadsetClientStateMachine> getStateMachineMap() {
         return mStateMachineMap;
@@ -1249,5 +1265,33 @@ public class HeadsetClientService extends ProfileService {
 
     protected AudioManager getAudioManager() {
         return mAudioManager;
+    }
+
+    public synchronized boolean isAnyAudioConnected() {
+        List<BluetoothDevice> connectedDevices = getConnectedDevices();
+        for (BluetoothDevice device : connectedDevices) {
+            HeadsetClientStateMachine sm = getStateMachine(device);
+            if (sm != null) {
+                int audioState = sm.getAudioState(device);
+                if (audioState == BluetoothHeadsetClient.STATE_AUDIO_CONNECTED
+                        || audioState == BluetoothHeadsetClient.STATE_AUDIO_CONNECTING) {
+                    Log.d(TAG, "isAnyAudioConnected: device " + device
+                            + " has active audio state " + audioState);
+                    return true;
+                }
+            }
+        }
+        Log.d(TAG, "isAnyAudioConnected: No connected device has active audio.");
+        return false;
+    }
+
+    public synchronized boolean isVrActive() {
+        List<BluetoothDevice> connectedDevices = getConnectedDevices();
+        for (BluetoothDevice device : connectedDevices) {
+            if(isVoiceRecognitionActive(device)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
