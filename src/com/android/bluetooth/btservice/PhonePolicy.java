@@ -1221,7 +1221,7 @@ class PhonePolicy {
         }
     }
     private void connectBC(BluetoothDevice device) {
-        if (mBCGetConnPolicy == null ||  mBCConnect == null ) {
+        if (mBCGetConnPolicy == null ||  mBCConnect == null || mBCService == null) {
             Log.e(TAG, "BC reference are null");
             return;
         }
