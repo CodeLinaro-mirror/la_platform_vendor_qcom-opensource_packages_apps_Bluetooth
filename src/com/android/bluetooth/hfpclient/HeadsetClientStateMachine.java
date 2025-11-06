@@ -1661,6 +1661,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                                 }
                                 mService.sendBroadcast(intent, BLUETOOTH_CONNECT,
                                         Utils.getTempAllowlistBroadcastOptions());
+                                break;
                             }
 
                             switch (queuedAction.first) {
