@@ -30,6 +30,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.provider.CallLog;
+import android.sysprop.BluetoothProperties;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -67,6 +68,10 @@ public class PbapClientService extends ProfileService {
     private int mSdpHandle = -1;
 
     private DatabaseManager mDatabaseManager;
+
+    public static boolean isEnabled() {
+        return BluetoothProperties.isProfilePbapClientEnabled().orElse(false);
+    }
 
     @Override
     public IProfileServiceBinder initBinder() {
