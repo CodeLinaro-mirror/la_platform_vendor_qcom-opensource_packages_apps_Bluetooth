@@ -710,6 +710,11 @@ public class AvrcpControllerService extends ProfileService {
         return getDevicesMatchingConnectionStates(new int[]{BluetoothAdapter.STATE_CONNECTED});
     }
 
+    public int getCachedVolumeIndex(BluetoothDevice device) {
+      AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
+      return stateMachine.getVolumeIndex();
+    }
+
     protected AvrcpControllerStateMachine getStateMachine(BluetoothDevice device) {
         return mDeviceStateMap.get(device);
     }
