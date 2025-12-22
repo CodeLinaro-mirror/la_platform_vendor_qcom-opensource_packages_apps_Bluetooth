@@ -945,11 +945,14 @@ public class A2dpSinkService extends ProfileService {
     }
 
     public void onStartIndCallback(byte[] address) {
-        if(mHeadsetClientService == null)
-            mHeadsetClientService = HeadsetClientService.getHeadsetClientService();
         BluetoothDevice dev = getDevice(address);
-        BluetoothDevice callingDevice = mHeadsetClientService.getCallingDevice();
-        if ( mHeadsetClientService!= null &&
+        BluetoothDevice callingDevice = null;
+        if(mHeadsetClientService == null) {
+           mHeadsetClientService = HeadsetClientService.getHeadsetClientService();
+           callingDevice = mHeadsetClientService.getCallingDevice();
+        }
+
+        if (dev != null && callingDevice != null && dev.equals(callingDevice) &&
                 mHeadsetClientService.IsHFPDisableInProgress(dev) == true) {
             Log.d(TAG, "HFP Disabling in Progress for device: "+dev);
             Message msg = mA2dpSinkStreamHandler.obtainMessage(
