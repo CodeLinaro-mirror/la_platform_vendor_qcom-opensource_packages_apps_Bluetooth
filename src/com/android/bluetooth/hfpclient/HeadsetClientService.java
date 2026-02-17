@@ -179,7 +179,9 @@ public class HeadsetClientService extends ProfileService {
                             AudioManager.EXTRA_VOLUME_STREAM_TYPE));
                 }
                 int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
-                if (streamType == AudioManager.STREAM_VOICE_CALL) {
+                Log.d(TAG , "is state machine map Empty " + mStateMachineMap.isEmpty());
+                if (streamType == AudioManager.STREAM_VOICE_CALL
+                                 && mStateMachineMap.isEmpty() != true) {
                     int streamValue =
                             intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, -1);
                     int hfVol = HeadsetClientStateMachine.amToHfVol(streamValue);
