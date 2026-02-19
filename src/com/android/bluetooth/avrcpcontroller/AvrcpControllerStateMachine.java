@@ -498,9 +498,12 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                 case MESSAGE_PROCESS_RC_FEATURES:
                     mRemoteDevice.setRemoteFeatures(msg.arg1);
-                    if (msg.arg2 > 0) {
-                        mCoveArtUtils.msgProcessRcFeatures(mBipStateMachine, mRemoteDevice,msg.arg2);
-                    }
+                    if (DBG) Log.d(TAG, "AVRCP Cover Art feature is not supported by local device.");
+                    //Cover Art feature is not supported by the local device, so the BIP connection initiation is disabled.
+                    //If Cover Art support is added in the future, this BIP connection needs to be re‑enabled.
+                    // if (msg.arg2 > 0) {
+                    //     mCoveArtUtils.msgProcessRcFeatures(mBipStateMachine, mRemoteDevice,msg.arg2);
+                    // }
                     return true;
 
                 case CoverArtUtils.MESSAGE_BIP_CONNECTED:
