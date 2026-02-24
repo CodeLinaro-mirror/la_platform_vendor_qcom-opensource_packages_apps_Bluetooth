@@ -1594,6 +1594,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     }
                     // AG disconnects
                     if (mCurrentDevice.equals(device)) {
+                        notifyBroadcastServices(false);
                         transitionTo(mDisconnected);
                     } else {
                         Log.e(TAG, "Disconnected from unknown device: " + device);
@@ -1750,6 +1751,10 @@ public class HeadsetClientStateMachine extends StateMachine {
 
                 case AUDIO_SERVER_UP:
                     processAudioServerUp();
+                    break;
+
+                case CONNECT_AUDIO:
+                    Log.d(TAG, "ConnectAudio not valid here");
                     break;
 
                 case StackEvent.STACK_EVENT:
