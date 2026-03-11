@@ -327,10 +327,15 @@ public class Config {
             Log.w(TAG, "Context is null or advance audio features are unavailable");
             return;
         }
-        Log.v(TAG, "splitSinkEnabled" + mIsSplitSink);
-        if(mIsSplitSink) {
-            Log.v(TAG, "Ignoring adv_audio as A2dp sink enabled");
-            return;
+        boolean isDuplexBroadcastModeEnabled = SystemProperties.getBoolean(
+                                         "persist.vendor.qcom.bluetooth.enable_ba_duplex"
+                                                                    , true);
+        if(!isDuplexBroadcastModeEnabled) {
+            Log.v(TAG, "splitSinkEnabled" + mIsSplitSink);
+            if(mIsSplitSink) {
+                Log.v(TAG, "Ignoring adv_audio as A2dp sink enabled");
+                return;
+            }
         }
 
         Resources resources = ctx.getResources();
