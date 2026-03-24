@@ -11,6 +11,11 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+   Changes from Qualcomm Technologies, Inc. are provided under the following license:
+   Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+   SPDX-License-Identifier: BSD-3-Clause-Clear
+
 -->
 <resources>
     <bool name="profile_supported_a2dp">true</bool>
@@ -138,6 +143,10 @@
     <integer name="avrcp_cover_art_default_height">500</integer>
     <integer name="avrcp_cover_art_default_width">500</integer>
     <integer name="avrcp_cover_art_default_maxsize">200000</integer>
+    <!-- For enabling browsed cover art with the AVRCP Controller Cover Artwork feature -->
+    <bool name="avrcp_controller_cover_art_browsed_images">true</bool>
+    <!-- For enabling the AVRCP Controller Cover Artwork feature -->
+    <bool name="avrcp_controller_enable_cover_art">true</bool>
     <!-- Package that is responsible for email related functionalities.
         Receives:
           - ACTION_MOVE_MESSAGE

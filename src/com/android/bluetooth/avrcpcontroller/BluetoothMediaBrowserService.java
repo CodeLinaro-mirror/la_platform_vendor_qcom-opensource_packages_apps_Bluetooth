@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth.avrcpcontroller;
@@ -137,9 +141,13 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
         }
     }
 
-    static synchronized void trackChanged(MediaMetadata mediaMetadata) {
+    static synchronized void trackChanged(AvrcpItem track) {
         if (sBluetoothMediaBrowserService != null) {
-            sBluetoothMediaBrowserService.mSession.setMetadata(mediaMetadata);
+            if (track != null) {
+                sBluetoothMediaBrowserService.mSession.setMetadata(track.toMediaMetadata());
+            } else {
+                sBluetoothMediaBrowserService.mSession.setMetadata(null);
+            }
         } else {
             Log.w(TAG, "trackChanged Unavailable");
         }
@@ -184,6 +192,33 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
             sBluetoothMediaBrowserService.mSession.setActive(active);
         } else {
             Log.w(TAG, "setActive Unavailable");
+        }
+    }
+
+    /**
+     * Get Media session for updating state
+     */
+    public static synchronized MediaSession getSession() {
+        if (sBluetoothMediaBrowserService != null) {
+            return sBluetoothMediaBrowserService.mSession;
+        } else {
+            Log.w(TAG, "getSession Unavailable");
+            return null;
+        }
+    }
+
+    /**
+     * Reset the state of BluetoothMediaBrowserService to that before a device connected
+     */
+    public static synchronized void reset() {
+        if (sBluetoothMediaBrowserService != null) {
+            //sBluetoothMediaBrowserService.clearNowPlayingQueue();
+            sBluetoothMediaBrowserService.mSession.setMetadata(null);
+            //sBluetoothMediaBrowserService.setErrorPlaybackState();
+            sBluetoothMediaBrowserService.mSession.setCallback(null);
+            if (DBG) Log.d(TAG, "Service state has been reset");
+        } else {
+            Log.w(TAG, "reset unavailable");
         }
     }
 }

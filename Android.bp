@@ -56,6 +56,7 @@ android_app {
         "libprotobuf-java-lite",
         "bluetooth-protos-lite",
         "androidx.core_core",
+		"androidx.legacy_legacy-support-v4",
         "androidx.lifecycle_lifecycle-livedata",
         "androidx.room_room-runtime",
     ],

@@ -12,6 +12,10 @@
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
      See the License for the specific language governing permissions and
      limitations under the License.
+
+     Changes from Qualcomm Technologies, Inc. are provided under the following license:
+     Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+     SPDX-License-Identifier: BSD-3-Clause-Clear
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!--
@@ -261,4 +265,5 @@
     <string name="bluetooth_rc_feat_subtext">Re-pair from peer to enable it</string>
     <string name="broadcast_notification_name">Broadcast status</string>
     <string name="bluetooth_broadcast_status">Broadcast on</string>
+   <string name="bluetooth_connect_action">Connect to Bluetooth</string>
 </resources>
