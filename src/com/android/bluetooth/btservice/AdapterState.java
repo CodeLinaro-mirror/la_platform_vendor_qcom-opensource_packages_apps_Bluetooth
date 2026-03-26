@@ -117,9 +117,9 @@ final class AdapterState extends StateMachine {
     static final int BREDR_CLEANUP_TIMEOUT = 16;
     static final int BT_FORCEKILL_TIMEOUT = 17;
 
-    // TODO: To be optimized : Increased BLE_START_TIMEOUT_DELAY to 6 sec
+    // TODO: To be optimized : Increased BLE_START_TIMEOUT_DELAY to 9 sec
     // as OMR1 Total timeout value was 14 seconds
-    static final int BLE_START_TIMEOUT_DELAY = 6000;
+    static final int BLE_START_TIMEOUT_DELAY = 9000;
     // Increased BLE_START_TIMEOUT_DELAY to 15 sec for XMEM patch download.
     static final int BLE_START_DEFAULT_XMEM_TIMEOUT_DELAY = 15000;
     /* Increased STARTUP time to 23 sec for XMEM patch with download configuration
