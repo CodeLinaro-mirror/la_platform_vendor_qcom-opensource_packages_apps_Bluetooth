@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package com.android.bluetooth.btservice;
@@ -69,6 +73,8 @@ public class Config {
     private static ArrayList<Class> profiles = new ArrayList<>();
     private static boolean mIsA2dpSink, mIsBAEnabled, mIsSplitA2dpEnabled;
     private static boolean mIsHfpClient;
+    private static boolean mIsPbapClient;
+    private static boolean mIsMapClient;
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -207,8 +213,23 @@ public class Config {
 
             if (supported && !isProfileDisabled(ctx, config.mMask)) {
                 if (!addAudioProfiles(config.mClass.getSimpleName())) {
-                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
+                    if (DBG) Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
                     continue;
+                }
+                if (config.mClass == BluetoothPbapService.class && (mIsPbapClient)) {
+                    Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
+                    continue;
+                } else if (config.mClass == PbapClientService.class && (!mIsPbapClient)) {
+                    Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
+                    continue;
+                } else if (config.mClass == BluetoothMapService.class && (mIsMapClient)) {
+                    Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
+                    continue;
+                } else if (config.mClass == MapClientService.class && (!mIsMapClient)) {
+                    Log.d(TAG, "Profile " + config.mClass.getSimpleName() + " Not added");
+                    continue;
+                } else {
+                    //do nothing
                 }
                 Log.v(TAG, "Adding " + config.mClass.getSimpleName());
                 profiles.add(config.mClass);
@@ -453,9 +474,12 @@ public class Config {
            SystemProperties.set("persist.vendor.bt.a2dp.sink_conn", "2");
         }
 
-        mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", true);
+        mIsA2dpSink = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp.sink", false);
         mIsBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
-        mIsHfpClient = SystemProperties.getBoolean("persist.vendor.service.bt.hfp.client", true);
+        mIsHfpClient = SystemProperties.getBoolean("persist.vendor.service.bt.hfp.client", false);
+        mIsPbapClient = SystemProperties.getBoolean("persist.vendor.service.bt.pbap.client", false);
+        mIsMapClient = SystemProperties.getBoolean("persist.vendor.service.bt.map.client", false);
+
         // Split A2dp will be enabled by default
         mIsSplitA2dpEnabled = true;
         AdapterService adapterService = AdapterService.getAdapterService();
@@ -468,6 +492,7 @@ public class Config {
             Log.d(TAG, "getAudioProperties mIsA2dpSink " + mIsA2dpSink + " mIsBAEnabled "
                 + mIsBAEnabled + " mIsSplitA2dpEnabled " + mIsSplitA2dpEnabled);
         }
-        Log.d(TAG, "getAudioProperties mIsHfpClient" + mIsHfpClient);
+        Log.d(TAG, "getAudioProperties mIsHfpClient:" + mIsHfpClient + " mIsPbapClient:"
+                + mIsPbapClient+ " mIsMapClient:" +mIsMapClient);
     }
 }

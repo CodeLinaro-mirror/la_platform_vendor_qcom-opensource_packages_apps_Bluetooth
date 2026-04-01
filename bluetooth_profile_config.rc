@@ -1,0 +1,25 @@
+#Changes from Qualcomm Technologies, Inc. are provided under the following license:
+#Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+#SPDX-License-Identifier: BSD-3-Clause-Clear
+
+
+# bluetooth_profile_config.rc we are using to listen for source and sink role property change
+# events and based on the property change will enable and disable a2dp and hf role framework
+# properties. We are adding this changes to support CTS run, so with this change CTS will
+# run on the profiles only which are enabled on that time either sink or source.
+
+on property:persist.vendor.service.bt.source.role.enabled=*
+    # setting bluetooth source role properties
+    setprop bluetooth.profile.a2dp.source.enabled ${persist.vendor.service.bt.source.role.enabled}
+    setprop bluetooth.profile.hfp.ag.enabled ${persist.vendor.service.bt.source.role.enabled}
+    setprop bluetooth.profile.pbap.server.enabled ${persist.vendor.service.bt.source.role.enabled}
+    setprop bluetooth.profile.map.server.enabled ${persist.vendor.service.bt.source.role.enabled}
+
+on property:persist.vendor.service.bt.sink.role.enabled=*
+    # setting bluetooth sink role properties
+    setprop bluetooth.profile.a2dp.sink.enabled ${persist.vendor.service.bt.sink.role.enabled}
+    setprop bluetooth.profile.hfp.hf.enabled ${persist.vendor.service.bt.sink.role.enabled}
+    setprop bluetooth.profile.pbap.client.enabled ${persist.vendor.service.bt.sink.role.enabled}
+    setprop bluetooth.profile.map.client.enabled ${persist.vendor.service.bt.sink.role.enabled}
+    setprop persist.vendor.service.bt.pbap.client ${persist.vendor.service.bt.sink.role.enabled}
+    setprop persist.vendor.service.bt.map.client ${persist.vendor.service.bt.sink.role.enabled}
