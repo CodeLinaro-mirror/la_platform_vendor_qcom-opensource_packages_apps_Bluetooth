@@ -858,6 +858,26 @@ public class LeAudioService extends ProfileService {
     }
 
     /**
+     * Set Achat-specific attributes for the broadcast source/sink.
+     * @param devId Device ID (12-bit value, 0-4095)
+     * @param name Device name (up to 10 octets, UTF-8 encoded)
+     */
+    public void setAchatAttributes(int devId, byte[] name) {
+        // Call Broadcast Source only (Sink path goes through BluetoothLeBroadcastAssistant)
+        LeBroadcastServIntf leBroadcastService = LeBroadcastServIntf.get();
+        leBroadcastService.setAchatAttributes(devId, name);
+    }
+
+    /**
+     * Set DBIG Join Control mode for the broadcast source.
+     * @param mode true to enable DBIG join control, false to disable
+     */
+    public void setDbigJoinControl(boolean mode) {
+        LeBroadcastServIntf leBroadcastService = LeBroadcastServIntf.get();
+        leBroadcastService.setDbigJoinControl(mode);
+    }
+
+    /**
      * Updates LeAudio Broadcast instance metadata.
      * @param broadcastId broadcast instance identifier
      * @param broadcastSettings broadcast settings for this broadcast source
@@ -3087,6 +3107,40 @@ public class LeAudioService extends ProfileService {
                 if (service != null) {
                     enforceBluetoothPrivilegedPermission(service);
                     service.startEnhancedBroadcast(broadcastSettings, isoInterval);
+                }
+                receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+
+        @Override
+        public void setAchatAttributes(int devId, byte[] name,
+                AttributionSource source, SynchronousResultReceiver receiver) {
+            try {
+                Objects.requireNonNull(source, "source cannot be null");
+                Objects.requireNonNull(receiver, "receiver cannot be null");
+                LeAudioService service = getService(source);
+                if (service != null) {
+                    enforceBluetoothPrivilegedPermission(service);
+                    service.setAchatAttributes(devId, name);
+                }
+                receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+
+        @Override
+        public void setDbigJoinControl(boolean mode,
+                AttributionSource source, SynchronousResultReceiver receiver) {
+            try {
+                Objects.requireNonNull(source, "source cannot be null");
+                Objects.requireNonNull(receiver, "receiver cannot be null");
+                LeAudioService service = getService(source);
+                if (service != null) {
+                    enforceBluetoothPrivilegedPermission(service);
+                    service.setDbigJoinControl(mode);
                 }
                 receiver.send(null);
             } catch (RuntimeException e) {
