@@ -181,9 +181,24 @@ public class LeBroadcastServIntf {
             Method setJoinControl =
                     LeBroadcastService.getDeclaredMethod("setJoinControl", args);
             setJoinControl.invoke(mLeBroadcastService, mode);
+          } catch (ReflectiveOperationException e) {
+              Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
+          }
+      }
+
+    public int getEnhancedBroadcastCap() {
+        Log.i(TAG, "getEnhancedBroadcastCap");
+        if (LeBroadcastService == null) {
+            return -1;
+        }
+        try {
+            Method getEnhancedBroadcastCap =
+                    LeBroadcastService.getDeclaredMethod("getEnhancedBroadcastCap");
+            return (int) getEnhancedBroadcastCap.invoke(mLeBroadcastService);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
+        return -1;
     }
 
     public void stopBroadcast(int broadcastId) {

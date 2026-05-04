@@ -454,6 +454,16 @@ public class BassClientService extends ProfileService {
         mBCService.setAttributes(devId, name);
     }
 
+    int getEnhancedBroadcastSinkCap() {
+        LeBroadcastAssistantServIntf mBCService = LeBroadcastAssistantServIntf.get();
+        return mBCService.getEnhancedBroadcastSinkCap();
+    }
+
+    int getEnhancedBroadcastSourceCap() {
+        LeBroadcastAssistantServIntf mBCService = LeBroadcastAssistantServIntf.get();
+        return mBCService.getEnhancedBroadcastSourceCap();
+    }
+
     static void log(String msg) {
         if (BASS_DBG) {
             Log.d(TAG, msg);
@@ -884,6 +894,36 @@ public class BassClientService extends ProfileService {
                 service.setAttributes(devId, name);
             } catch (RuntimeException e) {
                 Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
+            }
+        }
+
+        @Override
+        public int getEnhancedBroadcastSinkCap() {
+            try {
+                BassClientService service = getService();
+                if (service == null) {
+                    Log.e(TAG, "Service is null");
+                    return -1;
+                }
+                return service.getEnhancedBroadcastSinkCap();
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
+                return -1;
+            }
+        }
+
+        @Override
+        public int getEnhancedBroadcastSourceCap() {
+            try {
+                BassClientService service = getService();
+                if (service == null) {
+                    Log.e(TAG, "Service is null");
+                    return -1;
+                }
+                return service.getEnhancedBroadcastSourceCap();
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
+                return -1;
             }
         }
     }

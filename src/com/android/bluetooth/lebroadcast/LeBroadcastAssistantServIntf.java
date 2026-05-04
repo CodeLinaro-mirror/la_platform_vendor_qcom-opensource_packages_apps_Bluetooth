@@ -341,4 +341,34 @@ public class LeBroadcastAssistantServIntf {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
     }
+
+    public int getEnhancedBroadcastSinkCap() {
+        Log.i(TAG, "getEnhancedBroadcastSinkCap");
+        if (BCService == null) {
+            return -1;
+        }
+        try {
+            Method getEnhancedBroadcastSinkCap =
+                    BCService.getDeclaredMethod("getEnhancedBroadcastSinkCap");
+            return (int) getEnhancedBroadcastSinkCap.invoke(mBCService);
+        } catch (ReflectiveOperationException e) {
+            Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
+        }
+        return -1;
+    }
+
+    public int getEnhancedBroadcastSourceCap() {
+        Log.i(TAG, "getEnhancedBroadcastSourceCap");
+        if (BCService == null) {
+            return -1;
+        }
+        try {
+            Method getEnhancedBroadcastSourceCap =
+                    BCService.getDeclaredMethod("getEnhancedBroadcastSourceCap");
+            return (int) getEnhancedBroadcastSourceCap.invoke(mBCService);
+        } catch (ReflectiveOperationException e) {
+            Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
+        }
+        return -1;
+    }
 }

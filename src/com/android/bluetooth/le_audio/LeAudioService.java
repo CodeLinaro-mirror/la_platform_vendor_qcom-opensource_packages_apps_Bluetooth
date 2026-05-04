@@ -877,6 +877,11 @@ public class LeAudioService extends ProfileService {
         leBroadcastService.setJoinControl(mode);
     }
 
+    public int getEnhancedBroadcastCap() {
+        LeBroadcastServIntf leBroadcastService = LeBroadcastServIntf.get();
+        return leBroadcastService.getEnhancedBroadcastCap();
+    }
+
     /**
      * Updates LeAudio Broadcast instance metadata.
      * @param broadcastId broadcast instance identifier
@@ -3143,6 +3148,24 @@ public class LeAudioService extends ProfileService {
                     service.setJoinControl(mode);
                 }
                 receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+
+        @Override
+        public void getEnhancedBroadcastCap(AttributionSource source,
+                SynchronousResultReceiver receiver) {
+            try {
+                Objects.requireNonNull(source, "source cannot be null");
+                Objects.requireNonNull(receiver, "receiver cannot be null");
+                LeAudioService service = getService(source);
+                int result = -1;
+                if (service != null) {
+                    enforceBluetoothPrivilegedPermission(service);
+                    result = service.getEnhancedBroadcastCap();
+                }
+                receiver.send(result);
             } catch (RuntimeException e) {
                 receiver.propagateException(e);
             }
