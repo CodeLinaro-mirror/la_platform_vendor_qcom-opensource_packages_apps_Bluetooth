@@ -142,8 +142,8 @@ public class LeBroadcastServIntf {
         }
     }
 
-    public void setAchatAttributes(int devId, byte[] name) {
-        Log.i(TAG, "setAchatAttributes: devId=" + devId);
+    public void setAttributes(int devId, byte[] name) {
+        Log.i(TAG, "setAttributes: devId=" + devId);
         if (LeBroadcastService == null) {
             return;
         }
@@ -162,25 +162,25 @@ public class LeBroadcastServIntf {
         args[0] = byte[].class;
         args[1] = byte[].class;
         try {
-            Method setAchatAttributes =
-                    LeBroadcastService.getDeclaredMethod("setAchatAttributes", args);
-            setAchatAttributes.invoke(mLeBroadcastService, devIdBytes, nameBytes);
+            Method setAttributes =
+                    LeBroadcastService.getDeclaredMethod("setAttributes", args);
+            setAttributes.invoke(mLeBroadcastService, devIdBytes, nameBytes);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
     }
 
-    public void setDbigJoinControl(boolean mode) {
-        Log.i(TAG, "setDbigJoinControl: mode=" + mode);
+    public void setJoinControl(boolean mode) {
+        Log.i(TAG, "setJoinControl: mode=" + mode);
         if (LeBroadcastService == null) {
             return;
         }
         Class[] args = new Class[1];
         args[0] = boolean.class;
         try {
-            Method setDbigJoinControl =
-                    LeBroadcastService.getDeclaredMethod("setDbigJoinControl", args);
-            setDbigJoinControl.invoke(mLeBroadcastService, mode);
+            Method setJoinControl =
+                    LeBroadcastService.getDeclaredMethod("setJoinControl", args);
+            setJoinControl.invoke(mLeBroadcastService, mode);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }

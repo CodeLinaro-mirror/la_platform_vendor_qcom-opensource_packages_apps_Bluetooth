@@ -314,8 +314,8 @@ public class LeBroadcastAssistantServIntf {
         return 0;
     }
 
-    public void setAchatAttributes(int devId, byte[] name) {
-        Log.i(TAG, "setAchatAttributes: devId=" + devId);
+    public void setAttributes(int devId, byte[] name) {
+        Log.i(TAG, "setAttributes: devId=" + devId);
         if(BCService == null) {
             return;
         }
@@ -334,9 +334,9 @@ public class LeBroadcastAssistantServIntf {
         args[0] = byte[].class;
         args[1] = byte[].class;
         try {
-            Method setAchatAttributes =
-                    BCService.getDeclaredMethod("setAchatAttributes", args);
-            setAchatAttributes.invoke(mBCService, devIdBytes, nameBytes);
+            Method setAttributes =
+                    BCService.getDeclaredMethod("setAttributes", args);
+            setAttributes.invoke(mBCService, devIdBytes, nameBytes);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
