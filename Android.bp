@@ -76,6 +76,8 @@ android_app {
     proto: {
         type: "micro",
     },
+
+    init_rc: ["bluetooth_profile_config.rc"],
 }
 
 genrule {
