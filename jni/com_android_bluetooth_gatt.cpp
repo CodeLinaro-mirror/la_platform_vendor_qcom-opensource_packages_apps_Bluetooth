@@ -223,6 +223,7 @@ static jmethodID method_onSyncReport;
 static jmethodID method_onSyncStarted;
 static jmethodID method_onSyncTransferredCallback;
 static jmethodID method_onBigInfoReport;
+static jmethodID method_onEnhancedBigInfoReport;
 /**
  * Static variables
  */
@@ -2451,6 +2452,7 @@ static void periodicScanClassInitNative(JNIEnv* env, jclass clazz) {
   method_onSyncTransferredCallback =
       env->GetMethodID(clazz, "onSyncTransferredCallback", "(IILjava/lang/String;)V");
   method_onBigInfoReport = env->GetMethodID(clazz, "onBigInfoReport", "(IZ)V");
+  method_onEnhancedBigInfoReport = env->GetMethodID(clazz, "onEnhancedBigInfoReport", "(IZI)V");
 }
 
 static void periodicScanInitializeNative(JNIEnv* env, jobject object) {
@@ -2530,6 +2532,18 @@ static void onBigInfoReport(uint16_t sync_handle, bool encrypted) {
                                  sync_handle, encrypted);
 }
 
+static void onEnhancedBigInfoReport(uint16_t sync_handle, bool encrypted, uint16_t iso_interval) {
+    CallbackEnv sCallbackEnv(__func__);
+    if (!sCallbackEnv.valid()) return;
+    if (!mPeriodicScanCallbacksObj) {
+        ALOGE("mPeriodicScanCallbacksObj is NULL. Return.");
+        return;
+    }
+
+    sCallbackEnv->CallVoidMethod(mPeriodicScanCallbacksObj, method_onEnhancedBigInfoReport,
+                                 sync_handle, encrypted, iso_interval);
+}
+
 static void startSyncNative(JNIEnv* env, jobject object, jint sid,
                             jstring address, jint skip, jint timeout,
                             jint reg_id) {
@@ -2538,7 +2552,8 @@ static void startSyncNative(JNIEnv* env, jobject object, jint sid,
                               base::Bind(&onSyncStarted, reg_id),
                               base::Bind(&onSyncReport),
                               base::Bind(&onSyncLost),
-                              base::Bind(&onBigInfoReport));
+                              base::Bind(&onBigInfoReport),
+                              base::Bind(&onEnhancedBigInfoReport));
 }
 
 static void stopSyncNative(JNIEnv* env, jobject object, jint sync_handle) {
