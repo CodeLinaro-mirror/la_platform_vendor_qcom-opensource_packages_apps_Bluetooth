@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 
 package com.android.bluetooth.btservice;
@@ -25,6 +30,8 @@ import com.android.bluetooth.hfpclient.HeadsetClientService;
 import com.android.bluetooth.hid.HidDeviceService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.pan.PanService;
+import com.android.bluetooth.pbapclient.PbapClientService;
+import com.android.bluetooth.mapclient.MapClientService;
 
 import android.util.Log;
 
@@ -68,8 +75,17 @@ public class ServiceFactory {
     public HeadsetClientService getHeadsetClientService() {
         return HeadsetClientService.getHeadsetClientService();
     }
+
     public AvrcpTargetService getAvrcpTargetService() {
         return AvrcpTargetService.get();
+    }
+
+    public MapClientService getMapClientService() {
+        return MapClientService.getMapClientService();
+    }
+
+    public PbapClientService getPbapClientService() {
+        return PbapClientService.getPbapClientService();
     }
 
     public Object getGroupService() {

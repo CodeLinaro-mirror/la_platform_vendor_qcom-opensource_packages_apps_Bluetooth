@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 
 package com.android.bluetooth.btservice.storage;
@@ -53,6 +58,8 @@ class Metadata {
     public boolean is_connected_a2dpsrc_device;
     public boolean was_previously_connected_to_bc;
     public boolean device_supports_bc_profile;
+    public boolean is_last_active_source_device;
+    public long last_sink_connection_time;
 
     Metadata(String address) {
         this.address = address;
@@ -66,8 +73,10 @@ class Metadata {
         is_active_hfp_device = true;
         is_active_hfp_client_device = true;
         is_connected_a2dpsrc_device = true;
+        is_last_active_source_device = false;
         was_previously_connected_to_bc = false;
         device_supports_bc_profile = false;
+        last_sink_connection_time = MetadataDatabase.sDefaultSinkConnectionNumber;
     }
 
     String getAddress() {

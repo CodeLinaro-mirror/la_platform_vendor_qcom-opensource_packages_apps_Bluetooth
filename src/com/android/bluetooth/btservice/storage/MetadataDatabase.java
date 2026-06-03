@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 
 package com.android.bluetooth.btservice.storage;
@@ -33,7 +38,7 @@ import java.util.List;
 /**
  * MetadataDatabase is a Room database stores Bluetooth persistence data
  */
-@Database(entities = {Metadata.class}, version = 108)
+@Database(entities = {Metadata.class}, version = 110)
 public abstract class MetadataDatabase extends RoomDatabase {
     /**
      * The metadata database file name
@@ -41,6 +46,8 @@ public abstract class MetadataDatabase extends RoomDatabase {
     public static final String DATABASE_NAME = "bluetooth_db";
 
     static int sCurrentConnectionNumber = 0;
+    static int sSinkConnectionNumber = 0;
+    static int sDefaultSinkConnectionNumber = -1;
 
     protected abstract MetadataDao mMetadataDao();
 
@@ -61,6 +68,8 @@ public abstract class MetadataDatabase extends RoomDatabase {
                 .addMigrations(MIGRATION_105_106)
                 .addMigrations(MIGRATION_106_107)
                 .addMigrations(MIGRATION_107_108)
+                .addMigrations(MIGRATION_108_109)
+                .addMigrations(MIGRATION_109_110)
                 .allowMainThreadQueries()
                 .build();
     }
@@ -401,6 +410,35 @@ public abstract class MetadataDatabase extends RoomDatabase {
                     throw ex;
                 }
             }
+        }
+    };
+
+    @VisibleForTesting
+    static final Migration MIGRATION_109_110 = new Migration(109, 110) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+
+            try {
+                database.execSQL("ALTER TABLE metadata ADD COLUMN `is_last_active_source_device` "
+                        + "INTEGER NOT NULL DEFAULT 0");
+            } catch (SQLException ex) {
+                Cursor cursor = database.query("SELECT * FROM metadata");
+                if (cursor == null || cursor.getColumnIndex("is_last_active_source_device") == -1) {
+                    throw ex;
+                }
+            }
+
+            try {
+                database.execSQL("ALTER TABLE metadata ADD COLUMN `last_sink_connection_time` "
+                            + "INTEGER NOT NULL DEFAULT -1");
+            } catch (SQLException ex) {
+                    Cursor cursor = database.query("SELECT * FROM metadata");
+                    if (cursor == null ||
+                        cursor.getColumnIndex("last_sink_connection_time") == -1) {
+                        throw ex;
+                    }
+            }
+
         }
     };
 
