@@ -848,6 +848,16 @@ public class LeAudioService extends ProfileService {
     }
 
     /**
+     * Start LeAudio Broadcast instance with ISO interval.
+     * @param broadcastSettings broadcast settings for this broadcast source
+     * @param isoInterval ISO interval in milliseconds (7.5, 10, 20, or 30)
+     */
+    public void startEnhancedBroadcast(BluetoothLeBroadcastSettings broadcastSettings, float isoInterval) {
+        LeBroadcastServIntf leBroadcastService = LeBroadcastServIntf.get();
+        leBroadcastService.startEnhancedBroadcast(broadcastSettings, isoInterval);
+    }
+
+    /**
      * Updates LeAudio Broadcast instance metadata.
      * @param broadcastId broadcast instance identifier
      * @param broadcastSettings broadcast settings for this broadcast source
@@ -864,6 +874,15 @@ public class LeAudioService extends ProfileService {
     public void stopBroadcast(int broadcastId) {
         LeBroadcastServIntf leBroadcastService = LeBroadcastServIntf.get();
         leBroadcastService.stopBroadcast(broadcastId);
+    }
+
+    /**
+     * Stop Enhanced LeAudio Broadcast instance.
+     * @param broadcastId broadcast instance identifier
+     */
+    public void stopEnhancedBroadcast(int broadcastId) {
+        LeBroadcastServIntf leBroadcastService = LeBroadcastServIntf.get();
+        leBroadcastService.stopEnhancedBroadcast(broadcastId);
     }
 
      /**
@@ -3050,6 +3069,39 @@ public class LeAudioService extends ProfileService {
                 if (service != null) {
                     enforceBluetoothPrivilegedPermission(service);
                     service.startBroadcast(broadcastSettings);
+                }
+                receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+
+        @Override
+        public void startEnhancedBroadcast(
+                BluetoothLeBroadcastSettings broadcastSettings,
+                float isoInterval,
+                AttributionSource source,
+                SynchronousResultReceiver receiver) {
+            try {
+                LeAudioService service = getService(source);
+                if (service != null) {
+                    enforceBluetoothPrivilegedPermission(service);
+                    service.startEnhancedBroadcast(broadcastSettings, isoInterval);
+                }
+                receiver.send(null);
+            } catch (RuntimeException e) {
+                receiver.propagateException(e);
+            }
+        }
+
+        @Override
+        public void stopEnhancedBroadcast(int broadcastId, AttributionSource source,
+                SynchronousResultReceiver receiver) {
+            try {
+                LeAudioService service = getService(source);
+                if (service != null) {
+                    enforceBluetoothPrivilegedPermission(service);
+                    service.stopBroadcast(broadcastId);
                 }
                 receiver.send(null);
             } catch (RuntimeException e) {
