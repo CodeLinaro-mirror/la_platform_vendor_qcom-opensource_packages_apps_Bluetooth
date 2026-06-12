@@ -125,6 +125,23 @@ public class LeBroadcastServIntf {
         }
     }
 
+    public void startEnhancedBroadcast(BluetoothLeBroadcastSettings broadcastSettings, float isoInterval) {
+        Log.i(TAG, "startEnhancedBroadcast");
+        if (LeBroadcastService == null) {
+            return;
+        }
+        Class[] args = new Class[2];
+        args[0] = BluetoothLeBroadcastSettings.class;
+        args[1] = float.class;
+        try {
+            Method startEnhancedBroadcast =
+                    LeBroadcastService.getDeclaredMethod("startEnhancedBroadcast", args);
+            startEnhancedBroadcast.invoke(mLeBroadcastService, broadcastSettings, isoInterval);
+        } catch (ReflectiveOperationException e) {
+            Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
+        }
+    }
+
     public void stopBroadcast(int broadcastId) {
         Log.i(TAG, "stopBroadcast");
         if (LeBroadcastService == null) {
@@ -136,6 +153,22 @@ public class LeBroadcastServIntf {
             Method stopBroadcast =
                     LeBroadcastService.getDeclaredMethod("stopBroadcast", args);
             stopBroadcast.invoke(mLeBroadcastService, broadcastId);
+        } catch (ReflectiveOperationException e) {
+            Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
+        }
+    }
+
+    public void stopEnhancedBroadcast(int broadcastId) {
+        Log.i(TAG, "stopEnhancedBroadcast");
+        if (LeBroadcastService == null) {
+            return;
+        }
+        Class[] args = new Class[1];
+        args[0] = int.class;
+        try {
+            Method stopEnhancedBroadcast =
+                    LeBroadcastService.getDeclaredMethod("stopEnhancedBroadcast", args);
+            stopEnhancedBroadcast.invoke(mLeBroadcastService, broadcastId);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
@@ -154,6 +187,22 @@ public class LeBroadcastServIntf {
             Method updateBroadcast =
                     LeBroadcastService.getDeclaredMethod("updateBroadcast", args);
             updateBroadcast.invoke(mLeBroadcastService, broadcastId, broadcastSettings);
+        } catch (ReflectiveOperationException e) {
+            Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
+        }
+    }
+
+    public void setIsoInterval(float interval) {
+        Log.i(TAG, "setIsoInterval");
+        if (LeBroadcastService == null) {
+            return;
+        }
+        Class[] args = new Class[1];
+        args[0] = float.class;
+        try {
+            Method setIsoInterval =
+                    LeBroadcastService.getDeclaredMethod("setIsoInterval", args);
+            setIsoInterval.invoke(mLeBroadcastService, interval);
         } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
         }
