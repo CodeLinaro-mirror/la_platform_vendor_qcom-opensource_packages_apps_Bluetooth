@@ -14,6 +14,13 @@
  * limitations under the License.
  */
 
+/*
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
+ */
+
 package com.android.bluetooth.btservice.storage;
 
 import androidx.room.Dao;
@@ -28,7 +35,7 @@ interface MetadataDao {
     /**
      * Load all items in the database
      */
-    @Query("SELECT * FROM metadata ORDER BY last_active_time DESC")
+    @Query("SELECT * FROM metadata ORDER BY last_sink_connection_time DESC")
     List<Metadata> load();
 
     /**

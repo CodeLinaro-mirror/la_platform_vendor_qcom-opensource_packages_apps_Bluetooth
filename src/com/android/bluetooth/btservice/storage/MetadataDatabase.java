@@ -15,38 +15,10 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package com.android.bluetooth.btservice.storage;
@@ -68,7 +40,7 @@ import java.util.List;
 /**
  * MetadataDatabase is a Room database stores Bluetooth persistence data
  */
-@Database(entities = {Metadata.class}, version = 116)
+@Database(entities = {Metadata.class}, version = 117)
 public abstract class MetadataDatabase extends RoomDatabase {
     /**
      * The metadata database file name
@@ -76,6 +48,8 @@ public abstract class MetadataDatabase extends RoomDatabase {
     public static final String DATABASE_NAME = "bluetooth_db";
 
     static int sCurrentConnectionNumber = 0;
+    static int sSinkConnectionNumber = 0;
+    static int sDefaultSinkConnectionNumber = -1;
 
     protected abstract MetadataDao mMetadataDao();
 
@@ -104,6 +78,7 @@ public abstract class MetadataDatabase extends RoomDatabase {
                 .addMigrations(MIGRATION_113_114)
                 .addMigrations(MIGRATION_114_115)
                 .addMigrations(MIGRATION_115_116)
+                .addMigrations(MIGRATION_116_117)
                 .allowMainThreadQueries()
                 .build();
     }
@@ -581,4 +556,33 @@ public abstract class MetadataDatabase extends RoomDatabase {
             }
         }
     };
+
+    @VisibleForTesting
+    static final Migration MIGRATION_116_117 = new Migration(116, 117) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+
+            try {
+                database.execSQL("ALTER TABLE metadata ADD COLUMN `is_last_active_source_device` "
+                        + "INTEGER NOT NULL DEFAULT 0");
+            } catch (SQLException ex) {
+                Cursor cursor = database.query("SELECT * FROM metadata");
+                if (cursor == null || cursor.getColumnIndex("is_last_active_source_device") == -1) {
+                    throw ex;
+                }
+            }
+
+            try {
+                database.execSQL("ALTER TABLE metadata ADD COLUMN `last_sink_connection_time` "
+                            + "INTEGER NOT NULL DEFAULT -1");
+            } catch (SQLException ex) {
+                    Cursor cursor = database.query("SELECT * FROM metadata");
+                    if (cursor == null ||
+                        cursor.getColumnIndex("last_sink_connection_time") == -1) {
+                        throw ex;
+                    }
+            }
+        }
+    };
+
 }

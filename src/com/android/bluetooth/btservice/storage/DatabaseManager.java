@@ -15,38 +15,10 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package com.android.bluetooth.btservice.storage;
@@ -67,6 +39,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.provider.Settings;
 import android.util.Log;
 
@@ -165,7 +138,7 @@ public class DatabaseManager {
                                     .createDatabaseWithoutMigration(mAdapterService);
                             list = mDatabase.load();
                         }
-                        compactLastConnectionTime(list);
+                        compactLastSinkConnectionTime(list);
                         cacheMetadata(list);
                     }
                     break;
@@ -1065,6 +1038,144 @@ public class DatabaseManager {
         }
     }
 
+    public BluetoothDevice getLastConnectedSourceDevice() {
+        synchronized (mMetadataCache) {
+            Log.d(TAG, "getLastConnectedSourceDevice");
+            for (Metadata m : mMetadataCache.values()) {
+                if (m.is_last_active_source_device) {
+                    BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                    if (adapter == null) {
+                        Log.e(TAG, "BluetoothAdapter is null");
+                        return null;
+                    }
+                    try {
+                        BluetoothDevice device = adapter.getRemoteDevice(m.getAddress());
+                        Log.d(TAG, "Found SOURCE device in DB: " + device.getAnonymizedAddress());
+                        return device;
+                    } catch (IllegalArgumentException e) {
+                        Log.e(TAG, "Invalid Bluetooth address");
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public void setLastConnectedSourceDevice(BluetoothDevice device) {
+        synchronized (mMetadataCache) {
+            Log.d(TAG, "setLastConnectedSourceDevice " + device);
+            if (device == null) return;
+            resetLastConnectedSourceDevice();
+            String address = device.getAddress();
+            if (!mMetadataCache.containsKey(address)) {
+                Metadata data = new Metadata(address);
+                data.is_last_active_source_device = true;
+                mMetadataCache.put(address, data);
+                updateDatabase(data);
+                return;
+            }
+            Metadata m = mMetadataCache.get(address);
+            m.is_last_active_source_device = true;
+            updateDatabase(m);
+        }
+    }
+
+    public void setLastConnectedSinkDevice(BluetoothDevice device) {
+        synchronized (mMetadataCache) {
+            if (device == null) return;
+            Log.d(TAG, "setLastConnectedSinkDevice " + device);
+            String address = device.getAddress();
+            Metadata m = mMetadataCache.get(address);
+            if (m == null) {
+                m = new Metadata(address);
+                mMetadataCache.put(address, m);
+            }
+            m.last_sink_connection_time =
+                    MetadataDatabase.sSinkConnectionNumber++;
+
+            Log.d(TAG, "setLastConnectedSinkDevice: " + device +
+                    " time=" + m.last_sink_connection_time);
+
+            updateDatabase(m);
+        }
+    }
+
+    private void resetLastConnectedSourceDevice() {
+        synchronized (mMetadataCache) {
+            Log.d(TAG, "resetLastConnectedSourceDevice");
+            for (Metadata m : mMetadataCache.values()) {
+                if (m.is_last_active_source_device) {
+                    m.is_last_active_source_device = false;
+                    updateDatabase(m);
+                }
+            }
+        }
+    }
+
+    public void setDisconnectionForSink(BluetoothDevice device) {
+        synchronized (mMetadataCache) {
+            if (device == null) {
+                Log.w(TAG, "setDisconnectionForSink: device is null");
+                return;
+            }
+            String address = device.getAddress();
+            Metadata m = mMetadataCache.get(address);
+
+            if (m == null) {
+                Log.w(TAG, "setDisconnectionForSink: no metadata for " + address);
+                return;
+            }
+            if (m.last_sink_connection_time < 0) {
+                Log.d(TAG, "setDisconnectionForSink: already cleared " + device);
+                return;
+            }
+            m.last_sink_connection_time = MetadataDatabase.sDefaultSinkConnectionNumber;
+            Log.d(TAG, "setDisconnectionForSink: " + device);
+            updateDatabase(m);
+        }
+    }
+
+    public void resetAllSinkDevices() {
+        synchronized (mMetadataCache) {
+            Log.d(TAG, "resetAllSinkDevices");
+            MetadataDatabase.sSinkConnectionNumber = 0;
+            for (Metadata m : mMetadataCache.values()) {
+                if (m.last_sink_connection_time != MetadataDatabase.sDefaultSinkConnectionNumber) {
+                    m.last_sink_connection_time = MetadataDatabase.sDefaultSinkConnectionNumber;
+                    updateDatabase(m);
+                }
+            }
+        }
+    }
+
+
+    public BluetoothDevice getLastValidSinkDevice() {
+        synchronized (mMetadataCache) {
+            Metadata lastActiveSinkDevice = null;
+            for (Metadata m : mMetadataCache.values()) {
+                if (m.last_sink_connection_time < 0) continue;
+                if (lastActiveSinkDevice == null ||
+                    m.last_sink_connection_time > lastActiveSinkDevice.last_sink_connection_time) {
+                    lastActiveSinkDevice = m;
+                }
+            }
+            if (lastActiveSinkDevice == null) {
+                Log.d(TAG, "getLastValidSinkDevice: No valid device");
+                return null;
+            }
+            BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+            if (adapter == null) return null;
+            try {
+                BluetoothDevice device =
+                        adapter.getRemoteDevice(lastActiveSinkDevice.getAddress());
+                return device;
+            } catch (IllegalArgumentException e) {
+                Log.e(TAG, "getLastValidSinkDevice: Invalid address");
+            }
+            return null;
+        }
+    }
+
     /**
      * Gets the most recently connected bluetooth devices in order with most recently connected
      * first and least recently connected last
@@ -1201,6 +1312,36 @@ public class DatabaseManager {
                 updateDatabase(metadata);
                 MetadataDatabase.sCurrentConnectionNumber++;
             }
+        }
+    }
+
+    private void compactLastSinkConnectionTime(List<Metadata> metadataList) {
+        Log.d(TAG, "compactSinkConnectionTime: Compacting sink metadata after load");
+        MetadataDatabase.sSinkConnectionNumber = 0;
+        metadataList.sort((o1, o2) ->
+            Long.compare(
+                Math.max(o2.last_sink_connection_time, -1),
+                Math.max(o1.last_sink_connection_time, -1)
+            ));
+        for (int index = metadataList.size() - 1; index >= 0; index--) {
+            Metadata metadata = metadataList.get(index);
+            if (metadata.last_sink_connection_time < 0) {
+                continue;
+            }
+            if (metadata.last_sink_connection_time
+                    != MetadataDatabase.sSinkConnectionNumber) {
+
+                Log.d(TAG, "compactLastSinkConnectionTime: Setting sink time for device: "
+                        + metadata.getAddress()
+                        + " from " + metadata.last_sink_connection_time
+                        + " to " + MetadataDatabase.sSinkConnectionNumber);
+
+                metadata.last_sink_connection_time =
+                        MetadataDatabase.sSinkConnectionNumber;
+
+                updateDatabase(metadata);
+            }
+            MetadataDatabase.sSinkConnectionNumber++;
         }
     }
 
