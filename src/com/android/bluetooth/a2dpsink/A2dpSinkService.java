@@ -946,11 +946,11 @@ public class A2dpSinkService extends ProfileService {
 
     public void onStartIndCallback(byte[] address) {
         BluetoothDevice dev = getDevice(address);
-        BluetoothDevice callingDevice = null;
         if(mHeadsetClientService == null) {
            mHeadsetClientService = HeadsetClientService.getHeadsetClientService();
-           callingDevice = mHeadsetClientService.getCallingDevice();
         }
+        //Assuming HeadsetClientService is not null once fetched
+        BluetoothDevice callingDevice = mHeadsetClientService.getCallingDevice();
 
         if (dev != null && callingDevice != null && dev.equals(callingDevice) &&
                 mHeadsetClientService.IsHFPDisableInProgress(dev) == true) {
