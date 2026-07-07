@@ -50,6 +50,7 @@ import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.Parcelable;
 import android.os.SystemProperties;
+import android.os.UserManager;
 import android.util.Log;
 
 import com.android.bluetooth.le_audio.LeAudioService;
@@ -239,6 +240,13 @@ class PhonePolicy {
                         mHandler.obtainMessage(MESSAGE_ADAPTER_STATE_TURNED_ON).sendToTarget();
                     }
                     break;
+                case Intent.ACTION_USER_UNLOCKED:
+                    BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                    int state = adapter.getState(); // returns BluetoothAdapter.STATE_ON, STATE_OFF.
+                    if (state == BluetoothAdapter.STATE_ON) {
+                        mHandler.obtainMessage(MESSAGE_ADAPTER_STATE_TURNED_ON).sendToTarget();
+                    }
+                    break;
                 case BluetoothDevice.ACTION_UUID:
                     mHandler.obtainMessage(MESSAGE_PROFILE_INIT_PRIORITIES, intent).sendToTarget();
                     break;
@@ -333,11 +341,15 @@ class PhonePolicy {
                     mConnectOtherProfilesDeviceSet.remove(device);
                     break;
                 }
-                case MESSAGE_ADAPTER_STATE_TURNED_ON:
+                case MESSAGE_ADAPTER_STATE_TURNED_ON: {
                     // Call auto connect when adapter switches state to ON
                     resetStates();
-                    autoConnect();
+                    UserManager um = UserManager.get(mAdapterService);
+                    if (um.isUserUnlocked()) {
+                        autoConnect();
+                    }
                     break;
+                }
                 case MESSAGE_AUTO_CONNECT_PROFILES: {
                     if (DBG) debugLog( "MESSAGE_AUTO_CONNECT_PROFILES");
                     autoConnectProfilesDelayed();
@@ -368,6 +380,7 @@ class PhonePolicy {
         filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
         filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
         filter.addAction(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
+        filter.addAction(Intent.ACTION_USER_UNLOCKED);
         filter.addAction(BC_ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothCsipSetCoordinator.ACTION_CSIS_CONNECTION_STATE_CHANGED);

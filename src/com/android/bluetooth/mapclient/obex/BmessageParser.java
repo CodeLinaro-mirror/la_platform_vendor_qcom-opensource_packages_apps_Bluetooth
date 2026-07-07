@@ -19,6 +19,7 @@ package com.android.bluetooth.mapclient;
 import android.util.Log;
 
 import com.android.bluetooth.mapclient.BmsgTokenizer.Property;
+import com.android.vcard.VCardConfig;
 import com.android.vcard.VCardEntry;
 import com.android.vcard.VCardEntryConstructor;
 import com.android.vcard.VCardEntryHandler;
@@ -392,9 +393,19 @@ class BmessageParser {
     private VCardEntry parseVcard(String str) throws IOException, ParseException {
         VCardEntry vcard = null;
 
+        // Alphanumeric sender IDs (e.g. bank/OTP senders like "CP-HDFCBK-S") are sent in the
+        // TEL: property even though they are not dialable numbers. Without
+        // FLAG_REFRAIN_PHONE_NUMBER_FORMATTING, VCardEntry#addPhone() treats every TEL: value as
+        // a phone number: it strips non-dialable characters and maps 'p'/'w' to ','/';' (pause/
+        // wait), which silently mangles such sender IDs down to just those separator characters.
+        final int vcardTypeV21 =
+                VCardConfig.VCARD_TYPE_V21_GENERIC | VCardConfig.FLAG_REFRAIN_PHONE_NUMBER_FORMATTING;
+        final int vcardTypeV30 =
+                VCardConfig.VCARD_TYPE_V30_GENERIC | VCardConfig.FLAG_REFRAIN_PHONE_NUMBER_FORMATTING;
+
         try {
-            VCardParser p = new VCardParser_V21();
-            VCardEntryConstructor c = new VCardEntryConstructor();
+            VCardParser p = new VCardParser_V21(vcardTypeV21);
+            VCardEntryConstructor c = new VCardEntryConstructor(vcardTypeV21);
             VcardHandler handler = new VcardHandler();
             c.addEntryHandler(handler);
             p.addInterpreter(c);
@@ -404,8 +415,8 @@ class BmessageParser {
 
         } catch (VCardVersionException e1) {
             try {
-                VCardParser p = new VCardParser_V30();
-                VCardEntryConstructor c = new VCardEntryConstructor();
+                VCardParser p = new VCardParser_V30(vcardTypeV30);
+                VCardEntryConstructor c = new VCardEntryConstructor(vcardTypeV30);
                 VcardHandler handler = new VcardHandler();
                 c.addEntryHandler(handler);
                 p.addInterpreter(c);

@@ -27,7 +27,6 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
-import android.bluetooth.BluetoothUuid;
 import android.bluetooth.IBluetoothMapClient;
 import android.bluetooth.SdpMasRecord;
 import android.content.AttributionSource;
@@ -36,8 +35,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelUuid;
 import android.sysprop.BluetoothProperties;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 
 import com.android.bluetooth.Utils;
@@ -61,7 +64,15 @@ public class MapClientService extends ProfileService {
     static final boolean DBG = true;
     static final boolean VDBG = false;
 
-    static final int MAXIMUM_CONNECTED_DEVICES = 4;
+    static final int MAXIMUM_CONNECTED_DEVICES = 1;
+
+    // Boot-time cleanup of stale REMOTE_SIM data must wait for
+    // SubscriptionDatabaseManager to finish reloading siminfo from TelephonyProvider,
+    // which is not guaranteed to complete within a single fixed delay after
+    // ACTION_USER_UNLOCKED. Retry with backoff instead of checking once and silently
+    // giving up when the subscription list happens to still be empty.
+    private static final int BOOT_CLEANUP_RETRY_DELAY_MS = 2000;
+    private static final int BOOT_CLEANUP_MAX_RETRIES = 5;
 
     private Map<BluetoothDevice, MceStateMachine> mMapInstanceMap = new ConcurrentHashMap<>(1);
     private MnsService mMnsServer;
@@ -121,6 +132,11 @@ public class MapClientService extends ProfileService {
         }
         MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
         if (mapStateMachine == null) {
+            // Do not connect until telephony subscriptions are ready.
+            if (!isSubscriptionServiceReady()) {
+                Log.w(TAG,"connect: subscriptions not ready, rejecting connect for " + device);
+                return false;
+            }
             // a map state machine instance doesn't exist yet, create a new one if we can.
             if (mMapInstanceMap.size() < MAXIMUM_CONNECTED_DEVICES) {
                 addDeviceToMapAndConnect(device);
@@ -323,9 +339,13 @@ public class MapClientService extends ProfileService {
         filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         filter.addAction(BluetoothDevice.ACTION_SDP_RECORD);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+        // ACTION_USER_UNLOCKED fires after CE storage and the telephony subscription DB
+        // are fully loaded (~15s into boot on this platform). Used for stale REMOTE_SIM
+        // cleanup — calling clearAllContent at start() is too early because
+        // getAllSubscriptionInfoList() returns empty until the telephony stack is ready.
+        filter.addAction(Intent.ACTION_USER_UNLOCKED);
         registerReceiver(mMapReceiver, filter);
         removeUncleanAccounts();
-        MapClientContent.clearAllContent(this);
         setMapClientService(this);
         return true;
     }
@@ -388,6 +408,76 @@ public class MapClientService extends ProfileService {
             Log.d(TAG, "Cleanup device: " + device + ", InstanceMap end state: "
                     + sb.toString());
         }
+    }
+
+    private boolean isSubscriptionServiceReady() {
+        try {
+            SubscriptionManager sm =
+                    getSystemService(SubscriptionManager.class);
+
+            if (sm == null) {
+                Log.w(TAG, "isSubscriptionServiceReady: SubscriptionManager is null");
+                return false;
+            }
+
+            List<SubscriptionInfo> subList =
+                    sm.getActiveSubscriptionInfoList();
+
+            if (DBG) {
+                Log.d(TAG,
+                        "isSubscriptionServiceReady: activeSubscriptionList="
+                                + subList);
+            }
+            return true;
+
+        } catch (Exception e) {
+            Log.e(TAG,
+                    "isSubscriptionServiceReady: telephony not ready",
+                    e);
+            return false;
+        }
+    }
+
+    /**
+     * Runs the boot-time REMOTE_SIM cleanup, retrying with backoff if no REMOTE_SIM
+     * subscription is found yet. A single fixed-delay attempt can silently no-op when
+     * SubscriptionDatabaseManager hasn't finished reloading siminfo from TelephonyProvider
+     * by the time this fires, permanently leaking stale SMS/MMS rows for that boot.
+     */
+    private void scheduleBootCleanup(Context context, int attempt) {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            // Synchronize on `this`, the same monitor connect()/addDeviceToMapAndConnect()
+            // hold, so a reconnect racing with this delayed check can't slip a new entry
+            // into mMapInstanceMap between the isEmpty() check and clearAllContent()
+            // actually running. Without this, clearAllContent() could delete freshly-stored
+            // SMS/MMS rows for a subId that a racing reconnect just reused (SubscriptionManager
+            // reuses the subId for a given iccId instead of minting a new one).
+            synchronized (MapClientService.this) {
+                if (!mMapInstanceMap.isEmpty()) {
+                    Log.d(TAG, "scheduleBootCleanup: MAP session started, aborting cleanup");
+                    return;
+                }
+                if (!isSubscriptionServiceReady()) {
+                    Log.w(TAG, "scheduleBootCleanup: subscription service not ready, attempt="
+                            + attempt);
+                } else {
+                    int clearedCount = MapClientContent.clearAllContent(context);
+                    if (clearedCount > 0) {
+                        Log.d(TAG, "scheduleBootCleanup: cleared " + clearedCount
+                                + " REMOTE_SIM subscription(s) on attempt " + attempt);
+                        return;
+                    }
+                    Log.d(TAG, "scheduleBootCleanup: no REMOTE_SIM subscription found on attempt "
+                            + attempt);
+                }
+                if (attempt < BOOT_CLEANUP_MAX_RETRIES) {
+                    scheduleBootCleanup(context, attempt + 1);
+                } else {
+                    Log.w(TAG, "scheduleBootCleanup: giving up after " + (attempt + 1)
+                            + " attempts");
+                }
+            }
+        }, BOOT_CLEANUP_RETRY_DELAY_MS);
     }
 
     @VisibleForTesting
@@ -763,6 +853,18 @@ public class MapClientService extends ProfileService {
             String action = intent.getAction();
             if (DBG) {
                 Log.d(TAG, "onReceive: " + action);
+            }
+            if (Intent.ACTION_USER_UNLOCKED.equals(action)) {
+                // Only clean stale REMOTE_SIM data if no MAP session is active or being
+                // established. If a phone is already connecting, mMapInstanceMap is
+                // non-empty and MapClientContent's constructor will handle the cleanup.
+                if (mMapInstanceMap.isEmpty()) {
+                    Log.d(TAG, "User unlocked: no active MAP session, running boot cleanup");
+                    scheduleBootCleanup(context, 0);
+                } else {
+                    Log.d(TAG, "User unlocked: MAP session active, skipping boot cleanup");
+                }
+                return;
             }
             if (!action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED)
                     && !action.equals(BluetoothDevice.ACTION_SDP_RECORD)) {
