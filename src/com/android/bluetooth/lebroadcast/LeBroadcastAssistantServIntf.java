@@ -313,4 +313,32 @@ public class LeBroadcastAssistantServIntf {
         }
         return 0;
     }
+
+    public void setAchatAttributes(int devId, byte[] name) {
+        Log.i(TAG, "setAchatAttributes: devId=" + devId);
+        if(BCService == null) {
+            return;
+        }
+        // Pack devId into 2 octets (12-bit value with 4-bit padding)
+        byte[] devIdBytes = new byte[2];
+        devIdBytes[0] = (byte) (devId & 0xFF);        // Lower 8 bits
+        devIdBytes[1] = (byte) ((devId >> 8) & 0x0F); // Upper 4 bits (bits 8-11)
+
+        // Ensure name is exactly 10 octets
+        byte[] nameBytes = new byte[10];
+        if (name != null) {
+            System.arraycopy(name, 0, nameBytes, 0, Math.min(name.length, 10));
+        }
+
+        Class[] args = new Class[2];
+        args[0] = byte[].class;
+        args[1] = byte[].class;
+        try {
+            Method setAchatAttributes =
+                    BCService.getDeclaredMethod("setAchatAttributes", args);
+            setAchatAttributes.invoke(mBCService, devIdBytes, nameBytes);
+        } catch (ReflectiveOperationException e) {
+            Log.e(TAG, "Exception:" + Log.getStackTraceString(e));
+        }
+    }
 }

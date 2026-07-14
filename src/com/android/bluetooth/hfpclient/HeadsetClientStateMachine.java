@@ -63,6 +63,8 @@ import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.broadcast.BroadcastService;
+import com.android.bluetooth.broadcast_sink.BroadcastSinkService;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.IState;
@@ -142,6 +144,9 @@ public class HeadsetClientStateMachine extends StateMachine {
 
     private final HeadsetClientService mService;
     private A2dpSinkService mA2dpService;
+    private BroadcastService mBroadcastService;
+    private BroadcastSinkService mBroadcastSinkService;
+    private boolean mIsBroadcastPreempted = false;
 
     // Set of calls that represent the accurate state of calls that exists on AG and the calls that
     // are currently in process of being notified to the AG from HF.
@@ -299,6 +304,12 @@ public class HeadsetClientStateMachine extends StateMachine {
         if (DBG) {
             Log.d(TAG, "queryCallsDone");
         }
+        boolean wasCallActive = getCall(BluetoothHeadsetClientCall.CALL_STATE_ACTIVE,
+                BluetoothHeadsetClientCall.CALL_STATE_HELD,
+                BluetoothHeadsetClientCall.CALL_STATE_DIALING,
+                BluetoothHeadsetClientCall.CALL_STATE_ALERTING,
+                BluetoothHeadsetClientCall.CALL_STATE_INCOMING,
+                BluetoothHeadsetClientCall.CALL_STATE_WAITING) != null;
         // mCalls has two types of calls:
         // (a) Calls that are received from AG of a previous iteration of queryCallsStart()
         // (b) Calls that are outgoing initiated from HF
@@ -420,7 +431,9 @@ public class HeadsetClientStateMachine extends StateMachine {
             // Send update with original object (UUID, idx).
             sendCallChangedIntent(cOrig);
         }
-
+        if (wasCallActive && mCalls.isEmpty() && !mService.isAnyAudioConnected()) {
+            notifyBroadcastServices(false);
+        }
         if (mCalls.size() > 0) {
             if (mService.getResources().getBoolean(R.bool.hfp_clcc_poll_during_call)) {
                 Log.d(TAG, "Query for calls not performed while call is in active state");
@@ -732,6 +745,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         mNativeInterface = nativeInterface;
         mAudioManager = mService.getAudioManager();
         mA2dpService = A2dpSinkService.getA2dpSinkService();
+        mBroadcastService = BroadcastService.getBroadcastService();
 
         mVendorProcessor = new VendorCommandResponseProcessor(mService, mNativeInterface);
 
@@ -1430,6 +1444,15 @@ public class HeadsetClientStateMachine extends StateMachine {
                         case StackEvent.EVENT_TYPE_VR_STATE_CHANGED:
                             if (mVoiceRecognitionActive != event.valueInt) {
                                 mVoiceRecognitionActive = event.valueInt;
+                                Log.d(TAG, "VR state changed" + mVoiceRecognitionActive);
+
+                                boolean isVrStarted = mVoiceRecognitionActive
+                                        == HeadsetClientHalConstants.VR_STATE_STARTED;
+                                if(isVrStarted) {
+                                    notifyBroadcastServices(true);
+                                } else if(!mService.isAnyAudioConnected()) {
+                                    notifyBroadcastServices(false);
+                                }
 
                                 intent = new Intent(BluetoothHeadsetClient.ACTION_AG_EVENT);
                                 intent.putExtra(BluetoothHeadsetClient.EXTRA_VOICE_RECOGNITION,
@@ -1446,6 +1469,14 @@ public class HeadsetClientStateMachine extends StateMachine {
                         case StackEvent.EVENT_TYPE_CALL_WAITING:
                             sendMessage(QUERY_CURRENT_CALLS);
                             mA2dpService.NotifyHFcallsChanged();
+                            if (event.valueInt > 0) {
+                                Log.d(TAG, "Call indicator " + event.type + "=" + event.valueInt
+                                        + ", preempting broadcast streams.");
+                                notifyBroadcastServices(true);
+                            } else {
+                                Log.d(TAG, "Ignoring call indicator " + event.type
+                                        + " with value 0.");
+                            }
                             break;
                         case StackEvent.EVENT_TYPE_CURRENT_CALLS:
                             queryCallsUpdate(event.valueInt, event.valueInt3, event.valueString,
@@ -1563,6 +1594,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                     }
                     // AG disconnects
                     if (mCurrentDevice.equals(device)) {
+                        notifyBroadcastServices(false);
                         transitionTo(mDisconnected);
                     } else {
                         Log.e(TAG, "Disconnected from unknown device: " + device);
@@ -1721,6 +1753,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                     processAudioServerUp();
                     break;
 
+                case CONNECT_AUDIO:
+                    Log.d(TAG, "ConnectAudio not valid here");
+                    break;
+
                 case StackEvent.STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
                     if (DBG) {
@@ -1787,6 +1823,9 @@ public class HeadsetClientStateMachine extends StateMachine {
                     queryCallsStart();
                     routeHfpAudio(false);
                     returnAudioFocusIfNecessary();
+                    if (mCalls.isEmpty() && !mService.isAnyAudioConnected() && !mService.isVrActive()) {
+                        notifyBroadcastServices(false);
+                    }
                     transitionTo(mConnected);
                     break;
 
@@ -2033,5 +2072,42 @@ public class HeadsetClientStateMachine extends StateMachine {
                 return BluetoothAdapter.STATE_DISCONNECTED;
         }
         return BluetoothAdapter.STATE_DISCONNECTED;
+    }
+    public boolean isVoiceRecognitionActive() {
+        return mVoiceRecognitionActive == HeadsetClientHalConstants.VR_STATE_STARTED;
+    }
+    private void notifyBroadcastServices(boolean isCallorVRActive) {
+        if (mBroadcastService == null) {
+            mBroadcastService = BroadcastService.getBroadcastService();
+        }
+        if (mBroadcastSinkService == null) {
+            mBroadcastSinkService = BroadcastSinkService.getBroadcastSinkService();
+        }
+
+        if (isCallorVRActive) {
+            // A call is starting, preempt broadcast if it's not already.
+            if (!mIsBroadcastPreempted) {
+                if (mBroadcastService != null) {
+                    mBroadcastService.onCallStateChanged(true);
+                }
+                if (mBroadcastSinkService != null) {
+                    mBroadcastSinkService.onCallStateChanged(true);
+                }
+                mIsBroadcastPreempted = true;
+                Log.d(TAG, "Notifying broadcast services: preempting for call.");
+            }
+        } else {
+            // A call is ending. If we had preempted broadcast, notify services to resume.
+            if (mIsBroadcastPreempted) {
+                if (mBroadcastService != null) {
+                    mBroadcastService.onCallStateChanged(false);
+                }
+                if (mBroadcastSinkService != null) {
+                    mBroadcastSinkService.onCallStateChanged(false);
+                }
+                mIsBroadcastPreempted = false;
+                Log.d(TAG, "Notifying broadcast services: resuming after call.");
+            }
+        }
     }
 }
