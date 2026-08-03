@@ -442,6 +442,18 @@ public class BassClientService extends ProfileService {
         return mBCService.getMaximumSourceCapacity(sink);
     }
 
+    /**
+     * Set Achat-specific attributes for Broadcast Sink
+     *
+     * @param devId Device ID (12-bit value, 0-4095)
+     * @param name  Device name (10 octets, UTF-8 encoded)
+     */
+    void setAchatAttributes(int devId, byte[] name) {
+        log("setAchatAttributes: devId=" + devId);
+        LeBroadcastAssistantServIntf mBCService = LeBroadcastAssistantServIntf.get();
+        mBCService.setAchatAttributes(devId, name);
+    }
+
     static void log(String msg) {
         if (BASS_DBG) {
             Log.d(TAG, msg);
@@ -858,6 +870,20 @@ public class BassClientService extends ProfileService {
             } catch (RuntimeException e) {
                 Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
                 return 0;
+            }
+        }
+
+        @Override
+        public void setAchatAttributes(int devId, byte[] name) {
+            try {
+                BassClientService service = getService();
+                if (service == null) {
+                    Log.e(TAG, "Service is null");
+                    return;
+                }
+                service.setAchatAttributes(devId, name);
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
             }
         }
     }
