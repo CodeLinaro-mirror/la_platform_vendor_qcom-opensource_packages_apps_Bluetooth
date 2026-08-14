@@ -668,7 +668,8 @@ public class Config {
         if (isCsipQti) {
             mIsGroupSerEnabled = true;
         } else {
-            mIsCsipServiceEnabled = true;
+            mIsCsipServiceEnabled = BluetoothProperties.
+                    isProfileCsipSetCoordinatorEnabled().orElse(false);
         }
         // Split A2dp will be enabled by default
         mIsSplitA2dpEnabled = true;
