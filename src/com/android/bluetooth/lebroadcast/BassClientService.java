@@ -448,10 +448,20 @@ public class BassClientService extends ProfileService {
      * @param devId Device ID (12-bit value, 0-4095)
      * @param name  Device name (10 octets, UTF-8 encoded)
      */
-    void setAchatAttributes(int devId, byte[] name) {
-        log("setAchatAttributes: devId=" + devId);
+    void setAttributes(int devId, byte[] name) {
+        log("setAttributes: devId=" + devId);
         LeBroadcastAssistantServIntf mBCService = LeBroadcastAssistantServIntf.get();
-        mBCService.setAchatAttributes(devId, name);
+        mBCService.setAttributes(devId, name);
+    }
+
+    int getEnhancedBroadcastSinkCap() {
+        LeBroadcastAssistantServIntf mBCService = LeBroadcastAssistantServIntf.get();
+        return mBCService.getEnhancedBroadcastSinkCap();
+    }
+
+    int getEnhancedBroadcastSourceCap() {
+        LeBroadcastAssistantServIntf mBCService = LeBroadcastAssistantServIntf.get();
+        return mBCService.getEnhancedBroadcastSourceCap();
     }
 
     static void log(String msg) {
@@ -874,16 +884,46 @@ public class BassClientService extends ProfileService {
         }
 
         @Override
-        public void setAchatAttributes(int devId, byte[] name) {
+        public void setAttributes(int devId, byte[] name) {
             try {
                 BassClientService service = getService();
                 if (service == null) {
                     Log.e(TAG, "Service is null");
                     return;
                 }
-                service.setAchatAttributes(devId, name);
+                service.setAttributes(devId, name);
             } catch (RuntimeException e) {
                 Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
+            }
+        }
+
+        @Override
+        public int getEnhancedBroadcastSinkCap() {
+            try {
+                BassClientService service = getService();
+                if (service == null) {
+                    Log.e(TAG, "Service is null");
+                    return -1;
+                }
+                return service.getEnhancedBroadcastSinkCap();
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
+                return -1;
+            }
+        }
+
+        @Override
+        public int getEnhancedBroadcastSourceCap() {
+            try {
+                BassClientService service = getService();
+                if (service == null) {
+                    Log.e(TAG, "Service is null");
+                    return -1;
+                }
+                return service.getEnhancedBroadcastSourceCap();
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
+                return -1;
             }
         }
     }
